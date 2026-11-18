@@ -19,3 +19,16 @@ export function rememberTeam(team: string): void {
     // storage blocked: nothing to remember
   }
 }
+
+/** The ASCII whitespace the server trims from a name's ends (people.NAME_SPACE); other
+ * spaces, such as U+00A0 or U+3000, are part of the name. */
+const NAME_SPACE = /^[ \t\n\r\v\f]+|[ \t\n\r\v\f]+$/g;
+
+/** CGL-31: names and team names compare as the server's people.team_key does: Unicode NFC,
+ * ASCII whitespace trimmed, and the case of A-Z only ignored, so "é" and "É" stay different. */
+export function teamKey(name: string): string {
+  return name
+    .normalize("NFC")
+    .replace(NAME_SPACE, "")
+    .replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
