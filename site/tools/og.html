@@ -6,24 +6,9 @@
     <title>Coglossa card</title>
     <style>
       @font-face {
-        font-family: "Instrument Serif";
-        font-style: normal;
-        src: url("../public/fonts/instrument-serif-latin-400-normal.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "Instrument Serif";
-        font-style: italic;
-        src: url("../public/fonts/instrument-serif-latin-400-italic.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "DM Sans";
-        font-weight: 100 1000;
-        src: url("../public/fonts/dm-sans-latin-wght-normal.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "Geist Mono";
-        font-weight: 500;
-        src: url("../public/fonts/geist-mono-latin-500-normal.woff2") format("woff2");
+        font-family: "Archivo";
+        font-weight: 100 900;
+        src: url("../public/fonts/archivo-latin-wght-normal.woff2") format("woff2");
       }
       html,
       body {
@@ -32,20 +17,11 @@
         height: 630px;
       }
       body {
-        background: #0a0a0b;
-        color: #fafafa;
-        font-family: "DM Sans", sans-serif;
+        background: #f3f0e8;
+        color: #16181a;
+        font-family: "Archivo", sans-serif;
         position: relative;
         overflow: hidden;
-      }
-      body::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background-image:
-          linear-gradient(rgba(245, 158, 11, 0.07) 2px, transparent 2px),
-          linear-gradient(90deg, rgba(245, 158, 11, 0.07) 2px, transparent 2px);
-        background-size: 64px 64px;
       }
       .card {
         position: absolute;
@@ -54,37 +30,72 @@
         display: flex;
         flex-direction: column;
       }
-      .mark {
-        font-family: "Geist Mono", monospace;
-        font-weight: 500;
-        font-size: 26px;
-        letter-spacing: 0.14em;
+      .lockup {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 28px;
       }
-      .mark span {
-        color: #f59e0b;
+      .lockup i {
+        width: 20px;
+        height: 20px;
+        background: #8f2d5e;
+      }
+      .lockup b {
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      .lockup span {
+        color: #4f5559;
+        font-size: 24px;
       }
       h1 {
-        font-family: "Instrument Serif", serif;
-        font-weight: 400;
+        font-weight: 800;
         font-size: 104px;
-        line-height: 1.02;
-        margin: auto 0 28px;
+        line-height: 1;
+        letter-spacing: -0.025em;
+        margin: auto 0 32px;
       }
       h1 em {
-        color: #f59e0b;
+        font-style: normal;
+        box-shadow: inset 0 -0.1em 0 #8f2d5e;
       }
       p {
         margin: 0;
         font-size: 30px;
-        color: #b4b4bc;
+        color: #4f5559;
+      }
+      svg {
+        position: absolute;
+        right: 80px;
+        top: 72px;
+        width: 300px;
       }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="mark">COGLOSSA<span>.</span></div>
+      <div class="lockup"><i></i><b>COGLOSSA</b><span>by Bonham Technologies</span></div>
       <h1>Translation that<br /><em>shows its work</em></h1>
       <p>Several translators, one reviewer, every passage checked.</p>
     </div>
+    <svg viewBox="0 0 400 130">
+      <line x1="264.5" y1="0" x2="264.5" y2="130" stroke="#8a8477" />
+      <g fill="#16181a" opacity=".16">
+        <rect y="12" width="232" height="6" />
+        <rect y="44" width="208" height="6" />
+        <rect y="76" width="240" height="6" />
+        <rect y="108" width="176" height="6" />
+      </g>
+      <g fill="#8f2d5e">
+        <rect x="96" y="56" width="112" height="2" />
+        <rect x="208" y="57" width="72" height="1" />
+        <rect x="280" y="53" width="8" height="8" />
+      </g>
+      <g fill="#16181a" opacity=".4">
+        <rect x="296" y="54" width="96" height="6" />
+        <rect x="296" y="70" width="64" height="6" />
+      </g>
+    </svg>
   </body>
 </html>

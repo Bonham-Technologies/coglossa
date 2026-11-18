@@ -10,12 +10,32 @@ deploys it, with `site/` as the root directory; nothing else in the repository i
 | `public/index.html`, `public/styles.css` | The page and its styles; colours are tokens with a light and a dark theme |
 | `public/assets/demo/` | The walkthrough (WebM, with captions) and the screenshots (WebP) |
 | `public/sample/` | The run's quality report (`report.json`, sanitised) and its web-page export |
-| `public/fonts/` | Instrument Serif, DM Sans and Geist Mono (Latin subsets, SIL Open Font Licence) |
+| `public/fonts/` | Archivo and IBM Plex Mono (Latin subsets, SIL Open Font Licence) |
 | `vercel.json` | Security headers, the CSP, clean URLs, and the Ignored Build Step |
 | `check.mjs` | The pre-launch check (below) |
 | `tools/` | How the demo and the fixed images are made (below); not deployed |
 
-## Check
+## Design
+
+The site is built on the Bonham Technologies design system (the parent brand at bonham.tech):
+warm paper and ink tokens with a Daylight (default) and a Night theme, Archivo for text, IBM
+Plex Mono for technical content only (step numbers, scores, tags, code), square corners,
+hairlines, no shadows or gradients. Safety orange (`--signal-fill`) is the action colour: one
+primary button per view, and nothing else is orange.
+
+Coglossa's own identity inside that system (owner, 2026-11-17):
+
+- **Accent: berry** (`--product-accent`, `#8f2d5e` Daylight, `#f09bc0` Night). It colours the
+  square in the lockup, eyebrows, link underlines and the gloss marks. It never styles a button.
+- **Motif: gloss marks.** An underline in the text tied to a note in the margin: the drawing in
+  the hero (`.gloss`, an inline SVG coloured from `styles.css`, because the CSP allows no inline
+  style), the underline under the headline's key phrase, the short rule before each flag, and
+  the highlighted word in the sample.
+- **Lockup:** accent square, `COGLOSSA`, "by Bonham Technologies". There is no logo mark; the
+  favicon is the motif on paper.
+- The parent's terrain imagery (mountains, ridgeline, contours) and forest green stay on
+  bonham.tech and are not used here.
+
 
 ```bash
 cd site
