@@ -1,0 +1,4 @@
+# DCO app settings (https://github.com/dcoapp/app). Members of the organization,
+# including the owner and the autopilot, need no sign-off; outside contributors do.
+require:
+  members: false

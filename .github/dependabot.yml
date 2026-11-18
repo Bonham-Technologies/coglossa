@@ -1,0 +1,130 @@
+# One block per ecosystem and manifest directory. Matching labels (dependencies,
+# github_actions, javascript, python, docker) are created by apply-settings.sh.
+version: 2
+updates:
+  # pnpm projects (Dependabot's npm ecosystem reads pnpm-lock.yaml). @types/node follows the Node
+  # the code runs on (22), so its majors move with Node, deliberately. TypeScript 7 in the front
+  # door makes every Vercel deploy log TS2688 (#21): its majors wait for Vercel's support.
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 8
+    rebase-strategy: "auto"
+    labels: ["dependencies", "javascript"]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/deploy/hosted/vercel"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 8
+    rebase-strategy: "auto"
+    labels: ["dependencies", "javascript"]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # uv projects: the uv ecosystem keeps uv.lock in step with pyproject.toml
+  - package-ecosystem: "uv"
+    directory: "/engine"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    labels: ["dependencies", "python"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "uv"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    labels: ["dependencies", "python"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "uv"
+    directory: "/scorer"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    labels: ["dependencies", "python"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # the hosted preview's Modal image (pinned requirements file)
+  - package-ecosystem: "pip"
+    directory: "/deploy/hosted/modal"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    rebase-strategy: "auto"
+    labels: ["dependencies", "python"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Container base images. Minor and patch bumps come as PRs; a major (a new Python or Node
+  # line) is a deliberate decision the project makes itself, so Dependabot does not open it.
+  - package-ecosystem: "docker"
+    directory: "/deploy/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 2
+    rebase-strategy: "auto"
+    labels: ["dependencies", "docker"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # python:3.12-slim → 3.14-slim reads as a minor bump, but it is a new Python line
+      - dependency-name: "python"
+        update-types: ["version-update:semver-minor"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    rebase-strategy: "auto"
+    labels: ["dependencies", "github_actions"]
+    groups:
+      actions:
+        patterns:
+          - "*"

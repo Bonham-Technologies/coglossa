@@ -1,0 +1,17 @@
+{
+  "properties": {
+    "similarities": {
+      "description": "Cosine similarity in [-1, 1], one per pair, in order",
+      "items": {
+        "type": "number"
+      },
+      "title": "Similarities",
+      "type": "array"
+    }
+  },
+  "required": [
+    "similarities"
+  ],
+  "title": "SimilarityResponse",
+  "type": "object"
+}

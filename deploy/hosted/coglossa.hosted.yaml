@@ -1,0 +1,64 @@
+# Hosted preview (docs/superpowers/specs/2026-10-14-coglossa-hosted-preview-design.md).
+# Placeholder values (dollar sign, braces, NAME) come from the Modal Secret coglossa-hosted when the container starts
+# (deploy/hosted/modal/settings.py); no secret is in this file. The model blocks are copied
+# from bench/m6-calibration/coglossa.gemma-pipeline.yaml.
+# The config has no database pool-size setting; see README.md for the connection budget.
+backends:
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    max_concurrency: 8
+    timeout_s: 300
+models:
+  gemma-4-26b-a4b:
+    backend: openrouter
+    name: google/gemma-4-26b-a4b-it
+    context_window: 65536
+    structured_output: json_schema
+    max_output_tokens: 16384
+    extra_body:
+      provider: { require_parameters: true, order: [coreweave, deepinfra, parasail], quantizations: [bf16, fp8] }
+  qwen3.6-35b-a3b:
+    backend: openrouter
+    name: qwen/qwen3.6-35b-a3b
+    context_window: 65536
+    structured_output: json_schema
+    max_output_tokens: 16384
+    extra_body:
+      reasoning: { enabled: false }
+      provider: { require_parameters: true, order: [coreweave, deepinfra, parasail], quantizations: [bf16, fp8] }
+roles:
+  literal_translator:    { model: gemma-4-26b-a4b }
+  contextual_translator: { model: gemma-4-26b-a4b }
+  reviewer:              { model: gemma-4-26b-a4b }
+  profiler_guide:        { model: gemma-4-26b-a4b }
+  judge:                 { model: qwen3.6-35b-a3b }
+  roundtrip:             { model: qwen3.6-35b-a3b }
+# The web endpoints require Modal proxy auth; callers send the workspace proxy-auth token as
+# Modal-Key/Modal-Secret, and the bearer tokens stay as a second check.
+scorer:
+  url: ${COGLOSSA_SCORER_URL}
+  api_key_env: COGLOSSA_SCORER_TOKEN
+  extra_headers_env: { Modal-Key: COGLOSSA_MODAL_KEY, Modal-Secret: COGLOSSA_MODAL_SECRET }
+  timeout_s: 600
+  max_concurrency: 4
+storage:
+  kind: s3
+  endpoint_url: ${COGLOSSA_S3_ENDPOINT}
+  region: ${COGLOSSA_S3_REGION}
+  bucket: coglossa-files
+worker:
+  concurrency: 8
+  scorer_wait_s: 300
+  burst_scorer_wait_s: 300  # the worker always drains in burst mode: covers the scorer's cold start
+  kick_url: ${COGLOSSA_KICK_URL}
+  kick_token_env: COGLOSSA_KICK_TOKEN
+  extra_headers_env: { Modal-Key: COGLOSSA_MODAL_KEY, Modal-Secret: COGLOSSA_MODAL_SECRET }
+api:
+  max_upload_mb: 4
+auth:
+  mode: trusted_header
+  header: X-Remote-User
+  groups_header: X-Remote-Groups  # the front door always sets it (CGL-26)
+  proxy_secret_env: COGLOSSA_PROXY_SECRET
+  logout_url: /logout

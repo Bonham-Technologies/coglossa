@@ -1,0 +1,104 @@
+from pathlib import Path
+
+import pytest
+
+from coglossa.ingest import registry
+from coglossa.ingest.base import IngestError, UnsupportedFormatError
+from coglossa.schema import SourceDocument
+
+
+def test_dispatches_by_extension_case_insensitively(tmp_path):
+    path = tmp_path / "A.TXT"
+    path.write_text("Hello.", encoding="utf-8")
+    assert registry.ingest_file(path).format == "txt"
+
+
+def test_unsupported_extension(tmp_path):
+    path = tmp_path / "scan.odt"
+    path.write_bytes(b"x")
+    with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'"):
+        registry.ingest_file(path)
+
+
+def test_missing_file(tmp_path):
+    with pytest.raises(IngestError, match="not found"):
+        registry.ingest_file(tmp_path / "nope.txt")
+
+
+def test_document_without_text_is_rejected(tmp_path):
+    path = tmp_path / "breaks.txt"
+    path.write_text("* * *\n\n---\n", encoding="utf-8")
+    with pytest.raises(IngestError, match="no translatable text"):
+        registry.ingest_file(path)
+
+
+def test_plugin_ingestors(tmp_path, monkeypatch):
+    class OdtIngestor:
+        format = "odt"
+        extensions = (".odt",)
+
+        def ingest(self, path):
+            return SourceDocument(source_path=str(path), format="odt", sha256="0", blocks=[])
+
+    class EP:
+        name = "odt"
+
+        def load(self):
+            return OdtIngestor
+
+    monkeypatch.setattr(registry, "entry_points", lambda group: [EP()])
+    path = tmp_path / "x.odt"
+    path.write_bytes(b"")
+    with pytest.raises(IngestError, match="no translatable text"):
+        registry.ingest_file(path)
+
+
+def test_unreadable_file_is_ingest_error(tmp_path, monkeypatch):
+    path = tmp_path / "locked.txt"
+    path.write_text("Hello.", encoding="utf-8")
+
+    def deny(self):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(Path, "read_bytes", deny)
+    with pytest.raises(IngestError, match="cannot be read: Permission denied") as exc_info:
+        registry.ingest_file(path)
+    assert isinstance(exc_info.value.__cause__, PermissionError)
+
+
+def test_nul_characters_are_removed_from_text_files(tmp_path):
+    path = tmp_path / "nul.txt"
+    path.write_text("Le chat\x00 dort.\n\n\x00\n\nIl pleut.", encoding="utf-8")
+    doc = registry.ingest_file(path)
+    assert [b.text for b in doc.blocks] == ["Le chat dort.", "Il pleut."]
+
+
+def test_control_characters_are_cleaned_from_every_block(tmp_path):
+    path = tmp_path / "controls.txt"
+    path.write_text("Le chat\x0cdort.\x01\n\nIl\x0bpleut.\x1f", encoding="utf-8")
+    doc = registry.ingest_file(path)
+    assert [b.text for b in doc.blocks] == ["Le chat\ndort.", "Il\npleut."]
+
+
+def test_nul_characters_are_removed_from_plugin_ingestor_blocks(tmp_path, monkeypatch):
+    from coglossa.ingest.base import make_blocks
+    from coglossa.schema import BlockKind
+
+    class OdtIngestor:
+        format = "odt"
+        extensions = (".odt",)
+
+        def ingest(self, path):
+            blocks = make_blocks(str(path), [(BlockKind.PARAGRAPH, "Bon\x00jour\x0c.", None)])
+            return SourceDocument(source_path=str(path), format="odt", sha256="0", blocks=blocks)
+
+    class EP:
+        name = "odt"
+
+        def load(self):
+            return OdtIngestor
+
+    monkeypatch.setattr(registry, "entry_points", lambda group: [EP()])
+    path = tmp_path / "x.odt"
+    path.write_bytes(b"")
+    assert [b.text for b in registry.ingest_file(path).blocks] == ["Bonjour\n."]

@@ -1,0 +1,32 @@
+# The bench config (operator guide, "Benchmark your models"): the systems to compare and the
+# FLORES-200 language pairs to compare them on. Copy it to config/bench.yaml and edit the pairs
+# and systems. Paths are as the worker container sees them: config/ is /etc/coglossa, and the
+# bundle's bench/ is /opt/coglossa/bench.
+dataset:
+  kind: flores200
+  path: /opt/coglossa/bench/flores200 # the bundle's FLORES-200 (CC BY-SA 4.0)
+  split: devtest                      # dev or devtest
+  pairs: ["en>es", "en>zh-Hans", "en>ru", "en>ar", "en>hi", "en>sw", "en>yo"]
+  sentences: 100                      # per pair, the same sample for every system
+  seed: 1                             # the sample: same seed, same sentences
+systems:
+  # Names use letters, digits, '.', '_' and '-'. To compare two configurations, add a pipeline
+  # system per config file (for example /etc/coglossa/coglossa.candidate.yaml).
+  - name: coglossa
+    kind: pipeline                    # the full pipeline, as a run in the web app
+    config: /etc/coglossa/coglossa.yaml
+  - name: baseline
+    kind: baseline                    # one model, one pass: no guide, no reviewer, no scoring
+    config: /etc/coglossa/coglossa.yaml
+    model: SET-ME                     # a model key from the config's `models`
+scorer_url: http://scorer:8080        # MetricX-24 in reference mode; without it, chrF only
+
+# For `coglossa bench flags`: a model that writes negation and register errors into references.
+# Without it, those two kinds are not tested.
+# injector:
+#   config: /etc/coglossa/coglossa.yaml
+#   model: SET-ME
+
+# For `coglossa bench calibrate`: a pair's mean MetricX up to a_max suggests tier A, up to
+# b_max tier B, above it C.
+# tiers: { a_max: 5.0, b_max: 10.0 }

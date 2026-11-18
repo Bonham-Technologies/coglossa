@@ -1,0 +1,21 @@
+# The build context is an allowlist: only what the images need. This keeps .venv,
+# node_modules, caches and local configs out of the images and the build.
+*
+!engine/pyproject.toml
+!engine/uv.lock
+!engine/coglossa/
+!api/pyproject.toml
+!api/uv.lock
+!api/coglossa_api/
+!scorer/pyproject.toml
+!scorer/uv.lock
+!scorer/coglossa_scorer/
+!web/
+web/node_modules/
+web/.npmrc
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
+**/__pycache__/
+**/.pytest_cache/

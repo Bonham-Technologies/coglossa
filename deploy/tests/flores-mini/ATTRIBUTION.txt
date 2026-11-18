@@ -1,0 +1,4 @@
+A stand-in for FLORES-200 in its directory layout, for Coglossa's air-gap test
+(deploy/tests/airgap-test.sh). The sentences are made up; none is FLORES-200 data.
+FLORES-200: NLLB Team, Marta R. Costa-jussà et al., "No Language Left Behind: Scaling
+Human-Centered Machine Translation", 2022. https://github.com/facebookresearch/flores

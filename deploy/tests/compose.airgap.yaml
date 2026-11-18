@@ -1,0 +1,17 @@
+# The air-gap install test (spec §9.1): the stack on a network with no route out, reading the
+# operator's config/coglossa.yaml (the demo file only adds the synthetic servers).
+networks:
+  default:
+    internal: true
+
+x-operator-config: &operator-config
+  COGLOSSA_CONFIG: /etc/coglossa/coglossa.yaml
+
+services:
+  migrate:
+    environment: *operator-config
+  worker:
+    environment: *operator-config
+  api:
+    environment: *operator-config
+    ports: !reset []

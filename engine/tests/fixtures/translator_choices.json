@@ -1,0 +1,64 @@
+{
+  "about": "CGL-44. Each case adds its candidates, in this order, to the seeded run's passage p2 (s2-s3, chunk c1). `choices` is what the passage panel offers for each translator: the joined text and whether the use-candidate action accepts it. engine/tests/test_review_actions.py checks each usable text against the real action and that each unusable choice is refused; web/src/review/byTranslator.test.ts checks the panel's join against the same cases.",
+  "cases": [
+    {
+      "name": "pieces out of order, with surrounding whitespace",
+      "candidates": [
+        { "translator": "late", "start": "s3", "end": "s3", "text": "  It rains.\n" },
+        { "translator": "plain", "start": "s2", "end": "s3", "text": "The cat naps. It pours." },
+        { "translator": "late", "start": "s2", "end": "s2", "text": "\tThe cat sleeps. " }
+      ],
+      "choices": [
+        { "translator": "late", "text": "The cat sleeps. It rains.", "usable": true },
+        { "translator": "plain", "text": "The cat naps. It pours.", "usable": true }
+      ]
+    },
+    {
+      "name": "control characters and characters a document cannot hold",
+      "candidates": [
+        { "translator": "noisy", "start": "s2", "end": "s2", "text": "The cat\u000bsleeps.\u0001" },
+        { "translator": "noisy", "start": "s3", "end": "s3", "text": "\u000cIt\ufffe rains.\uffff\u001f" }
+      ],
+      "choices": [{ "translator": "noisy", "text": "The cat\nsleeps. It rains.", "usable": true }]
+    },
+    {
+      "name": "the server's idea of whitespace at the edges",
+      "candidates": [
+        { "translator": "edges", "start": "s2", "end": "s2", "text": "\u3000\u00a0The cat sleeps.\u0085" },
+        { "translator": "edges", "start": "s3", "end": "s3", "text": "\ufeffIt rains.\u2028 " }
+      ],
+      "choices": [{ "translator": "edges", "text": "The cat sleeps. \ufeffIt rains.", "usable": true }]
+    },
+    {
+      "name": "a blank piece still takes its place",
+      "candidates": [
+        { "translator": "gap", "start": "s2", "end": "s2", "text": "The cat sleeps." },
+        { "translator": "gap", "start": "s3", "end": "s3", "text": "  " }
+      ],
+      "choices": [{ "translator": "gap", "text": "The cat sleeps. ", "usable": true }]
+    },
+    {
+      "name": "pieces that do not line up with the passage",
+      "candidates": [
+        { "translator": "short", "start": "s2", "end": "s2", "text": "The cat sleeps." },
+        { "translator": "wide", "start": "s1", "end": "s2", "text": "Chapter One. The cat sleeps." },
+        { "translator": "wide", "start": "s3", "end": "s3", "text": "It rains." },
+        { "translator": "twice", "start": "s2", "end": "s3", "text": "The cat sleeps. It rains." },
+        { "translator": "twice", "start": "s3", "end": "s3", "text": "It rains." }
+      ],
+      "choices": [
+        { "translator": "short", "text": "The cat sleeps.", "usable": false },
+        { "translator": "wide", "text": "Chapter One. The cat sleeps. It rains.", "usable": false },
+        { "translator": "twice", "text": "The cat sleeps. It rains. It rains.", "usable": false }
+      ]
+    },
+    {
+      "name": "nothing left once cleaned",
+      "candidates": [
+        { "translator": "blank", "start": "s2", "end": "s2", "text": " \u0001 " },
+        { "translator": "blank", "start": "s3", "end": "s3", "text": "\u000b" }
+      ],
+      "choices": [{ "translator": "blank", "text": " ", "usable": false }]
+    }
+  ]
+}

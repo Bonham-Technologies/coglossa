@@ -1,0 +1,34 @@
+# The M6 calibration run (Jira CGL-7), on OpenRouter. Results: docs/bench-results-2026-10.md.
+# To repeat it:
+#   ln -s ~/coglossa-flores bench/m6-calibration/flores200     # after make flores
+#   docker run -d -e MALLOC_ARENA_MAX=2 -p 127.0.0.1:18090:8080 -v ~/coglossa-weights:/models:ro \
+#     coglossa/scorer:dev coglossa-scorer --qe-model /models/metricx-24-hybrid-large-v2p6 --qe-tokenizer /models/mt5-xl \
+#     --embed-model /models/labse --device cpu --host 0.0.0.0 --port 8080
+#   export OPENROUTER_API_KEY=...                                # never commit it
+#   cd bench/m6-calibration
+#   uv run --project ../../engine coglossa bench run bench.yaml --out out
+#   uv run --project ../../engine coglossa bench flags bench.yaml --scoring-config coglossa.qwen-scoring.yaml --out out
+#   uv run --project ../../engine coglossa bench calibrate --out out --scoring-config coglossa.qwen-scoring.yaml \
+#     --tier-system gemma-pipeline
+# bench.tuned.yaml is the side run with Qwen's recommended sampling. results/ holds the outputs.
+# bench flags took about an hour a pair here; the run split its pairs over three processes.
+dataset:
+  kind: flores200
+  path: flores200
+  split: devtest
+  pairs: ["en>es", "en>zh-Hans", "en>ru", "en>fr", "en>de", "en>ja",
+          "en>ar", "en>hi", "en>tr", "en>vi", "en>uk", "en>id",
+          "en>sw", "en>yo", "en>am", "en>ne", "en>km", "en>ha",
+          "es>en", "ar>en", "sw>en"]
+  sentences: 100
+  seed: 1
+systems:
+  - { name: qwen-pipeline, kind: pipeline, config: coglossa.qwen-pipeline.yaml }
+  - { name: gemma-pipeline, kind: pipeline, config: coglossa.gemma-pipeline.yaml }
+  - { name: qwen-baseline, kind: baseline, config: coglossa.qwen-pipeline.yaml, model: qwen3.6-35b-a3b }
+  - { name: gemma-baseline, kind: baseline, config: coglossa.gemma-pipeline.yaml, model: gemma-4-26b-a4b }
+scorer_url: http://127.0.0.1:18090
+injector:
+  config: coglossa.qwen-pipeline.yaml
+  model: qwen3.6-35b-a3b
+tiers: { a_max: 5.0, b_max: 10.0 }

@@ -1,0 +1,92 @@
+# Bench: flores200 devtest, 100 sentences, seed 1
+
+| system | pair | MetricX ↓ | scored/units | too long src/out | chrF ↑ | tokens in | tokens out | seconds | errors |
+|---|---|---|---|---|---|---|---|---|---|
+| gemma-baseline | ar>en | 2.06 | 97/97 | 0/0 | 67.3 | 7822 | 7249 | 51 | 0 |
+| gemma-pipeline | ar>en | 2.06 | 94/94 | 0/0 | 67.1 | 68109 | 35089 | 426 | 0 |
+| qwen-baseline | ar>en | 1.85 | 100/100 | 0/0 | 68.6 | 7371 | 6517 | 28 | 0 |
+| qwen-pipeline | ar>en | 1.99 | 100/100 | 0/0 | 67.4 | 75095 | 40510 | 263 | 1 |
+| gemma-baseline | en>am | 2.74 | 100/100 | 0/0 | 39.5 | 17397 | 16591 | 522 | 0 |
+| gemma-pipeline | en>am | 2.38 | 97/97 | 0/0 | 40.8 | 89574 | 50235 | 420 | 2 |
+| qwen-baseline | en>am | n/a | 0/0 | 0/0 | n/a | 0 | 0 | 129 | 1 |
+| qwen-pipeline | en>am | n/a | 0/0 | 0/0 | n/a | 0 | 0 | 177 | 1 |
+| gemma-baseline | en>ar | 1.55 | 97/97 | 0/0 | 58.0 | 12117 | 12006 | 162 | 0 |
+| gemma-pipeline | en>ar | 1.49 | 100/100 | 0/0 | 58.9 | 81756 | 45923 | 448 | 0 |
+| qwen-baseline | en>ar | 1.91 | 100/100 | 0/0 | 58.1 | 6358 | 7132 | 27 | 0 |
+| qwen-pipeline | en>ar | 1.82 | 100/100 | 0/0 | 57.8 | 128206 | 54507 | 351 | 2 |
+| gemma-baseline | en>de | 0.70 | 97/97 | 0/0 | 66.8 | 6321 | 6698 | 70 | 0 |
+| gemma-pipeline | en>de | 0.79 | 100/100 | 0/0 | 66.2 | 60465 | 37534 | 179 | 1 |
+| qwen-baseline | en>de | 0.84 | 100/100 | 0/0 | 67.3 | 6358 | 7182 | 32 | 0 |
+| qwen-pipeline | en>de | 0.79 | 100/100 | 0/0 | 67.1 | 109250 | 47290 | 216 | 0 |
+| gemma-baseline | en>es | 1.52 | 100/100 | 0/0 | 56.0 | 6320 | 7479 | 48 | 0 |
+| gemma-pipeline | en>es | 1.49 | 96/96 | 0/0 | 56.0 | 65372 | 37413 | 229 | 0 |
+| qwen-baseline | en>es | 1.81 | 100/100 | 0/0 | 55.6 | 6358 | 6972 | 26 | 0 |
+| qwen-pipeline | en>es | 1.82 | 100/100 | 0/0 | 55.2 | 112149 | 52900 | 324 | 1 |
+| gemma-baseline | en>fr | 1.49 | 100/100 | 0/0 | 69.9 | 6321 | 6808 | 64 | 0 |
+| gemma-pipeline | en>fr | 1.51 | 100/100 | 0/0 | 70.9 | 66689 | 40760 | 216 | 0 |
+| qwen-baseline | en>fr | 1.54 | 100/100 | 0/0 | 70.1 | 6358 | 7230 | 28 | 0 |
+| qwen-pipeline | en>fr | 1.54 | 100/100 | 0/0 | 70.5 | 90478 | 48415 | 219 | 0 |
+| gemma-baseline | en>ha | 3.42 | 100/100 | 0/0 | 49.7 | 6326 | 9587 | 75 | 0 |
+| gemma-pipeline | en>ha | 3.41 | 99/99 | 0/0 | 49.7 | 120345 | 69857 | 800 | 1 |
+| qwen-baseline | en>ha | 5.14 | 100/100 | 0/0 | 46.4 | 6364 | 8659 | 32 | 0 |
+| qwen-pipeline | en>ha | 6.10 | 100/100 | 0/0 | 45.3 | 138661 | 72834 | 293 | 1 |
+| gemma-baseline | en>hi | 2.56 | 100/100 | 0/0 | 58.2 | 10999 | 10191 | 51 | 0 |
+| gemma-pipeline | en>hi | 2.32 | 97/97 | 0/0 | 59.7 | 67812 | 36378 | 354 | 2 |
+| qwen-baseline | en>hi | 2.96 | 100/100 | 0/0 | 54.7 | 6358 | 9623 | 35 | 0 |
+| qwen-pipeline | en>hi | 3.08 | 100/100 | 0/0 | 54.8 | 120682 | 58041 | 238 | 0 |
+| gemma-baseline | en>id | 1.26 | 100/100 | 0/0 | 71.9 | 10096 | 7313 | 89 | 0 |
+| gemma-pipeline | en>id | 1.28 | 99/99 | 0/0 | 71.6 | 63468 | 38027 | 275 | 0 |
+| qwen-baseline | en>id | 1.44 | 100/100 | 0/0 | 70.4 | 6358 | 6711 | 25 | 0 |
+| qwen-pipeline | en>id | 1.46 | 100/100 | 0/0 | 70.5 | 101545 | 50125 | 251 | 0 |
+| gemma-baseline | en>ja | 1.65 | 100/100 | 0/0 | 41.7 | 10243 | 9135 | 122 | 0 |
+| gemma-pipeline | en>ja | 1.68 | 97/97 | 0/0 | 40.7 | 64066 | 37923 | 199 | 0 |
+| qwen-baseline | en>ja | 2.08 | 100/100 | 0/0 | 41.0 | 6358 | 6923 | 28 | 0 |
+| qwen-pipeline | en>ja | 1.93 | 100/100 | 0/0 | 41.2 | 104881 | 51109 | 500 | 1 |
+| gemma-baseline | en>km | 2.38 | 100/100 | 0/0 | 48.0 | 6320 | 10469 | 91 | 0 |
+| gemma-pipeline | en>km | 2.41 | 96/96 | 0/0 | 48.0 | 83873 | 43768 | 477 | 1 |
+| qwen-baseline | en>km | 4.27 | 100/100 | 0/0 | 41.9 | 6364 | 15417 | 56 | 0 |
+| qwen-pipeline | en>km | 3.52 | 100/100 | 0/0 | 42.5 | 128661 | 81567 | 267 | 0 |
+| gemma-baseline | en>ne | 2.16 | 100/100 | 0/0 | 52.3 | 9299 | 7595 | 78 | 0 |
+| gemma-pipeline | en>ne | 1.99 | 98/98 | 0/0 | 54.8 | 91598 | 39016 | 314 | 1 |
+| qwen-baseline | en>ne | 2.82 | 100/100 | 0/0 | 54.2 | 6364 | 9983 | 38 | 0 |
+| qwen-pipeline | en>ne | 2.58 | 100/100 | 0/0 | 52.4 | 143973 | 75965 | 454 | 1 |
+| gemma-baseline | en>ru | 1.32 | 97/97 | 0/0 | 59.2 | 6320 | 7707 | 85 | 0 |
+| gemma-pipeline | en>ru | 1.43 | 96/96 | 0/0 | 60.1 | 83667 | 42620 | 209 | 0 |
+| qwen-baseline | en>ru | 1.39 | 100/100 | 0/0 | 58.5 | 6358 | 7245 | 28 | 0 |
+| qwen-pipeline | en>ru | 1.39 | 100/100 | 0/0 | 58.4 | 124483 | 54114 | 229 | 0 |
+| gemma-baseline | en>sw | 2.29 | 97/97 | 0/0 | 63.0 | 6326 | 9047 | 260 | 0 |
+| gemma-pipeline | en>sw | 2.27 | 99/99 | 0/0 | 62.2 | 78900 | 43467 | 230 | 1 |
+| qwen-baseline | en>sw | 3.80 | 100/100 | 0/0 | 59.0 | 6370 | 8463 | 32 | 0 |
+| qwen-pipeline | en>sw | 3.51 | 100/100 | 0/0 | 58.7 | 165341 | 72004 | 436 | 1 |
+| gemma-baseline | en>tr | 2.09 | 100/100 | 0/0 | 63.7 | 10523 | 8802 | 114 | 0 |
+| gemma-pipeline | en>tr | 2.19 | 97/97 | 0/0 | 63.3 | 79870 | 41967 | 219 | 0 |
+| qwen-baseline | en>tr | 2.88 | 100/100 | 0/0 | 60.1 | 6358 | 7583 | 31 | 0 |
+| qwen-pipeline | en>tr | 3.13 | 100/100 | 0/0 | 59.5 | 84919 | 46904 | 202 | 0 |
+| gemma-baseline | en>uk | 1.76 | 97/97 | 0/0 | 58.9 | 6322 | 7019 | 69 | 0 |
+| gemma-pipeline | en>uk | 1.69 | 96/96 | 0/0 | 59.1 | 84797 | 43054 | 249 | 1 |
+| qwen-baseline | en>uk | 1.75 | 100/100 | 0/0 | 59.0 | 6358 | 8240 | 31 | 0 |
+| qwen-pipeline | en>uk | 1.69 | 100/100 | 0/0 | 58.5 | 97490 | 52078 | 267 | 0 |
+| gemma-baseline | en>vi | 1.60 | 100/100 | 0/0 | 63.0 | 6320 | 8017 | 195 | 0 |
+| gemma-pipeline | en>vi | 1.65 | 99/99 | 0/0 | 62.8 | 66616 | 40024 | 235 | 0 |
+| qwen-baseline | en>vi | 1.80 | 100/100 | 0/0 | 62.2 | 6358 | 7282 | 27 | 0 |
+| qwen-pipeline | en>vi | 1.81 | 100/100 | 0/0 | 62.0 | 74554 | 40289 | 254 | 1 |
+| gemma-baseline | en>yo | 7.40 | 100/100 | 0/0 | 29.4 | 6320 | 12335 | 138 | 0 |
+| gemma-pipeline | en>yo | 7.48 | 99/99 | 0/0 | 29.2 | 106118 | 71487 | 568 | 2 |
+| qwen-baseline | en>yo | n/a | 0/0 | 0/0 | n/a | 0 | 0 | 91 | 1 |
+| qwen-pipeline | en>yo | 6.98 | 100/100 | 0/0 | 22.8 | 194131 | 85069 | 662 | 2 |
+| gemma-baseline | en>zh-Hans | 1.34 | 97/97 | 0/0 | 40.7 | 6366 | 6912 | 49 | 0 |
+| gemma-pipeline | en>zh-Hans | 1.29 | 97/97 | 0/0 | 40.6 | 64466 | 41219 | 958 | 2 |
+| qwen-baseline | en>zh-Hans | 1.41 | 100/100 | 0/0 | 40.4 | 6410 | 6093 | 24 | 0 |
+| qwen-pipeline | en>zh-Hans | 1.49 | 100/100 | 0/0 | 40.1 | 83433 | 44229 | 270 | 0 |
+| gemma-baseline | es>en | 2.00 | 97/97 | 0/0 | 61.4 | 7167 | 6839 | 40 | 0 |
+| gemma-pipeline | es>en | 2.09 | 93/93 | 0/0 | 60.9 | 68606 | 35198 | 301 | 0 |
+| qwen-baseline | es>en | 2.06 | 100/100 | 0/0 | 61.8 | 7280 | 6325 | 20 | 0 |
+| qwen-pipeline | es>en | 2.07 | 100/100 | 0/0 | 60.6 | 83637 | 37103 | 124 | 0 |
+| gemma-baseline | sw>en | 2.15 | 99/99 | 0/0 | 68.0 | 8219 | 7584 | 52 | 0 |
+| gemma-pipeline | sw>en | 2.06 | 96/96 | 0/0 | 67.1 | 85459 | 42352 | 839 | 1 |
+| qwen-baseline | sw>en | 2.51 | 100/100 | 0/0 | 65.7 | 8791 | 6436 | 26 | 0 |
+| qwen-pipeline | sw>en | 2.57 | 100/100 | 0/0 | 65.1 | 89397 | 53243 | 293 | 1 |
+
+MetricX-24 reference mode: error 0-25, lower is better. chrF: 0-100, higher is better.
+
+So that systems compare, a pair's MetricX is the mean over the units every system of the pair scored (matched by their sentences), weighted by sentence count; summary.json also holds each system's own mean (`metricx_mean`). scored/units is each system's own count. A unit too long for MetricX has no score: "src" counts units too long by their source and reference, "out" those too long by the system's output. Units every system scored: ar>en 88, en>am 94, en>ar 94, en>de 94, en>es 92, en>fr 100, en>ha 98, en>hi 94, en>id 98, en>ja 94, en>km 92, en>ne 96, en>ru 92, en>sw 92, en>tr 94, en>uk 92, en>vi 98, en>yo 98, en>zh-Hans 94, es>en 86, sw>en 92.

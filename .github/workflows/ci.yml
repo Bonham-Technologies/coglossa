@@ -1,0 +1,239 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+# A newer push to the same PR makes the older run moot; cancel it to save minutes.
+# Runs on the default branch always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# Least privilege for every job (CGL-37): no job writes to the repository, its PRs or issues.
+# Actions are pinned to commit SHAs; Dependabot's github-actions block keeps them current.
+# vars.RUNS_ON (the self-hosted runner) is used only for a push or a PR from this repo; a fork PR
+# runs on ubuntu-24.04. Checkouts keep no token. deploy/tests/check_workflows.py checks both (CGL-102).
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: coglossa
+          POSTGRES_PASSWORD: coglossa
+          POSTGRES_DB: coglossa
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U coglossa"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      COGLOSSA_TEST_DATABASE_URL: postgresql://coglossa:coglossa@127.0.0.1:5432/postgres
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+  scorer:
+    runs-on: ${{ (vars.RUNS_ON && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(vars.RUNS_ON) || 'ubuntu-24.04' }}
+    defaults:
+      run:
+        working-directory: scorer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: coglossa
+          POSTGRES_PASSWORD: coglossa
+          POSTGRES_DB: coglossa
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U coglossa"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      COGLOSSA_TEST_DATABASE_URL: postgresql://coglossa:coglossa@127.0.0.1:5432/postgres
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+  web:
+    runs-on: ${{ (vars.RUNS_ON && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(vars.RUNS_ON) || 'ubuntu-24.04' }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: generated API types match schema/openapi.json
+        run: pnpm gen:api && git diff --exit-code src/api/schema.d.ts
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+  hosted-web:
+    runs-on: ${{ (vars.RUNS_ON && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(vars.RUNS_ON) || 'ubuntu-24.04' }}
+    defaults:
+      run:
+        working-directory: deploy/hosted/vercel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: deploy/hosted/vercel/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: deploy/hosted/vercel/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+  hosted-modal:
+    runs-on: ${{ (vars.RUNS_ON && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(vars.RUNS_ON) || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-groups
+        working-directory: engine
+      # The settings tests run in the engine environment so coglossa.config is importable and
+      # test_the_rendered_config_is_valid runs instead of skipping. --no-cov drops the engine's
+      # coverage gate, which does not apply to this directory. COGLOSSA_FORBID_SKIP (see
+      # conftest.py) turns any skip into a failure, so the config test is enforced.
+      - run: COGLOSSA_FORBID_SKIP=1 uv run --with pyyaml --with fastapi --with httpx pytest ../deploy/hosted/modal/test_settings.py -q -p no:cacheprovider --no-cov --rootdir ../deploy/hosted/modal
+        working-directory: engine
+      - run: uv run --with-requirements deploy/hosted/modal/requirements.txt python deploy/hosted/modal/check_app.py
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20 # a hung stack or browser fails the job instead of holding the runner
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: coglossa
+          POSTGRES_PASSWORD: coglossa
+          POSTGRES_DB: coglossa
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U coglossa"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      COGLOSSA_TEST_DATABASE_URL: postgresql://coglossa:coglossa@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-groups
+        working-directory: api
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: web
+      - run: pnpm build
+        working-directory: web
+      - run: pnpm e2e
+        working-directory: web
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: make deploy-check
+
+  airgap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60 # building two images with torch, then three full stack starts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: free disk space for the images and the bundle
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - run: make airgap-test
+
+  # Aggregate job: the single required check. List EVERY other job in `needs`.
+  ci-status:
+    runs-on: ${{ (vars.RUNS_ON && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(vars.RUNS_ON) || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    needs: [engine, scorer, api, web, hosted-web, hosted-modal, e2e, deploy, airgap]
+    if: always()
+    concurrency:
+      group: ci-status-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Check CI status
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$NEEDS" | jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' >/dev/null; then
+            echo "One or more CI jobs failed or were cancelled"
+            exit 1
+          fi

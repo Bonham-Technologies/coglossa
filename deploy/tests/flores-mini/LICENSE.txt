@@ -1,0 +1,3 @@
+FLORES-200 is licensed under the Creative Commons Attribution-ShareAlike 4.0
+International licence (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+This test tree only copies FLORES-200's layout; its sentences are Coglossa's own.

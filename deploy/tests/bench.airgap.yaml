@@ -1,0 +1,22 @@
+# The air-gap test's bench config (airgap-test.sh copies it to config/bench.yaml): the demo
+# models and the fake scorer, on the stand-in FLORES tree deploy/tests/flores-mini/, which the
+# test bundle ships as bench/flores200/.
+dataset:
+  kind: flores200
+  path: /opt/coglossa/bench/flores200
+  split: devtest
+  pairs: ["en>es", "en>yo"]
+  sentences: 4
+  seed: 1
+systems:
+  - name: coglossa
+    kind: pipeline
+    config: /etc/coglossa/coglossa.yaml
+  - name: baseline
+    kind: baseline
+    config: /etc/coglossa/coglossa.yaml
+    model: m1
+scorer_url: http://scorer:8080
+injector:
+  config: /etc/coglossa/coglossa.yaml
+  model: m1

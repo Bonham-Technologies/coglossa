@@ -1,0 +1,28 @@
+# The scorer on an NVIDIA GPU, with MetricX-24 XL. Needs the NVIDIA driver and the NVIDIA
+# Container Toolkit on the host (operator guide, "GPU"). `./install.sh --gpu` adds it to .env:
+#   COMPOSE_FILE=compose.yaml:compose.gpu.yaml
+services:
+  scorer:
+    # the CUDA build (make image-scorer-cuda); a bundle's copy names the scorer image it ships
+    image: coglossa/scorer:${COGLOSSA_VERSION:-dev}-cuda
+    command:
+      - coglossa-scorer
+      - --qe-model
+      - /models/${COGLOSSA_QE_MODEL:-metricx-24-hybrid-xl-v2p6}
+      - --qe-tokenizer
+      - /models/mt5-xl
+      - --embed-model
+      - /models/labse
+      - --device
+      - ${COGLOSSA_SCORER_DEVICE:-cuda}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

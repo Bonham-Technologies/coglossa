@@ -1,0 +1,17 @@
+{
+  "properties": {
+    "scores": {
+      "description": "MetricX error scores, 0 (best) to 25 (worst), one per item, in order",
+      "items": {
+        "type": "number"
+      },
+      "title": "Scores",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scores"
+  ],
+  "title": "QEResponse",
+  "type": "object"
+}

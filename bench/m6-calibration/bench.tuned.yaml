@@ -1,0 +1,16 @@
+# Side run of the M6 calibration: Qwen3.6 with its recommended sampling on the pairs it failed.
+dataset:
+  kind: flores200
+  path: flores200
+  split: devtest
+  pairs: ["en>yo", "en>am", "en>tr", "en>ha", "en>sw", "ar>en"]
+  sentences: 100
+  seed: 1
+systems:
+  - { name: qwen-tuned-pipeline, kind: pipeline, config: coglossa.qwen-tuned.yaml }
+  - { name: qwen-tuned-baseline, kind: baseline, config: coglossa.qwen-tuned.yaml, model: qwen3.6-35b-a3b }
+scorer_url: http://127.0.0.1:18090
+injector:
+  config: coglossa.qwen-pipeline.yaml
+  model: qwen3.6-35b-a3b
+tiers: { a_max: 5.0, b_max: 10.0 }

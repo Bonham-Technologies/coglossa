@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coglossa: translation that shows its work</title>
+    <meta
+      name="description"
+      content="Coglossa translates documents with a team of AI agents on your own model servers, then shows you which passages a person should check, and why. Built to run offline, including on air-gapped networks."
+    />
+    <link rel="canonical" href="https://coglossa.com/" />
+    <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Coglossa" />
+    <meta property="og:url" content="https://coglossa.com/" />
+    <meta property="og:title" content="Coglossa: translation that shows its work" />
+    <meta
+      property="og:description"
+      content="Several AI translators, a reviewer that settles their differences, and independent checks on every passage. Runs on your own model servers, offline."
+    />
+    <meta property="og:image" content="https://coglossa.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Coglossa: translation that shows its work. Several translators, one reviewer, every passage checked."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Coglossa: translation that shows its work" />
+    <meta
+      name="twitter:description"
+      content="Several AI translators, a reviewer that settles their differences, and independent checks on every passage. Runs on your own model servers, offline."
+    />
+    <meta name="twitter:image" content="https://coglossa.com/og-image.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://bonham.tech/#organization",
+            "name": "Bonham Technologies",
+            "legalName": "Bonham Technologies, LLC",
+            "url": "https://bonham.tech/",
+            "logo": "https://coglossa.com/apple-touch-icon.png"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://coglossa.com/#software",
+            "name": "Coglossa",
+            "url": "https://coglossa.com/",
+            "description": "Multi-agent translation that translates for meaning and shows its work. Several translator agents render each passage, a reviewer reconciles them, and every passage of the result carries its alternatives, the reviewer's rationale and plain-language flags. It runs entirely on your own OpenAI-compatible model servers, including inside air-gapped networks.",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Translation",
+            "operatingSystem": "Linux (amd64)",
+            "softwareRequirements": "Docker with the Compose plugin 2.24 or newer; OpenAI-compatible model servers",
+            "license": "https://www.apache.org/licenses/LICENSE-2.0",
+            "publisher": { "@id": "https://bonham.tech/#organization" }
+          }
+        ]
+      }
+    </script>
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link
+      rel="preload"
+      href="/fonts/instrument-serif-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="wordmark" href="/">COGLOSSA<span>.</span></a>
+        <nav aria-label="Sections">
+          <ul>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#demo">Demo</a></li>
+            <li><a href="#run">Run it</a></li>
+            <li><a href="#licence">Licence</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="wrap hero">
+        <p class="eyebrow">Multi-agent translation · on your own servers</p>
+        <h1>Translation that <em>shows its work</em></h1>
+        <p class="lede">
+          Coglossa has several AI translators work on every passage, a reviewer settle their
+          differences, and independent checks score the result. Each passage says how sure
+          Coglossa is and why, so a person knows exactly where to look. It runs on your own
+          model servers and never needs the internet.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="#demo">Watch the walkthrough</a>
+          <a class="button" href="#how">How it works</a>
+        </div>
+      </div>
+
+      <section class="band" aria-labelledby="who-title">
+        <div class="wrap">
+          <p class="label">Who it's for</p>
+          <h2 id="who-title">For documents that matter, on networks that stay closed</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                Coglossa is built for organisations that need good translations of their own
+                documents but can't send them to an online service: teams on an air-gapped
+                network, or anywhere the text must stay in the building.
+              </p>
+              <p>
+                It translates for meaning, not word for word, and it works on anything from a
+                single message to a whole book: stories, reports, papers and correspondence.
+              </p>
+            </div>
+            <div>
+              <p>
+                It works in any language pair, including languages that AI models handle less
+                well. Coglossa knows which ones those are and asks you to check them more
+                carefully.
+              </p>
+              <p>
+                It reads plain text, Markdown, Word, web pages, EPUB books and PDFs that contain
+                text. Scanned pages are not read: Coglossa tells you which pages need text
+                recognition first.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" aria-labelledby="how-title">
+        <div class="wrap">
+          <p class="label">How it works</p>
+          <h2 id="how-title">A team of agents, and a record of every decision</h2>
+          <p class="intro">
+            Each job is done by a separate AI agent with its own instructions. You choose which
+            model plays each part, and the checks are worth more when different models do the
+            translating and the checking.
+          </p>
+          <ol class="cards">
+            <li class="card">
+              <span class="step">01 · Read</span>
+              <h3>Understand the document</h3>
+              <p>
+                Coglossa splits the document into passages, detects its language, kind and tone,
+                and picks a way of working that suits its length.
+              </p>
+            </li>
+            <li class="card">
+              <span class="step">02 · Guide</span>
+              <h3>Write a translation guide</h3>
+              <p>
+                A summary, the names, the terms and the style every translator must follow. You
+                can lock an entry so it is always used exactly as written. A long document waits
+                here until you have reviewed the guide.
+              </p>
+            </li>
+            <li class="card">
+              <span class="step">03 · Translate</span>
+              <h3>Several translators</h3>
+              <p>
+                One translator stays close to the meaning of every sentence. Another writes
+                naturally and keeps the voice and tone. You can add more, on other models, for a
+                wider range of versions.
+              </p>
+            </li>
+            <li class="card">
+              <span class="step">04 · Reconcile</span>
+              <h3>A reviewer settles the differences</h3>
+              <p>
+                The reviewer reads every version, picks, merges or rewrites, says how far the
+                translators agreed and explains why. It also points out wordplay and cultural
+                references that may not carry over, and suggests new guide entries.
+              </p>
+            </li>
+            <li class="card">
+              <span class="step">05 · Check</span>
+              <h3>Independent checks on every passage</h3>
+              <p>
+                A judge, ideally a different model, marks errors in the final text. A
+                back-translation into the original language is compared with the source. A
+                separate scoring service rates the quality and how closely the meaning matches.
+              </p>
+              <p>
+                Together they give each passage a meaning score and, from the judge, a style
+                score. A check that isn't set up or couldn't run is shown as missing, never
+                guessed.
+              </p>
+            </li>
+            <li class="card">
+              <span class="step">06 · Sweep</span>
+              <h3>Keep the whole document consistent</h3>
+              <p>
+                When every passage of a longer document is done, a final sweep fixes any passage
+                that missed a locked name or term, and records each change with its reason.
+              </p>
+            </li>
+          </ol>
+
+          <h3 class="flags-title" id="flags-title">What a flag can tell you</h3>
+          <p class="intro tight">
+            Each flag comes with a plain explanation and the evidence behind it.
+          </p>
+          <ul class="flags" aria-labelledby="flags-title">
+            <li><strong>The meaning may have shifted.</strong> The meaning score is low, or the judge found a serious error.</li>
+            <li><strong>The style doesn't match the rest.</strong> The judge found a problem with tone or wording.</li>
+            <li><strong>Doesn't follow your translation guide.</strong> A locked name or term wasn't used as written.</li>
+            <li><strong>Something may be missing.</strong> The length looks wrong and the judge found an omission.</li>
+            <li><strong>The translators disagreed.</strong> The reviewer rated their differences as major.</li>
+            <li><strong>Wordplay or a cultural reference.</strong> Something that may not carry over to the new language.</li>
+            <li><strong>Some checking didn't finish.</strong> A step failed, so the passage is an unchecked draft.</li>
+            <li><strong>Less-practised language: check carefully.</strong> The scores are less reliable for this language pair.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="demo" class="band" aria-labelledby="demo-title">
+        <div class="wrap">
+          <p class="label">Demo</p>
+          <h2 id="demo-title">One short story, from upload to download</h2>
+          <div class="note">
+            <p>
+              <strong>About this recording.</strong> It was made on 6 November 2026 with
+              Coglossa running on one computer with its built-in practice models. They don't
+              really translate: they repeat the original with a language tag, such as
+              “[en] Le phare…”, so that every screen and check can be shown without a model
+              server. The practice judge flags any passage containing the word MISTRANSLATED,
+              which is why it appears in the story.
+            </p>
+            <p>The screens, scores and files below are exactly what Coglossa produced.</p>
+          </div>
+
+          <figure class="video">
+            <div class="frame">
+              <video
+                controls
+                muted
+                playsinline
+                preload="none"
+                width="1280"
+                height="760"
+                poster="/assets/demo/02-summary-light.webp"
+                aria-describedby="video-caption"
+              >
+                <source src="/assets/demo/walkthrough.webm" type="video/webm" />
+                <track
+                  kind="captions"
+                  src="/assets/demo/walkthrough.vtt"
+                  srclang="en"
+                  label="English"
+                />
+                <a href="/assets/demo/walkthrough.webm">Download the walkthrough (WebM)</a>
+              </video>
+            </div>
+            <figcaption id="video-caption">
+              The whole walkthrough, without sound. The steps are described below.
+            </figcaption>
+          </figure>
+
+          <ol class="shots">
+            <li class="shot">
+              <figure class="frame">
+                <img
+                  src="/assets/demo/01-new-translation-light.webp"
+                  width="1600"
+                  height="950"
+                  loading="lazy"
+                  decoding="async"
+                  alt="The New translation page with the file “Le phare de Kerlann.txt” added, French chosen as the original language and English as the language to translate into."
+                />
+              </figure>
+              <div>
+                <span class="step">01</span>
+                <h3>Drop in a file</h3>
+                <p>
+                  Choose the language to translate into and add one or more files. The original
+                  language can be detected for you.
+                </p>
+              </div>
+            </li>
+            <li class="shot">
+              <figure class="frame">
+                <picture>
+                  <source
+                    media="(prefers-color-scheme: dark)"
+                    srcset="/assets/demo/02-summary-dark.webp"
+                  />
+                  <img
+                    src="/assets/demo/02-summary-light.webp"
+                    width="1600"
+                    height="950"
+                    loading="lazy"
+                    decoding="async"
+                    alt="The finished translation: a summary that reads “Looks good. 1 is worth a quick look before you download.”, and the original and English side by side, with passage 4 highlighted."
+                  />
+                </picture>
+              </figure>
+              <div>
+                <span class="step">02</span>
+                <h3>Read the summary</h3>
+                <p>
+                  The original sits beside the translation, and a plain summary says how it
+                  went. Here, one passage of five is worth a look.
+                </p>
+              </div>
+            </li>
+            <li class="shot">
+              <figure class="frame">
+                <picture>
+                  <source
+                    media="(prefers-color-scheme: dark)"
+                    srcset="/assets/demo/03-why-flagged-dark.webp"
+                  />
+                  <img
+                    src="/assets/demo/03-why-flagged-light.webp"
+                    width="1600"
+                    height="950"
+                    loading="lazy"
+                    decoding="async"
+                    alt="Passage 4 open beside the document, flagged “The meaning may have shifted”, with the explanation “Meaning score 61.9 is below the 86 threshold” and the buttons Edit and It's fine."
+                  />
+                </picture>
+              </figure>
+              <div>
+                <span class="step">03</span>
+                <h3>See why a passage is flagged</h3>
+                <p>
+                  Open the passage to see the reason in plain words. Edit it, pick another
+                  translator's version, or mark it as fine.
+                </p>
+              </div>
+            </li>
+            <li class="shot narrow">
+              <figure class="frame">
+                <img
+                  src="/assets/demo/04-details-light.webp"
+                  width="692"
+                  height="2312"
+                  loading="lazy"
+                  decoding="async"
+                  alt="The passage's details: meaning match 62 out of 100, style match 100; the judge's finding, a critical mistranslation, highlighted in the text; the back-translation; a table of every signal; and the passage's history."
+                />
+              </figure>
+              <div>
+                <span class="step">04</span>
+                <h3>Check the evidence</h3>
+                <p>
+                  Under More details: the scores, the judge's findings marked in the text, the
+                  back-translation, each signal behind the scores, and the history of every
+                  change.
+                </p>
+              </div>
+            </li>
+            <li class="shot">
+              <figure class="frame">
+                <img
+                  src="/assets/demo/05-edited-light.webp"
+                  width="1600"
+                  height="950"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Passage 4 after the edit: the translation now reads “A boat is coming into the harbour.” with an “edited” label, and the panel says “Changed and marked as checked.”"
+                />
+              </figure>
+              <div>
+                <span class="step">05</span>
+                <h3>Fix it</h3>
+                <p>
+                  A person's edit replaces the passage, is marked as checked, and is kept in the
+                  passage's history.
+                </p>
+              </div>
+            </li>
+            <li class="shot">
+              <figure class="frame">
+                <img
+                  src="/assets/demo/06-guide-light.webp"
+                  width="1600"
+                  height="950"
+                  loading="lazy"
+                  decoding="async"
+                  alt="The Translation guide panel on its Terms tab, listing “Kerlann → Kerlann · always”."
+                />
+              </figure>
+              <div>
+                <span class="step">06</span>
+                <h3>Fix a name everywhere</h3>
+                <p>
+                  “Always translate Kerlann as Kerlann” adds a locked entry to the translation
+                  guide and rechecks the whole document. Every file in the set follows the same
+                  guide.
+                </p>
+              </div>
+            </li>
+            <li class="shot">
+              <figure class="frame">
+                <img
+                  src="/assets/demo/07-download-light.webp"
+                  width="1600"
+                  height="950"
+                  loading="lazy"
+                  decoding="async"
+                  alt="The Download menu open, offering a Word document, a side-by-side Word file with reviewer notes, a web page, a data file (JSON) and a quality report."
+                />
+              </figure>
+              <div>
+                <span class="step">07</span>
+                <h3>Download</h3>
+                <p>
+                  As a Word document, a side-by-side Word file with the reviewer's notes, a web
+                  page, or the data behind it all.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="sample" aria-labelledby="sample-title">
+        <div class="wrap">
+          <p class="label">Sample output</p>
+          <h2 id="sample-title">Everything behind one passage</h2>
+          <p class="intro">
+            This is passage 4 from the run above, as it appears in the quality report Coglossa
+            exported. The practice models made the translations, so they only repeat the
+            original; the edit at the end is the person's.
+          </p>
+
+          <article class="sample" aria-labelledby="sample-passage">
+            <header>
+              <span id="sample-passage">Passage 4 of 5 · French → English</span>
+              <span>Reliability tier A</span>
+            </header>
+            <dl>
+              <dt>Original</dt>
+              <dd lang="fr">Un bateau MISTRANSLATED approche du port.</dd>
+
+              <dt>Translators' versions</dt>
+              <dd>
+                <p><span class="badge">close to the meaning</span><span lang="en">[en] Un bateau MISTRANSLATED approche du port.</span></p>
+                <p><span class="badge">natural</span><span lang="en">[en] Un bateau MISTRANSLATED approche du port.</span></p>
+              </dd>
+
+              <dt>Reviewer</dt>
+              <dd>
+                <p>
+                  <span class="badge">agree</span>Kept the version that stays close to the
+                  meaning.
+                </p>
+                <p class="muted">
+                  The practice reviewer gives no rationale. A real one explains each difference
+                  it settles.
+                </p>
+              </dd>
+
+              <dt>Judge</dt>
+              <dd>
+                <p lang="en">[en] Un bateau <mark>MISTRANSLATED</mark> approche du port.</p>
+                <p class="muted">
+                  <span class="badge">critical</span>accuracy/mistranslation: Synthetic
+                  critical error: the text is marked MISTRANSLATED.
+                </p>
+              </dd>
+
+              <dt>Round trip</dt>
+              <dd>
+                <p lang="fr">[fr] [en] Un bateau MISTRANSLATED approche du port.</p>
+                <p class="muted">
+                  The translation, translated back into French and compared with the original.
+                </p>
+              </dd>
+
+              <dt>Scores</dt>
+              <dd>
+                <p class="scores">
+                  <span>meaning 61.9 / 100</span><span>style 100 / 100</span>
+                </p>
+                <p class="muted">
+                  From quality estimate 0.92, similarity 0.80, judge 0.00, agreement 0.90 and
+                  round trip 0.86. The guide check had nothing to check, so it is left out.
+                </p>
+              </dd>
+
+              <dt>Flag</dt>
+              <dd>
+                <p><strong>The meaning may have shifted</strong></p>
+                <p class="muted">
+                  Meaning score 61.9 is below the 86 threshold. Synthetic critical error: the
+                  text is marked MISTRANSLATED.
+                </p>
+                <p><span class="badge ok">checked</span>by the person who edited it</p>
+              </dd>
+
+              <dt>History</dt>
+              <dd>
+                <p>
+                  Edited by a reviewer: “[en] Un bateau MISTRANSLATED approche du port.” became
+                  <span lang="en">“A boat is coming into the harbour.”</span>
+                </p>
+              </dd>
+            </dl>
+            <footer>
+              The files from this run:
+              <a href="/sample/report.json">quality report (JSON)</a> ·
+              <a href="/sample/export">web-page export</a>. The quality report leaves out the
+              settings and the record of each model call, which hold Coglossa's instructions to
+              the models.
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <section id="run" class="band" aria-labelledby="run-title">
+        <div class="wrap">
+          <p class="label">Run it</p>
+          <h2 id="run-title">On your hardware, with your models</h2>
+          <div class="two-col">
+            <div>
+              <h3>Your own model servers</h3>
+              <p>
+                Coglossa works with any model server that speaks the OpenAI-compatible API, such
+                as vLLM, Ollama, TGI, the llama.cpp server or LM Studio. You list your servers
+                and models in one settings file and choose which model plays each part. Coglossa
+                never sends more requests to a server at once than you allow.
+              </p>
+              <h3>An offline bundle</h3>
+              <p>
+                Coglossa ships as one file for a Linux computer (Intel or AMD, 64-bit) with
+                Docker. It holds everything:
+                the app, the scoring service and its models, the database, the scripts for
+                installing, backing up and restoring, the operator guide and a test set for
+                measuring quality. Nothing in it reaches the internet, so it installs on an
+                air-gapped network. The scoring service runs on an ordinary processor, or faster
+                on an NVIDIA graphics card.
+              </p>
+              <h3>Measure it on your own models</h3>
+              <p>
+                A built-in benchmark compares Coglossa with a single model working alone, on
+                your own models and languages, and reports quality against the time and effort
+                each took.
+              </p>
+            </div>
+            <div>
+              <h3>Install</h3>
+              <pre tabindex="0" role="region" aria-label="Install commands"><code>./install.sh                <span class="c"># checks the bundle and loads it</span>
+<span class="c"># edit config/coglossa.yaml: your servers, models and roles</span>
+docker compose up -d --wait
+docker compose exec api coglossa doctor</code></pre>
+              <p>
+                <code>coglossa doctor</code> checks the whole installation, from each model
+                server to the database, and explains how to fix anything it finds.
+              </p>
+              <h3>Sign-in and teams</h3>
+              <p>
+                Behind your own sign-in proxy, people see the translations of their teams.
+                Without one, everyone on the network sees everything.
+              </p>
+              <h3>A hosted preview</h3>
+              <p>
+                A hosted preview runs the same code for demonstrations, with accounts by
+                invitation. It uses hosted models, so it is not the offline setup.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="licence" aria-labelledby="licence-title">
+        <div class="wrap">
+          <p class="label">Licence</p>
+          <h2 id="licence-title">Licence</h2>
+          <p class="intro">Coglossa will be released under the Apache License 2.0.</p>
+          <h3 id="contact">Contact</h3>
+          <p class="intro">
+            Questions, security reports and press: <a href="mailto:support@bonham.tech">support@bonham.tech</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          Coglossa is made by <a href="https://bonham.tech/">Bonham Technologies</a>.
+          © 2026 Bonham Technologies, LLC.
+        </p>
+        <p>
+          Set in Instrument Serif, DM Sans and Geist Mono, under the SIL Open Font Licence
+          (<a href="/fonts/OFL-instrument-serif.txt">1</a>,
+          <a href="/fonts/OFL-dm-sans.txt">2</a>, <a href="/fonts/OFL-geist-mono.txt">3</a>).
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

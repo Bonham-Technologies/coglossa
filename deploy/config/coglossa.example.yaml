@@ -1,0 +1,67 @@
+# Coglossa configuration (spec §3). install.sh copies this file to coglossa.yaml in this
+# directory; edit that copy. The containers read it at /etc/coglossa/coglossa.yaml when they
+# start. After a change:  docker compose up -d --wait --force-recreate migrate api worker
+# then check:  docker compose exec api coglossa doctor
+# Any OpenAI-compatible server works: vLLM, Ollama, TGI, llama.cpp server, LM Studio.
+
+backends:
+  gpu-a:
+    base_url: http://10.0.4.12:8000/v1   # a model server on your network
+    # base_url: http://host.docker.internal:11434/v1   # a server on this host (e.g. Ollama)
+    # api_key_env: GPU_A_KEY   # the name of a variable you set in .env, if the server needs a key
+    max_concurrency: 4                   # never more simultaneous requests than this
+    timeout_s: 120
+
+models:
+  main-model:                            # how roles refer to the model
+    backend: gpu-a
+    name: Qwen/Qwen3-72B-Instruct        # the id the server lists at /v1/models
+    context_window: 32768
+    structured_output: json_schema       # json_schema | json_object | none
+    # extra_body: { chat_template_kwargs: { enable_thinking: false } }   # server options; see the operator guide
+  # second-model: { backend: gpu-a, name: google/gemma-3-27b-it, context_window: 131072 }
+
+roles:
+  literal_translator:    { model: main-model }
+  contextual_translator: { model: main-model }   # a second model family catches more
+  reviewer:              { model: main-model }
+  profiler_guide:        { model: main-model }
+  # judge:     { model: second-model }   # scores errors; must differ from the reviewer's model
+  # roundtrip: { model: second-model }   # back-translates; must differ from every translator's
+  # Without a judge there is no style score, and spans keep a lower reliability tier.
+
+scorer:
+  url: http://scorer:8080                # the scorer container: MetricX-24 and LaBSE from models/
+
+storage:
+  path: /data/files                      # the files volume; leave as is
+  # kind: s3                             # or an S3-compatible bucket instead of the volume
+  #                                      # (remove path: above; needs coglossa[s3], which
+  #                                      # the app image does not include):
+  # endpoint_url: https://<ref>.storage.supabase.co/storage/v1/s3   # omit for AWS S3
+  # bucket: coglossa-files
+  # access_key_id_env: COGLOSSA_S3_ACCESS_KEY_ID           # names of variables in .env
+  # secret_access_key_env: COGLOSSA_S3_SECRET_ACCESS_KEY
+
+# scoring:
+#   thresholds: { meaning: { A: 86, B: 84, C: 70 }, style: 100 }   # calibrated defaults
+#   language_tiers_file: tiers.yaml      # config/tiers.yaml (install.sh creates it); edit it
+# worker:
+#   concurrency: 8                       # chunks translated at the same time
+#   scorer_wait_s: 900                   # at start, wait this long for the scorer to load its
+#                                        # models (after a reboot), then start unscored; 0: no wait
+#   burst_scorer_wait_s: 0               # the same for `coglossa worker --burst`; 0: check once
+# api: { max_upload_mb: 200 }            # keep the reverse proxy's body limit at least this
+# auth:                                       # named users, behind an authenticating proxy
+#   mode: trusted_header                      # (operator guide, section 6)
+#   header: X-Remote-User
+#   proxy_secret_env: COGLOSSA_PROXY_SECRET   # refuse requests without the proxy's secret;
+#                                             # needed unless COGLOSSA_HTTP_BIND is 127.0.0.1
+#   logout_url: /logout                       # where the web app's "Sign out" posts
+#   groups_header: X-Remote-Groups            # teams from the proxy (it must always set it)
+#   admin_group: coglossa-admins              # members are admins
+#   people_file: people.yaml                  # teams and admins, if the proxy has no groups
+# profiles:
+#   checkpoint: { short: false, standard: false, long-form: true }   # stop for guide review
+#   sweep: { short: false, standard: true, long-form: true }         # enforce locked entries
+# The database is set by the containers (COGLOSSA_DATABASE_URL); do not add a database section.

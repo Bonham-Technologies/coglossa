@@ -1,0 +1,27 @@
+# Suggested by `coglossa bench calibrate` from the bench run in out-cal, on 2026-10-14.
+# Each threshold is the highest that flags at most 10% of clean spans
+# with its own flag (low_meaning for meaning, style_drift for style) or a critical error
+# found by the judge: the clean false-positive rate, which carries over to real use.
+# Other flags (terminology, omission) also fire on some clean spans; flag-summary.md
+# gives the rate for all flags together. Recall is the share of injected errors caught,
+# averaged over the kinds of error with at least 10 examples, so that each kind
+# weighs the same.
+# Paste the `scoring:` section below into coglossa.yaml.
+#   tier A: threshold 86 flags 9% of clean spans; recall averaged over 4 kinds: 86% (omission 100% (685/688), number 49% (79/160), name 98% (130/133), negation 96% (642/669))
+#   tier B: threshold 84 flags 9% of clean spans; recall averaged over 4 kinds: 84% (omission 99% (647/656), number 46% (63/137), name 97% (97/100), negation 96% (623/651))
+#   tier C: threshold 70 flags 10% of clean spans; recall averaged over 4 kinds: 68% (omission 93% (610/655), number 29% (39/134), name 81% (119/147), negation 68% (438/642))
+#   style: threshold 100 flags 4% of clean spans; recall averaged over 1 kind: 39% (register 39% (457/1182))
+#   419 spans had a scoring error (a failed judge, back-translation or scorer call), so their flags may be missing; left out
+# Read these thresholds with two caveats:
+# - Injected spans carry no agreement signal (a reference has no translators to agree or
+#   disagree), so meaning was fitted without it; real runs add it.
+# - The meaning threshold that applies to a pair depends on its tier. If you also apply
+#   tiers.calibrated.yaml, rerun `bench flags` and `bench calibrate` with the new tiers
+#   before trusting these thresholds.
+scoring:
+  thresholds:
+    meaning:
+      A: 86
+      B: 84
+      C: 70
+    style: 100

@@ -1,0 +1,58 @@
+# Coglossa configuration — copy to coglossa.yaml and point it at your model servers.
+# Any OpenAI-compatible server works: vLLM, Ollama, TGI, llama.cpp server, LM Studio.
+backends:
+  gpu-a:
+    base_url: http://127.0.0.1:8000/v1   # e.g. vLLM; Ollama is http://host:11434/v1
+    # api_key_env: GPU_A_KEY             # name of an environment variable, if the server needs a key
+    max_concurrency: 4                   # never send more simultaneous requests than this
+    timeout_s: 120
+
+models:
+  fake-model:                  # the key is how roles refer to the model
+    backend: gpu-a
+    # name: Qwen/Qwen3-72B     # model id the server expects, if different from the key
+    context_window: 32768
+    structured_output: json_schema   # json_schema | json_object | none
+    # extra_body: { chat_template_kwargs: { enable_thinking: false } }   # options for the model server
+
+roles:
+  literal_translator:    { model: fake-model }
+  contextual_translator: { model: fake-model }   # use a different model family when you can
+  reviewer:              { model: fake-model }
+  profiler_guide:        { model: fake-model }
+  # judge:     { model: third-model }   # scores errors; must differ from the reviewer's model
+  # roundtrip: { model: third-model }   # back-translates; must differ from every translator's model
+  # Scores keep their full reliability tier only when neither the judge nor the roundtrip model
+  # is used by a translator (and the judge is not the reviewer's model); otherwise one tier lower.
+  # extra_translators:
+  #   - { name: second-opinion, prompt: contextual, model: other-model }
+
+# Scoring (spec §6). Without a scorer, qe/xsim/roundtrip signals are empty (null), never guessed.
+# scorer:
+#   url: http://127.0.0.1:8080          # the coglossa-scorer service (MetricX-24 + LaBSE)
+#   timeout_s: 300                       # per request; connect_timeout_s: 10 for the connection
+#   max_concurrency: 2                   # simultaneous requests to the scorer
+# scoring:
+#   thresholds: { meaning: { A: 86, B: 84, C: 70 }, style: 100 }   # calibrated defaults
+#   language_tiers_file: ./tiers.yaml   # override the built-in tiers
+
+# chunking: { target_words: 1500, max_words: 2000, reserve_tokens: 3000 }
+# profiles: { short_max_words: 1500, standard_max_words: 20000 }
+# retry: { max_attempts: 4, base_delay_s: 2, max_delay_s: 60 }
+# audit: { store_llm_io: true }
+# prompts_dir: ./prompts       # override templates: prompts/<id>/v<N>.j2
+#                              # (*_lang variables arrive as "Hausa (ha)", not "ha")
+
+# Queued runs (coglossa submit / coglossa worker; spec §7). `coglossa run` needs none of this.
+# database: { url_env: COGLOSSA_DATABASE_URL }  # postgresql://user:password@host:5432/coglossa
+# storage: { kind: local, path: /data/files }    # uploaded documents
+# worker: { concurrency: 8, stalled_after_s: 60 }
+
+# REST API (coglossa-api; spec §8): the interface the web app and scripts use.
+# api: { max_upload_mb: 200, progress_poll_s: 1.0 }
+# The API serves the built web app at / when api.web_dir names it (relative to this file),
+# e.g. api: { web_dir: ../web/dist } for engine/coglossa.yaml in a checkout
+# auth: { mode: none }   # or { mode: trusted_header, header: X-Remote-User } behind a proxy
+#                        # that authenticates users and sets that header
+# profiles:
+#   sweep: { short: false, standard: true, long-form: true }  # enforce locked guide entries

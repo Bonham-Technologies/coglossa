@@ -1,0 +1,60 @@
+# Calibrated by `coglossa bench calibrate`: pairs are tiered from the bench's MetricX.
+default: C
+languages:
+  A:
+  - de
+  - en
+  - es
+  - fr
+  - it
+  - ja
+  - nl
+  - pt
+  - ru
+  - zh
+  B:
+  - ar
+  - bg
+  - cs
+  - da
+  - el
+  - fa
+  - fi
+  - he
+  - hi
+  - hu
+  - id
+  - ko
+  - ms
+  - nb
+  - 'no'
+  - pl
+  - ro
+  - sk
+  - sv
+  - th
+  - tr
+  - uk
+  - vi
+pairs:
+  ar>en: A
+  en>am: A
+  en>ar: A
+  en>de: A
+  en>es: A
+  en>fr: A
+  en>ha: A
+  en>hi: A
+  en>id: A
+  en>ja: A
+  en>km: A
+  en>ne: A
+  en>ru: A
+  en>sw: A
+  en>tr: A
+  en>uk: A
+  en>vi: A
+  en>yo: B
+  en>zh-Hans: A
+  es>en: A
+  sw>en: A

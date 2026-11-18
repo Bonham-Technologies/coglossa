@@ -1,0 +1,125 @@
+{
+  "$defs": {
+    "Entity": {
+      "properties": {
+        "forms_of_address": {
+          "default": "",
+          "title": "Forms Of Address",
+          "type": "string"
+        },
+        "gender": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gender"
+        },
+        "kind": {
+          "description": "person, place, organization, or other",
+          "title": "Kind",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "rendering": {
+          "title": "Rendering",
+          "type": "string"
+        },
+        "speech_style": {
+          "default": "",
+          "title": "Speech Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "rendering",
+        "kind"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "GlossaryEntry": {
+      "properties": {
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "rendering": {
+          "description": "Target-language rendering to use",
+          "title": "Rendering",
+          "type": "string"
+        },
+        "term": {
+          "description": "Source-language term exactly as it appears",
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "rendering"
+      ],
+      "title": "GlossaryEntry",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "cultural_references": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Cultural References",
+      "type": "array"
+    },
+    "entities": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "glossary": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/GlossaryEntry"
+      },
+      "title": "Glossary",
+      "type": "array"
+    },
+    "style_guide": {
+      "title": "Style Guide",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "summary",
+    "style_guide"
+  ],
+  "title": "Guide",
+  "type": "object"
+}

@@ -1,0 +1,125 @@
+# Coglossa on one host (spec §10). Run it from the directory this file is in:
+#   ./install.sh                  once: loads the images; creates config/coglossa.yaml,
+#                                 config/tiers.yaml and .env
+#   docker compose up -d --wait   start; migrations run first
+#   docker compose up -d --wait --force-recreate migrate api worker
+#                                 apply a change to config/ or .env (the config is read at start)
+#   docker compose exec api coglossa doctor
+# The operator guide (operator-guide.md) explains every setting.
+name: coglossa
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 50m, max-file: "5" }
+
+x-app: &app
+  image: coglossa/app:${COGLOSSA_VERSION:-dev}
+  restart: unless-stopped
+  env_file:
+    - path: .env # backend API keys (api_key_env in the config) go here too
+      required: false
+  environment:
+    COGLOSSA_DATABASE_URL: postgresql://coglossa:${COGLOSSA_DB_PASSWORD:?run ./install.sh first; it creates .env with the database password}@postgres:5432/coglossa
+    # where the api port is published (below): coglossa-api and doctor warn when named users
+    # can be reached on it without the sign-in proxy (operator guide §6)
+    COGLOSSA_HTTP_BIND: ${COGLOSSA_HTTP_BIND:-0.0.0.0}
+  volumes:
+    - ./config:/etc/coglossa:ro
+    - files:/data/files
+  extra_hosts:
+    - host.docker.internal:host-gateway # a model server on this host (e.g. Ollama)
+  logging: *logging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coglossa
+      POSTGRES_PASSWORD: ${COGLOSSA_DB_PASSWORD:?run ./install.sh first; it creates .env with the database password}
+      POSTGRES_DB: coglossa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coglossa -d coglossa"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  migrate: # creates or upgrades the database schema, then exits; api and worker wait for it
+    <<: *app
+    restart: "no"
+    command: [coglossa, db, upgrade]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  scorer:
+    image: coglossa/scorer:${COGLOSSA_VERSION:-dev}
+    restart: unless-stopped
+    command:
+      - coglossa-scorer
+      - --qe-model
+      - /models/${COGLOSSA_QE_MODEL:-metricx-24-hybrid-large-v2p6}
+      - --qe-tokenizer
+      - /models/mt5-xl
+      - --embed-model
+      - /models/labse
+      - --device
+      - ${COGLOSSA_SCORER_DEVICE:-cpu}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      # Loading MetricX takes minutes on CPU, and longer on a slow one (CGL-48). Failures in
+      # the start period don't count and the first success marks the scorer healthy, so a
+      # long one never delays a healthy start; it only bounds the load: 15 minutes, as long as
+      # the worker waits for the scorer after a reboot (worker.scorer_wait_s, 900 s), plus
+      # 5 x 15 s after it. A slower host sets COGLOSSA_SCORER_START_PERIOD in .env. No
+      # start_interval: it needs Docker Engine 25, and the minimum is 24.
+      start_period: ${COGLOSSA_SCORER_START_PERIOD:-15m}
+    logging: *logging
+
+  worker:
+    <<: *app
+    command: [coglossa, worker]
+    volumes:
+      - ./config:/etc/coglossa:ro
+      - files:/data/files
+      # FLORES-200 for `coglossa bench` (operator guide, "Benchmark your models"); created
+      # empty when the bundle has no bench data, so the worker still starts
+      - type: bind
+        source: ./bench
+        target: /opt/coglossa/bench
+        read_only: true
+        bind: { create_host_path: true }
+    stop_grace_period: 2m # lets the running chunk finish; an unfinished one is re-queued
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      # no run is scored without the scorer; after a reboot Docker starts both at once and
+      # the worker waits for the scorer itself (worker.scorer_wait_s)
+      scorer: { condition: service_healthy }
+
+  api:
+    <<: *app # the image's command: coglossa-api serving the web app on 8080
+    ports:
+      - ${COGLOSSA_HTTP_BIND:-0.0.0.0}:${COGLOSSA_HTTP_PORT:-8080}:8080
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  pgdata: {}
+  files: {}

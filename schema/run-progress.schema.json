@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "RunState": {
+      "enum": [
+        "created",
+        "ingesting",
+        "profiling",
+        "building_guide",
+        "awaiting_guide_approval",
+        "translating",
+        "sweeping",
+        "complete",
+        "complete_with_errors",
+        "failed",
+        "cancelled"
+      ],
+      "title": "RunState",
+      "type": "string"
+    }
+  },
+  "description": "Progress of a queued run (spec §7.1); the API streams it over SSE in M4.",
+  "properties": {
+    "chunks_done": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Chunks Done",
+      "type": "object"
+    },
+    "chunks_total": {
+      "title": "Chunks Total",
+      "type": "integer"
+    },
+    "chunks_with_errors": {
+      "title": "Chunks With Errors",
+      "type": "integer"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "retryable": {
+      "default": false,
+      "description": "A retry can clear errors: the run failed, or it completed with failed or errored chunks or a sweep error. Errors from earlier stages (a config change, the guide) need a new run.",
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/RunState"
+    }
+  },
+  "required": [
+    "run_id",
+    "state",
+    "chunks_total",
+    "chunks_done",
+    "chunks_with_errors"
+  ],
+  "title": "RunProgress",
+  "type": "object"
+}

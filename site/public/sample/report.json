@@ -1,0 +1,346 @@
+{
+  "schema_version": "1",
+  "coglossa_version": "0.1.0",
+  "status": "complete",
+  "profile": {
+    "source_lang": "fr",
+    "target_lang": "en",
+    "mixed_language": false,
+    "genre": "other",
+    "tone_register": "neutral",
+    "word_count": 44,
+    "pipeline_profile": "short"
+  },
+  "guide": {
+    "summary": "Synthetic summary of 44 words.",
+    "style_guide": "Synthetic style guide.",
+    "glossary": [
+      {
+        "term": "Kerlann",
+        "rendering": "Kerlann",
+        "notes": "",
+        "locked": true
+      }
+    ],
+    "entities": [],
+    "cultural_references": []
+  },
+  "guide_proposals": [],
+  "segments": [
+    {
+      "id": "s1",
+      "block_id": "b1",
+      "start": 0,
+      "end": 54,
+      "text": "Le phare de Kerlann s'allume chaque soir à six heures."
+    },
+    {
+      "id": "s2",
+      "block_id": "b1",
+      "start": 55,
+      "end": 120,
+      "text": "Anna, la gardienne, monte les cent douze marches sans se presser."
+    },
+    {
+      "id": "s3",
+      "block_id": "b2",
+      "start": 0,
+      "end": 26,
+      "text": "Ce soir, la mer est calme."
+    },
+    {
+      "id": "s4",
+      "block_id": "b2",
+      "start": 27,
+      "end": 68,
+      "text": "Un bateau MISTRANSLATED approche du port."
+    },
+    {
+      "id": "s5",
+      "block_id": "b3",
+      "start": 0,
+      "end": 61,
+      "text": "Anna note l'heure dans son carnet, comme son père avant elle."
+    }
+  ],
+  "candidates": [
+    {
+      "chunk_id": "c1",
+      "translator": "literal",
+      "model": "fake-model",
+      "start": "s1",
+      "end": "s1",
+      "text": "[en] Le phare de Kerlann s'allume chaque soir à six heures.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "literal",
+      "model": "fake-model",
+      "start": "s2",
+      "end": "s2",
+      "text": "[en] Anna, la gardienne, monte les cent douze marches sans se presser.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "literal",
+      "model": "fake-model",
+      "start": "s3",
+      "end": "s3",
+      "text": "[en] Ce soir, la mer est calme.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "literal",
+      "model": "fake-model",
+      "start": "s4",
+      "end": "s4",
+      "text": "[en] Un bateau MISTRANSLATED approche du port.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "literal",
+      "model": "fake-model",
+      "start": "s5",
+      "end": "s5",
+      "text": "[en] Anna note l'heure dans son carnet, comme son père avant elle.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "contextual",
+      "model": "fake-model",
+      "start": "s1",
+      "end": "s1",
+      "text": "[en] Le phare de Kerlann s'allume chaque soir à six heures.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "contextual",
+      "model": "fake-model",
+      "start": "s2",
+      "end": "s2",
+      "text": "[en] Anna, la gardienne, monte les cent douze marches sans se presser.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "contextual",
+      "model": "fake-model",
+      "start": "s3",
+      "end": "s3",
+      "text": "[en] Ce soir, la mer est calme.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "contextual",
+      "model": "fake-model",
+      "start": "s4",
+      "end": "s4",
+      "text": "[en] Un bateau MISTRANSLATED approche du port.",
+      "notes": ""
+    },
+    {
+      "chunk_id": "c1",
+      "translator": "contextual",
+      "model": "fake-model",
+      "start": "s5",
+      "end": "s5",
+      "text": "[en] Anna note l'heure dans son carnet, comme son père avant elle.",
+      "notes": ""
+    }
+  ],
+  "spans": [
+    {
+      "id": "p1",
+      "chunk_id": "c1",
+      "start": "s1",
+      "end": "s1",
+      "text": "[en] Le phare de Kerlann s'allume chaque soir à six heures.",
+      "agreement": "agree",
+      "chosen_from": "literal",
+      "rationale": "",
+      "issues": [],
+      "score": {
+        "signals": {
+          "qe": 0.92,
+          "xsim": 0.8,
+          "judge": 1,
+          "agreement": 0.9,
+          "roundtrip": 0.8600000000000001,
+          "guide_check": null
+        },
+        "meaning": 91.9,
+        "style": 100,
+        "reliability": "A"
+      },
+      "flags": [],
+      "judge_errors": [],
+      "back_translation": "[fr] [en] Le phare de Kerlann s'allume chaque soir à six heures."
+    },
+    {
+      "id": "p2",
+      "chunk_id": "c1",
+      "start": "s2",
+      "end": "s2",
+      "text": "[en] Anna, la gardienne, monte les cent douze marches sans se presser.",
+      "agreement": "agree",
+      "chosen_from": "literal",
+      "rationale": "",
+      "issues": [],
+      "score": {
+        "signals": {
+          "qe": 0.92,
+          "xsim": 0.8,
+          "judge": 1,
+          "agreement": 0.9,
+          "roundtrip": 0.8600000000000001,
+          "guide_check": null
+        },
+        "meaning": 91.9,
+        "style": 100,
+        "reliability": "A"
+      },
+      "flags": [],
+      "judge_errors": [],
+      "back_translation": "[fr] [en] Anna, la gardienne, monte les cent douze marches sans se presser."
+    },
+    {
+      "id": "p3",
+      "chunk_id": "c1",
+      "start": "s3",
+      "end": "s3",
+      "text": "[en] Ce soir, la mer est calme.",
+      "agreement": "agree",
+      "chosen_from": "literal",
+      "rationale": "",
+      "issues": [],
+      "score": {
+        "signals": {
+          "qe": 0.92,
+          "xsim": 0.8,
+          "judge": 1,
+          "agreement": 0.9,
+          "roundtrip": 0.8600000000000001,
+          "guide_check": null
+        },
+        "meaning": 91.9,
+        "style": 100,
+        "reliability": "A"
+      },
+      "flags": [],
+      "judge_errors": [],
+      "back_translation": "[fr] [en] Ce soir, la mer est calme."
+    },
+    {
+      "id": "p4",
+      "chunk_id": "c1",
+      "start": "s4",
+      "end": "s4",
+      "text": "A boat is coming into the harbour.",
+      "agreement": "agree",
+      "chosen_from": "literal",
+      "rationale": "",
+      "issues": [],
+      "score": {
+        "signals": {
+          "qe": 0.92,
+          "xsim": 0.8,
+          "judge": 0,
+          "agreement": 0.9,
+          "roundtrip": 0.8600000000000001,
+          "guide_check": null
+        },
+        "meaning": 61.9,
+        "style": 100,
+        "reliability": "A"
+      },
+      "flags": [
+        {
+          "code": "low_meaning",
+          "explanation": "Meaning score 61.9 is below the 86 threshold. Synthetic critical error: the text is marked MISTRANSLATED.",
+          "evidence": {
+            "style": 100,
+            "meaning": 61.9,
+            "signals": {
+              "qe": 0.92,
+              "xsim": 0.8,
+              "judge": 0,
+              "agreement": 0.9,
+              "roundtrip": 0.8600000000000001,
+              "guide_check": null
+            },
+            "threshold": 86,
+            "judge_errors": [
+              {
+                "excerpt": "MISTRANSLATED",
+                "category": "accuracy/mistranslation",
+                "severity": "critical",
+                "explanation": "Synthetic critical error: the text is marked MISTRANSLATED."
+              }
+            ]
+          },
+          "status": "accepted",
+          "dismiss_reason": null
+        }
+      ],
+      "judge_errors": [
+        {
+          "category": "accuracy/mistranslation",
+          "severity": "critical",
+          "excerpt": "MISTRANSLATED",
+          "explanation": "Synthetic critical error: the text is marked MISTRANSLATED."
+        }
+      ],
+      "back_translation": "[fr] [en] Un bateau MISTRANSLATED approche du port."
+    },
+    {
+      "id": "p5",
+      "chunk_id": "c1",
+      "start": "s5",
+      "end": "s5",
+      "text": "[en] Anna note l'heure dans son carnet, comme son père avant elle.",
+      "agreement": "agree",
+      "chosen_from": "literal",
+      "rationale": "",
+      "issues": [],
+      "score": {
+        "signals": {
+          "qe": 0.92,
+          "xsim": 0.8,
+          "judge": 1,
+          "agreement": 0.9,
+          "roundtrip": 0.8600000000000001,
+          "guide_check": null
+        },
+        "meaning": 91.9,
+        "style": 100,
+        "reliability": "A"
+      },
+      "flags": [],
+      "judge_errors": [],
+      "back_translation": "[fr] [en] Anna note l'heure dans son carnet, comme son père avant elle."
+    }
+  ],
+  "revisions": [
+    {
+      "span_id": "p4",
+      "source": "user",
+      "before": "[en] Un bateau MISTRANSLATED approche du port.",
+      "after": "A boat is coming into the harbour.",
+      "reason": "edited by a reviewer"
+    }
+  ],
+  "language_tier": "A",
+  "notices": [],
+  "errors": [],
+  "document": {
+    "source_path": "Le phare de Kerlann.txt",
+    "format": "txt"
+  }
+}

@@ -1,0 +1,8 @@
+# Only public/ is served (vercel.json, outputDirectory). The rest is the check and the tools
+# that make the demo; keep it out of the deployment so nothing is installed or built.
+node_modules
+package.json
+pnpm-lock.yaml
+check.mjs
+tools
+README.md

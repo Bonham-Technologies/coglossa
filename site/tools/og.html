@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- The Open Graph card (1200 × 630). make-images.mjs renders it to public/og-image.png. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Coglossa card</title>
+    <style>
+      @font-face {
+        font-family: "Instrument Serif";
+        font-style: normal;
+        src: url("../public/fonts/instrument-serif-latin-400-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        font-style: italic;
+        src: url("../public/fonts/instrument-serif-latin-400-italic.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "DM Sans";
+        font-weight: 100 1000;
+        src: url("../public/fonts/dm-sans-latin-wght-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        font-weight: 500;
+        src: url("../public/fonts/geist-mono-latin-500-normal.woff2") format("woff2");
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+      }
+      body {
+        background: #0a0a0b;
+        color: #fafafa;
+        font-family: "DM Sans", sans-serif;
+        position: relative;
+        overflow: hidden;
+      }
+      body::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(245, 158, 11, 0.07) 2px, transparent 2px),
+          linear-gradient(90deg, rgba(245, 158, 11, 0.07) 2px, transparent 2px);
+        background-size: 64px 64px;
+      }
+      .card {
+        position: absolute;
+        inset: 0;
+        padding: 72px 80px;
+        display: flex;
+        flex-direction: column;
+      }
+      .mark {
+        font-family: "Geist Mono", monospace;
+        font-weight: 500;
+        font-size: 26px;
+        letter-spacing: 0.14em;
+      }
+      .mark span {
+        color: #f59e0b;
+      }
+      h1 {
+        font-family: "Instrument Serif", serif;
+        font-weight: 400;
+        font-size: 104px;
+        line-height: 1.02;
+        margin: auto 0 28px;
+      }
+      h1 em {
+        color: #f59e0b;
+      }
+      p {
+        margin: 0;
+        font-size: 30px;
+        color: #b4b4bc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="mark">COGLOSSA<span>.</span></div>
+      <h1>Translation that<br /><em>shows its work</em></h1>
+      <p>Several translators, one reviewer, every passage checked.</p>
+    </div>
+  </body>
+</html>

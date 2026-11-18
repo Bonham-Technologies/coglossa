@@ -1,0 +1,5 @@
+# Who is who for the e2e stack (CGL-26): `devstack.py --people` signs people in by X-Remote-User.
+admins: [e2e-admin]
+teams:
+  desk-a: [ana]
+  desk-b: [ben]

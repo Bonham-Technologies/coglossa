@@ -1,0 +1,13 @@
+# Language reliability tiers for how far Coglossa's scores can be trusted (spec §6.4).
+# The default meaning thresholds were calibrated against these tiers in October 2026
+# (docs/bench-results-2026-10.md). The tiers themselves are unchanged: a tier says how far the
+# scores can be trusted for a language, so check yours with `coglossa bench` on your own models.
+# A pair's tier is the worse of its two languages unless listed under `pairs`.
+# Languages are matched by base subtag, case-insensitively (pt-BR -> pt).
+default: C
+languages:
+  A: [en, de, es, fr, it, pt, nl, ru, zh, ja]
+  B: [ar, bg, cs, da, el, fa, fi, he, hi, hu, id, ko, ms, nb, "no", pl, ro, sk, sv, th, tr, uk, vi]
+pairs: {}
+# pairs:
+#   "en>yo": B   # e.g. your models are strong on this pair

@@ -1,0 +1,38 @@
+{
+  "$defs": {
+    "SimilarityPair": {
+      "properties": {
+        "a": {
+          "title": "A",
+          "type": "string"
+        },
+        "b": {
+          "title": "B",
+          "type": "string"
+        }
+      },
+      "required": [
+        "a",
+        "b"
+      ],
+      "title": "SimilarityPair",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "pairs": {
+      "items": {
+        "$ref": "#/$defs/SimilarityPair"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Pairs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "pairs"
+  ],
+  "title": "SimilarityRequest",
+  "type": "object"
+}

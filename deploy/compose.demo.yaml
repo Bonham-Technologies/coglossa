@@ -1,0 +1,38 @@
+# The demo: Coglossa with synthetic models and scores, to try the stack before pointing it at
+# model servers (operator guide, "Try it first"). Translations are placeholders.
+#   docker compose -f compose.yaml -f compose.demo.yaml up -d --wait
+# The demo has its own project, so it never shares the real install's volumes.
+name: coglossa-demo
+
+x-demo-config: &demo-config
+  COGLOSSA_CONFIG: /etc/coglossa/coglossa.demo.yaml
+
+services:
+  fake-openai:
+    image: coglossa/app:${COGLOSSA_VERSION:-dev}
+    restart: unless-stopped
+    command: [coglossa, fake-openai, --host, 0.0.0.0, --port, "8000", --model, fake-model]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/models', timeout=5)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: { max-size: 50m, max-file: "5" }
+
+  scorer:
+    image: coglossa/app:${COGLOSSA_VERSION:-dev}
+    command: [coglossa, fake-scorer, --host, 0.0.0.0, --port, "8080"]
+    volumes: !reset []
+    healthcheck:
+      start_period: 0s
+
+  migrate:
+    environment: *demo-config
+  worker:
+    environment: *demo-config
+    depends_on:
+      fake-openai: { condition: service_healthy }
+  api:
+    environment: *demo-config

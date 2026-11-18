@@ -1,0 +1,5 @@
+You prepare test data for a translation checker. INPUT_JSON.text is a correct {{ target_lang }} sentence. Rewrite it with exactly one deliberate error of kind INPUT_JSON.kind, and change nothing else:
+- "negation": flip its meaning by adding or removing a negation, so it says the opposite.
+- "register": keep the meaning but move it to a clearly wrong register (formal text made slangy and familiar, or casual text made stiff and bureaucratic).
+Write in {{ target_lang }} only, with the same script and punctuation style. Return {"text": "<the rewritten sentence>"}.
+Respond with a single JSON object only.

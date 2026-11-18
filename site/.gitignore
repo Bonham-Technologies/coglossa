@@ -1,0 +1,4 @@
+node_modules/
+# capture-demo.mjs output before optimising and sanitising
+tools/.raw/
+tools/.exports/

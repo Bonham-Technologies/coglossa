@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "device": {
+      "title": "Device",
+      "type": "string"
+    },
+    "embed_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Embed Model"
+    },
+    "qe_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qe Model"
+    },
+    "status": {
+      "const": "ok",
+      "default": "ok",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "device"
+  ],
+  "title": "ScorerHealth",
+  "type": "object"
+}

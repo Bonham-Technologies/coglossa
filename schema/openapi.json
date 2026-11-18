@@ -1,0 +1,5336 @@
+{
+  "components": {
+    "schemas": {
+      "ActionResult": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/RunProgress"
+          }
+        },
+        "required": [
+          "message",
+          "progress"
+        ],
+        "title": "ActionResult",
+        "type": "object"
+      },
+      "AddLanguage": {
+        "description": "Translate every file of a set into another language (CGL-24).",
+        "properties": {
+          "target_lang": {
+            "maxLength": 35,
+            "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+            "title": "Target Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_lang"
+        ],
+        "title": "AddLanguage",
+        "type": "object"
+      },
+      "Agreement": {
+        "enum": [
+          "agree",
+          "minor",
+          "major",
+          "unknown"
+        ],
+        "title": "Agreement",
+        "type": "string"
+      },
+      "ApproveGuide": {
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "guide": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Guide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ApproveGuide",
+        "type": "object"
+      },
+      "Block": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/BlockKind"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "provenance"
+        ],
+        "title": "Block",
+        "type": "object"
+      },
+      "BlockKind": {
+        "enum": [
+          "heading",
+          "paragraph",
+          "break",
+          "list_item",
+          "table_cell",
+          "footnote"
+        ],
+        "title": "BlockKind",
+        "type": "string"
+      },
+      "Body_import_glossary_api_projects__project_id__guide_import_post": {
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "lock_all": {
+            "default": false,
+            "title": "Lock All",
+            "type": "boolean"
+          },
+          "overwrite_conflicts": {
+            "default": false,
+            "title": "Overwrite Conflicts",
+            "type": "boolean"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_glossary_api_projects__project_id__guide_import_post",
+        "type": "object"
+      },
+      "Body_preview_glossary_import_api_projects__project_id__guide_import_preview_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_glossary_import_api_projects__project_id__guide_import_preview_post",
+        "type": "object"
+      },
+      "Body_upload_api_projects__project_id__runs_post": {
+        "properties": {
+          "all_languages": {
+            "default": false,
+            "title": "All Languages",
+            "type": "boolean"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "target_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Lang"
+          },
+          "use_project_guide": {
+            "default": false,
+            "title": "Use Project Guide",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_api_projects__project_id__runs_post",
+        "type": "object"
+      },
+      "Candidate": {
+        "properties": {
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "translator": {
+            "title": "Translator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "translator",
+          "model",
+          "start",
+          "end",
+          "text"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "CheckStatus": {
+        "enum": [
+          "pass",
+          "warn",
+          "fail"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
+      },
+      "Chunk": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Segment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "segment_ids"
+        ],
+        "title": "Chunk",
+        "type": "object"
+      },
+      "ConfigSnapshot": {
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "prompt_versions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Prompt Versions",
+            "type": "object"
+          },
+          "roles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "object"
+          },
+          "scorer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScorerHealth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "hash",
+          "roles",
+          "prompt_versions"
+        ],
+        "title": "ConfigSnapshot",
+        "type": "object"
+      },
+      "ConfigView": {
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "hash",
+          "config"
+        ],
+        "title": "ConfigView",
+        "type": "object"
+      },
+      "CreateProject": {
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "target_lang": {
+            "maxLength": 35,
+            "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+            "title": "Target Lang",
+            "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "required": [
+          "name",
+          "target_lang"
+        ],
+        "title": "CreateProject",
+        "type": "object"
+      },
+      "DoctorCheck": {
+        "properties": {
+          "fix": {
+            "default": "",
+            "title": "Fix",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "message"
+        ],
+        "title": "DoctorCheck",
+        "type": "object"
+      },
+      "DoctorReport": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "checks",
+          "ok"
+        ],
+        "title": "DoctorReport",
+        "type": "object"
+      },
+      "DocumentInfo": {
+        "properties": {
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_path",
+          "format",
+          "sha256"
+        ],
+        "title": "DocumentInfo",
+        "type": "object"
+      },
+      "DocumentProfile": {
+        "properties": {
+          "genre": {
+            "$ref": "#/components/schemas/Genre"
+          },
+          "mixed_language": {
+            "title": "Mixed Language",
+            "type": "boolean"
+          },
+          "pipeline_profile": {
+            "$ref": "#/components/schemas/PipelineProfile"
+          },
+          "source_lang": {
+            "title": "Source Lang",
+            "type": "string"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          },
+          "tone_register": {
+            "title": "Tone Register",
+            "type": "string"
+          },
+          "word_count": {
+            "title": "Word Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_lang",
+          "target_lang",
+          "mixed_language",
+          "genre",
+          "tone_register",
+          "word_count",
+          "pipeline_profile"
+        ],
+        "title": "DocumentProfile",
+        "type": "object"
+      },
+      "DocumentRun": {
+        "description": "A run as the documents list shows it: its summary and how many passages still wait to be\nchecked, by the rule of the passage list's \"To check\" (CGL-73).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          },
+          "to_check": {
+            "title": "To Check",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "document_id",
+          "filename",
+          "state",
+          "target_lang",
+          "source_lang",
+          "pipeline_profile",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "error",
+          "to_check"
+        ],
+        "title": "DocumentRun",
+        "type": "object"
+      },
+      "DocumentSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ingested": {
+            "title": "Ingested",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRun"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "filename",
+          "format",
+          "created_at",
+          "ingested",
+          "runs"
+        ],
+        "title": "DocumentSummary",
+        "type": "object"
+      },
+      "EditSpan": {
+        "properties": {
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The passage text the change started from; if it is no longer current, the change is refused with 409 `passage_changed`.",
+            "title": "Base"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "EditSpan",
+        "type": "object"
+      },
+      "Entity": {
+        "properties": {
+          "forms_of_address": {
+            "default": "",
+            "title": "Forms Of Address",
+            "type": "string"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "kind": {
+            "description": "person, place, organization, or other",
+            "title": "Kind",
+            "type": "string"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rendering": {
+            "title": "Rendering",
+            "type": "string"
+          },
+          "speech_style": {
+            "default": "",
+            "title": "Speech Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "rendering",
+          "kind"
+        ],
+        "title": "Entity",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "What an error answers (coglossa_api.errors): one line, plus a code for some conflicts.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "current_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Text"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorCategory": {
+        "enum": [
+          "accuracy/mistranslation",
+          "accuracy/omission",
+          "accuracy/addition",
+          "terminology",
+          "fluency",
+          "style/register",
+          "locale"
+        ],
+        "title": "ErrorCategory",
+        "type": "string"
+      },
+      "ErrorSeverity": {
+        "enum": [
+          "minor",
+          "major",
+          "critical"
+        ],
+        "title": "ErrorSeverity",
+        "type": "string"
+      },
+      "ExportKind": {
+        "enum": [
+          "html",
+          "docx",
+          "bilingual-docx",
+          "json",
+          "tmx"
+        ],
+        "title": "ExportKind",
+        "type": "string"
+      },
+      "Flag": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/FlagCode"
+          },
+          "dismiss_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismiss Reason"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FlagStatus",
+            "default": "open"
+          }
+        },
+        "required": [
+          "code",
+          "explanation"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
+      "FlagCode": {
+        "enum": [
+          "low_meaning",
+          "style_drift",
+          "agent_disagreement",
+          "terminology_violation",
+          "possible_omission",
+          "cultural_or_wordplay",
+          "engine_error",
+          "low_reliability_language",
+          "unscored",
+          "number_mismatch",
+          "unread_content"
+        ],
+        "title": "FlagCode",
+        "type": "string"
+      },
+      "FlagStatus": {
+        "enum": [
+          "open",
+          "accepted",
+          "dismissed",
+          "resolved"
+        ],
+        "title": "FlagStatus",
+        "type": "string"
+      },
+      "FlagUpdate": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "dismissed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FlagUpdate",
+        "type": "object"
+      },
+      "Genre": {
+        "enum": [
+          "literary_prose",
+          "poetry",
+          "technical",
+          "academic",
+          "legal",
+          "news",
+          "correspondence",
+          "social_media",
+          "transcript",
+          "other"
+        ],
+        "title": "Genre",
+        "type": "string"
+      },
+      "GlossaryEntry": {
+        "properties": {
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "rendering": {
+            "description": "Target-language rendering to use",
+            "title": "Rendering",
+            "type": "string"
+          },
+          "term": {
+            "description": "Source-language term exactly as it appears",
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "rendering"
+        ],
+        "title": "GlossaryEntry",
+        "type": "object"
+      },
+      "GlossaryImportPreview": {
+        "description": "What importing a glossary file would do; nothing is written (CGL-88).",
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "conflicts": {
+            "title": "Conflicts",
+            "type": "integer"
+          },
+          "duplicates": {
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "format": {
+            "enum": [
+              "csv",
+              "tsv",
+              "tbx"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "identical": {
+            "title": "Identical",
+            "type": "integer"
+          },
+          "locked_conflicts": {
+            "title": "Locked Conflicts",
+            "type": "integer"
+          },
+          "new": {
+            "title": "New",
+            "type": "integer"
+          },
+          "skipped_entries": {
+            "title": "Skipped Entries",
+            "type": "integer"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/GlossaryImportTerm"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "format",
+          "target_lang",
+          "source_lang",
+          "base_version",
+          "new",
+          "identical",
+          "conflicts",
+          "locked_conflicts",
+          "duplicates",
+          "skipped_entries",
+          "terms"
+        ],
+        "title": "GlossaryImportPreview",
+        "type": "object"
+      },
+      "GlossaryImportResult": {
+        "description": "An applied glossary import (CGL-88). With nothing to change, no version is added.",
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "created_version": {
+            "title": "Created Version",
+            "type": "boolean"
+          },
+          "duplicates": {
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "kept": {
+            "title": "Kept",
+            "type": "integer"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          },
+          "view": {
+            "$ref": "#/components/schemas/GuideView"
+          }
+        },
+        "required": [
+          "view",
+          "created_version",
+          "added",
+          "updated",
+          "locked",
+          "kept",
+          "duplicates"
+        ],
+        "title": "GlossaryImportResult",
+        "type": "object"
+      },
+      "GlossaryImportTerm": {
+        "description": "One term of a glossary file, compared with the guide (CGL-88).",
+        "properties": {
+          "current_locked": {
+            "default": false,
+            "title": "Current Locked",
+            "type": "boolean"
+          },
+          "current_rendering": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Rendering"
+          },
+          "first_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Line"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "rendering": {
+            "title": "Rendering",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "new",
+              "identical",
+              "conflict",
+              "duplicate"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "term": {
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "term",
+          "rendering",
+          "status"
+        ],
+        "title": "GlossaryImportTerm",
+        "type": "object"
+      },
+      "Guide": {
+        "properties": {
+          "cultural_references": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Cultural References",
+            "type": "array"
+          },
+          "entities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "glossary": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "title": "Glossary",
+            "type": "array"
+          },
+          "style_guide": {
+            "title": "Style Guide",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "style_guide"
+        ],
+        "title": "Guide",
+        "type": "object"
+      },
+      "GuideAddition": {
+        "description": "Exactly one of `glossary` (a term) or `entity` (a name).",
+        "properties": {
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Entity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "glossary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GlossaryEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "GuideAddition",
+        "type": "object"
+      },
+      "GuideVersionInfo": {
+        "properties": {
+          "author": {
+            "enum": [
+              "engine",
+              "user"
+            ],
+            "title": "Author",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "source_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Run Id"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "approved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "target_lang",
+          "status",
+          "author",
+          "source_run_id",
+          "created_at"
+        ],
+        "title": "GuideVersionInfo",
+        "type": "object"
+      },
+      "GuideView": {
+        "properties": {
+          "guide": {
+            "$ref": "#/components/schemas/Guide"
+          },
+          "info": {
+            "$ref": "#/components/schemas/GuideVersionInfo"
+          }
+        },
+        "required": [
+          "info",
+          "guide"
+        ],
+        "title": "GuideView",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JudgeError": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ErrorCategory"
+          },
+          "excerpt": {
+            "default": "",
+            "description": "Exact text from the translation that contains the error; empty for omissions",
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ErrorSeverity"
+          }
+        },
+        "required": [
+          "category",
+          "severity",
+          "explanation"
+        ],
+        "title": "JudgeError",
+        "type": "object"
+      },
+      "LLMCallRecord": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "integer"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "tokens_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens Out"
+          }
+        },
+        "required": [
+          "role",
+          "backend",
+          "model",
+          "prompt_id",
+          "prompt_version",
+          "attempt",
+          "ok"
+        ],
+        "title": "LLMCallRecord",
+        "type": "object"
+      },
+      "Me": {
+        "properties": {
+          "admin": {
+            "title": "Admin",
+            "type": "boolean"
+          },
+          "logout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logout Url"
+          },
+          "max_upload_mb": {
+            "title": "Max Upload Mb",
+            "type": "integer"
+          },
+          "teams": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "user",
+          "admin",
+          "teams",
+          "max_upload_mb"
+        ],
+        "title": "Me",
+        "type": "object"
+      },
+      "PipelineProfile": {
+        "enum": [
+          "short",
+          "standard",
+          "long-form"
+        ],
+        "title": "PipelineProfile",
+        "type": "string"
+      },
+      "ProjectInfo": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "files_failed": {
+            "title": "Files Failed",
+            "type": "integer"
+          },
+          "files_ready": {
+            "title": "Files Ready",
+            "type": "integer"
+          },
+          "files_translating": {
+            "title": "Files Translating",
+            "type": "integer"
+          },
+          "guide_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Version"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/SetLanguage"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "last_activity_at": {
+            "format": "date-time",
+            "title": "Last Activity At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "open_flags": {
+            "title": "Open Flags",
+            "type": "integer"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "target_lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Lang"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "target_lang",
+          "source_lang",
+          "pipeline_profile",
+          "team",
+          "created_by",
+          "created_at",
+          "documents",
+          "runs",
+          "guide_version",
+          "languages",
+          "last_activity_at",
+          "files_translating",
+          "files_ready",
+          "files_failed",
+          "open_flags"
+        ],
+        "title": "ProjectInfo",
+        "type": "object"
+      },
+      "Provenance": {
+        "properties": {
+          "cell": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableCellPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locator"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Note Refs",
+            "type": "array"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Region"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_path",
+          "index"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "Region": {
+        "description": "The part of a file a block comes from; blocks without one are body text.",
+        "enum": [
+          "header",
+          "footer",
+          "footnote",
+          "endnote"
+        ],
+        "title": "Region",
+        "type": "string"
+      },
+      "Reliability": {
+        "enum": [
+          "A",
+          "B",
+          "C",
+          "unscored"
+        ],
+        "title": "Reliability",
+        "type": "string"
+      },
+      "Report": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "chunks": {
+            "items": {
+              "$ref": "#/components/schemas/Chunk"
+            },
+            "title": "Chunks",
+            "type": "array"
+          },
+          "coglossa_version": {
+            "title": "Coglossa Version",
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ConfigSnapshot"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/DocumentInfo"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/RunError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "guide": {
+            "$ref": "#/components/schemas/Guide"
+          },
+          "guide_proposals": {
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "title": "Guide Proposals",
+            "type": "array"
+          },
+          "language_tier": {
+            "$ref": "#/components/schemas/Reliability",
+            "default": "unscored"
+          },
+          "llm_calls": {
+            "items": {
+              "$ref": "#/components/schemas/LLMCallRecord"
+            },
+            "title": "Llm Calls",
+            "type": "array"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Notices",
+            "type": "array"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/DocumentProfile"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/Revision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "schema_version": {
+            "const": "1",
+            "default": "1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "title": "Spans",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "coglossa_version",
+          "created_at",
+          "status",
+          "document",
+          "profile",
+          "guide",
+          "blocks",
+          "segments",
+          "chunks",
+          "candidates",
+          "spans",
+          "usage",
+          "config"
+        ],
+        "title": "Report",
+        "type": "object"
+      },
+      "ReviewFlag": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/FlagCode"
+          },
+          "dismiss_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismiss Reason"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FlagStatus"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "explanation",
+          "status"
+        ],
+        "title": "ReviewFlag",
+        "type": "object"
+      },
+      "ReviewSpan": {
+        "properties": {
+          "agreement": {
+            "$ref": "#/components/schemas/Agreement"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewFlag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "score": {
+            "$ref": "#/components/schemas/SpanScore"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "chunk_id",
+          "start",
+          "end",
+          "source",
+          "text",
+          "agreement",
+          "score",
+          "flags",
+          "edited"
+        ],
+        "title": "ReviewSpan",
+        "type": "object"
+      },
+      "ReviewStats": {
+        "properties": {
+          "edited_spans": {
+            "title": "Edited Spans",
+            "type": "integer"
+          },
+          "flags_by_code": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Flags By Code",
+            "type": "object"
+          },
+          "open_flags": {
+            "title": "Open Flags",
+            "type": "integer"
+          },
+          "spans": {
+            "title": "Spans",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spans",
+          "open_flags",
+          "flags_by_code",
+          "edited_spans"
+        ],
+        "title": "ReviewStats",
+        "type": "object"
+      },
+      "Revision": {
+        "description": "One change to a span's text. Span.text is always the latest revision.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RevisionSource"
+          },
+          "span_id": {
+            "title": "Span Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "span_id",
+          "source",
+          "after",
+          "reason"
+        ],
+        "title": "Revision",
+        "type": "object"
+      },
+      "RevisionEntry": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RevisionSource"
+          }
+        },
+        "required": [
+          "source",
+          "before",
+          "after",
+          "reason",
+          "created_at"
+        ],
+        "title": "RevisionEntry",
+        "type": "object"
+      },
+      "RevisionSource": {
+        "enum": [
+          "engine",
+          "sweep",
+          "user"
+        ],
+        "title": "RevisionSource",
+        "type": "string"
+      },
+      "RunDetail": {
+        "properties": {
+          "guide_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Version"
+          },
+          "language_tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reliability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Notices",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/RunProblem"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/RunProgress"
+          },
+          "report_available": {
+            "title": "Report Available",
+            "type": "boolean"
+          },
+          "run": {
+            "$ref": "#/components/schemas/RunSummary"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/ReviewStats"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "sweep_enabled": {
+            "title": "Sweep Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run",
+          "progress",
+          "profile",
+          "language_tier",
+          "notices",
+          "summary",
+          "guide_version",
+          "stats",
+          "report_available",
+          "sweep_enabled"
+        ],
+        "title": "RunDetail",
+        "type": "object"
+      },
+      "RunError": {
+        "properties": {
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "message"
+        ],
+        "title": "RunError",
+        "type": "object"
+      },
+      "RunProblem": {
+        "description": "A problem with the whole file rather than one passage, such as a translation guide that\ncouldn't be built (CGL-80). `text` is a plain sentence for the app; the error itself stays in\nthe log and the report.",
+        "properties": {
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "text"
+        ],
+        "title": "RunProblem",
+        "type": "object"
+      },
+      "RunProgress": {
+        "description": "Progress of a queued run (spec §7.1); the API streams it over SSE in M4.",
+        "properties": {
+          "chunks_done": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Chunks Done",
+            "type": "object"
+          },
+          "chunks_total": {
+            "title": "Chunks Total",
+            "type": "integer"
+          },
+          "chunks_with_errors": {
+            "title": "Chunks With Errors",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "retryable": {
+            "default": false,
+            "description": "A retry can clear errors: the run failed, or it completed with failed or errored chunks or a sweep error. Errors from earlier stages (a config change, the guide) need a new run.",
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          }
+        },
+        "required": [
+          "run_id",
+          "state",
+          "chunks_total",
+          "chunks_done",
+          "chunks_with_errors"
+        ],
+        "title": "RunProgress",
+        "type": "object"
+      },
+      "RunRequest": {
+        "description": "A new run of a document; the fields left out take the project's defaults.",
+        "properties": {
+          "checkpoint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "target_lang": {
+            "anyOf": [
+              {
+                "maxLength": 35,
+                "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Lang"
+          },
+          "use_project_guide": {
+            "default": false,
+            "title": "Use Project Guide",
+            "type": "boolean"
+          }
+        },
+        "title": "RunRequest",
+        "type": "object"
+      },
+      "RunState": {
+        "enum": [
+          "created",
+          "ingesting",
+          "profiling",
+          "building_guide",
+          "awaiting_guide_approval",
+          "translating",
+          "sweeping",
+          "complete",
+          "complete_with_errors",
+          "failed",
+          "cancelled"
+        ],
+        "title": "RunState",
+        "type": "string"
+      },
+      "RunStatus": {
+        "enum": [
+          "complete",
+          "complete_with_errors"
+        ],
+        "title": "RunStatus",
+        "type": "string"
+      },
+      "RunSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "pipeline_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PipelineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Lang"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "document_id",
+          "filename",
+          "state",
+          "target_lang",
+          "source_lang",
+          "pipeline_profile",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "error"
+        ],
+        "title": "RunSummary",
+        "type": "object"
+      },
+      "SaveGuide": {
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "guide": {
+            "$ref": "#/components/schemas/Guide"
+          }
+        },
+        "required": [
+          "guide",
+          "base_version"
+        ],
+        "title": "SaveGuide",
+        "type": "object"
+      },
+      "ScorerHealth": {
+        "properties": {
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "embed_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embed Model"
+          },
+          "qe_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qe Model"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "title": "ScorerHealth",
+        "type": "object"
+      },
+      "Segment": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "block_id",
+          "start",
+          "end",
+          "text"
+        ],
+        "title": "Segment",
+        "type": "object"
+      },
+      "SetLanguage": {
+        "description": "One language a set is translated into (CGL-24).",
+        "properties": {
+          "guide_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Version"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_lang",
+          "guide_version"
+        ],
+        "title": "SetLanguage",
+        "type": "object"
+      },
+      "Span": {
+        "properties": {
+          "agreement": {
+            "$ref": "#/components/schemas/Agreement"
+          },
+          "back_translation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Translation"
+          },
+          "chosen_from": {
+            "title": "Chosen From",
+            "type": "string"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "judge_errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JudgeError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Errors"
+          },
+          "rationale": {
+            "default": "",
+            "title": "Rationale",
+            "type": "string"
+          },
+          "score": {
+            "$ref": "#/components/schemas/SpanScore"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "chunk_id",
+          "start",
+          "end",
+          "text",
+          "agreement",
+          "chosen_from",
+          "score"
+        ],
+        "title": "Span",
+        "type": "object"
+      },
+      "SpanDetail": {
+        "properties": {
+          "agreement": {
+            "$ref": "#/components/schemas/Agreement"
+          },
+          "back_translation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Translation"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "chosen_from": {
+            "title": "Chosen From",
+            "type": "string"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewFlag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "judge_errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JudgeError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Errors"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/RevisionEntry"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "score": {
+            "$ref": "#/components/schemas/SpanScore"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "chunk_id",
+          "start",
+          "end",
+          "source",
+          "text",
+          "agreement",
+          "score",
+          "flags",
+          "edited",
+          "chosen_from",
+          "rationale",
+          "issues",
+          "judge_errors",
+          "back_translation",
+          "candidates",
+          "revisions"
+        ],
+        "title": "SpanDetail",
+        "type": "object"
+      },
+      "SpanPage": {
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewSpan"
+            },
+            "title": "Spans",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "offset",
+          "limit",
+          "spans"
+        ],
+        "title": "SpanPage",
+        "type": "object"
+      },
+      "SpanScore": {
+        "properties": {
+          "meaning": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meaning"
+          },
+          "reliability": {
+            "$ref": "#/components/schemas/Reliability",
+            "default": "unscored"
+          },
+          "signals": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Signals",
+            "type": "object"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          }
+        },
+        "required": [
+          "signals"
+        ],
+        "title": "SpanScore",
+        "type": "object"
+      },
+      "TableCellPosition": {
+        "description": "Where a table cell sits, so an export can rebuild the table (CGL-87). Rows and columns\ncount the table's grid from 1; a merged cell is placed at its top-left corner.",
+        "properties": {
+          "col": {
+            "title": "Col",
+            "type": "integer"
+          },
+          "col_span": {
+            "default": 1,
+            "title": "Col Span",
+            "type": "integer"
+          },
+          "cols": {
+            "title": "Cols",
+            "type": "integer"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableCellPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "row_span": {
+            "default": 1,
+            "title": "Row Span",
+            "type": "integer"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "table": {
+            "title": "Table",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "table",
+          "rows",
+          "cols",
+          "row",
+          "col"
+        ],
+        "title": "TableCellPosition",
+        "type": "object"
+      },
+      "TierTable": {
+        "description": "The language tier table for the System page (spec §6.4).",
+        "properties": {
+          "default": {
+            "$ref": "#/components/schemas/Reliability"
+          },
+          "languages": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Reliability"
+            },
+            "title": "Languages",
+            "type": "object"
+          },
+          "pairs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Reliability"
+            },
+            "title": "Pairs",
+            "type": "object"
+          }
+        },
+        "required": [
+          "default",
+          "languages",
+          "pairs"
+        ],
+        "title": "TierTable",
+        "type": "object"
+      },
+      "UpdateProject": {
+        "description": "Rename a set and/or (admins) move it to another team; at least one field.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "title": "UpdateProject",
+        "type": "object"
+      },
+      "Usage": {
+        "properties": {
+          "by_role": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "By Role",
+            "type": "object"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "tokens_in",
+          "tokens_out",
+          "by_role"
+        ],
+        "title": "Usage",
+        "type": "object"
+      },
+      "UseCandidate": {
+        "properties": {
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The passage text the change started from; if it is no longer current, the change is refused with 409 `passage_changed`.",
+            "title": "Base"
+          },
+          "translator": {
+            "minLength": 1,
+            "title": "Translator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "translator"
+        ],
+        "title": "UseCandidate",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "summary": "Multi-agent translation with verifiable, scored output.",
+    "title": "Coglossa",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/documents/{document_id}/runs": {
+      "post": {
+        "description": "A new run of an uploaded document. Fields left out take the project's defaults.",
+        "operationId": "new_run_api_documents__document_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "New Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Liveness: answers without the database and without a signed-in user.",
+        "operationId": "get_health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Health Api Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "get_me_api_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Me",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "description": "The sets the person may see (CGL-26).",
+        "operationId": "list_projects_api_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectInfo"
+                  },
+                  "title": "Response List Projects Api Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "projects"
+        ]
+      },
+      "post": {
+        "description": "A new set in one of the person's teams (admins: any team), or, without a team, personal\nto the person who makes it (CGL-26).",
+        "operationId": "create_project_api_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}": {
+      "delete": {
+        "description": "Deletes every document, run, stored file and model-call payload of the project\n(spec §5). `confirm` must repeat the project's name.",
+        "operationId": "delete_project_api_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Confirm",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project",
+        "tags": [
+          "projects"
+        ]
+      },
+      "get": {
+        "operationId": "get_project_api_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project",
+        "tags": [
+          "projects"
+        ]
+      },
+      "patch": {
+        "description": "Rename a project (names stay unique, 409, and cannot be blank, 422); admins can also\nmove it to another team, or with `team: null` make it personal to its creator (CGL-26).",
+        "operationId": "update_project_api_projects__project_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Only an administrator moves a set."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such project."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Another project already has that name."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/documents": {
+      "get": {
+        "operationId": "list_documents_api_projects__project_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentSummary"
+                  },
+                  "title": "Response List Documents Api Projects  Project Id  Documents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Documents",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/guide": {
+      "get": {
+        "description": "The set guide of one language (`target_lang`, else the set's first language).",
+        "operationId": "project_guide_api_projects__project_id__guide_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 35,
+                  "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project Guide",
+        "tags": [
+          "guide"
+        ]
+      },
+      "put": {
+        "description": "A person's edit of one language's set guide (`target_lang`, else the set's first).",
+        "operationId": "save_guide_api_projects__project_id__guide_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 35,
+                  "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveGuide"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Guide",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/guide/import": {
+      "post": {
+        "description": "Import a glossary into one language's set guide as a new version by the user, all or\nnothing. `base_version`: the guide version the preview showed (none for a set without a\nguide); a newer one refuses the import (409 `guide_changed`). Terms the guide has with\nanother translation keep it unless `overwrite_conflicts`, locked ones too; `lock_all` locks\nevery imported term. With nothing to change, no version is added.",
+        "operationId": "import_glossary_api_projects__project_id__guide_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 35,
+                  "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_glossary_api_projects__project_id__guide_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlossaryImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such project."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The guide changed since the preview."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The file is larger than the upload limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The file cannot be read; the message names the line."
+          }
+        },
+        "summary": "Import Glossary",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/guide/import/preview": {
+      "post": {
+        "description": "What importing a CSV, TSV or TBX glossary into one language's set guide would do: how\nmany terms are new, already there, or there with another translation. Writes nothing.\n`source_lang`: the language of a TBX file's terms (default: the set's, else the file's\none other language, else that of the set's documents).",
+        "operationId": "preview_glossary_import_api_projects__project_id__guide_import_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 35,
+                  "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_glossary_import_api_projects__project_id__guide_import_preview_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlossaryImportPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such project."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The file is larger than the upload limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The file cannot be read; the message names the line."
+          }
+        },
+        "summary": "Preview Glossary Import",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/guide/versions": {
+      "get": {
+        "description": "The versions of one language's set guide, newest first.",
+        "operationId": "guide_versions_api_projects__project_id__guide_versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 35,
+                  "pattern": "^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8})*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GuideVersionInfo"
+                  },
+                  "title": "Response Guide Versions Api Projects  Project Id  Guide Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Guide Versions",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/languages": {
+      "post": {
+        "description": "Translate every file of the set into another language, with nothing uploaded again\n(CGL-24). Each language has its own translation guide. Refused: a language the set already\nhas (409, code `language_exists`), a set with no files (422).",
+        "operationId": "add_language_api_projects__project_id__languages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddLanguage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response Add Language Api Projects  Project Id  Languages Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such project."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The set is already in that language."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Language",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/runs": {
+      "post": {
+        "description": "Upload a document and queue a run. Form fields left out take the project's defaults.\n`all_languages`: also start the file in every other language of the set (CGL-24); the run\nreturned is the one in `target_lang`.",
+        "operationId": "upload_api_projects__project_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_projects__project_id__runs_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "description": "The runs of the sets the person may see (CGL-26).",
+        "operationId": "list_runs_api_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "document_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Document Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response List Runs Api Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_api_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/events": {
+      "get": {
+        "description": "Server-sent events: `progress` (a RunProgress) whenever it changes; `deleted` if the\nrun is deleted. The stream ends after a terminal state.",
+        "operationId": "run_events_api_runs__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Events",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/exports/{kind}": {
+      "get": {
+        "description": "`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies\nto tmx: only the passages a person accepted or edited, with the text they approved.",
+        "operationId": "export_api_runs__run_id__exports__kind__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ExportKind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "comments",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Comments",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reviewed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Reviewed Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {},
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
+              "application/x-tmx+xml": {},
+              "text/html": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/flags/{flag_id}": {
+      "post": {
+        "operationId": "set_flag_api_runs__run_id__flags__flag_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "flag_id",
+            "required": true,
+            "schema": {
+              "title": "Flag Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Flag",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/guide": {
+      "get": {
+        "operationId": "run_guide_api_runs__run_id__guide_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Guide",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/guide/approve": {
+      "post": {
+        "description": "Approve the guide of a run waiting at the checkpoint, as generated or edited; the run\ncontinues translating. Refused (409) when the project guide is no longer the one the draft\nwas built from or, with an edited `guide` and a `base_version` of the project guide, no\nlonger that version: reload it and approve the current guide. Refused (422): a\n`base_version` without a `guide`, or one that is neither the draft's nor the project\nguide's version.",
+        "operationId": "approve_api_runs__run_id__guide_approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApproveGuide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/progress": {
+      "get": {
+        "description": "Polling fallback for the progress stream (GET /runs/{run_id}/events).",
+        "operationId": "get_progress_api_runs__run_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Progress",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/report": {
+      "get": {
+        "operationId": "get_report_api_runs__run_id__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Report",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/retry": {
+      "post": {
+        "operationId": "retry_api_runs__run_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans": {
+      "get": {
+        "description": "Spans in reading order. `flagged` and `code` look at open flags only; a span without a\nscore never matches a score bound.",
+        "operationId": "span_page_api_runs__run_id__spans_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "flagged",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flagged"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FlagCode"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_meaning",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Meaning"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_meaning",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Meaning"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_style",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Style"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_style",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Style"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Span Page",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans/{span_id}": {
+      "get": {
+        "operationId": "span_detail_api_runs__run_id__spans__span_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "span_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Span Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Span Detail",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans/{span_id}/accept": {
+      "post": {
+        "description": "Accept the passage as it is: its open flags become accepted.",
+        "operationId": "accept_api_runs__run_id__spans__span_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "span_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Span Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans/{span_id}/edit": {
+      "post": {
+        "operationId": "edit_api_runs__run_id__spans__span_id__edit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "span_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Span Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditSpan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Someone else changed the passage since `base` (code `passage_changed`, with `current_text`), or the run is not open for review."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans/{span_id}/guide": {
+      "post": {
+        "operationId": "add_to_guide_api_runs__run_id__spans__span_id__guide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "span_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Span Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuideAddition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add To Guide",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/spans/{span_id}/use-candidate": {
+      "post": {
+        "operationId": "use_candidate_api_runs__run_id__spans__span_id__use_candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "span_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Span Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseCandidate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Someone else changed the passage since `base` (code `passage_changed`, with `current_text`), or the run is not open for review."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Candidate",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/sweep": {
+      "post": {
+        "description": "Re-run the consistency sweep with the project guide, which may be a newer draft of a\nfile translating alongside this one (spec §8.3).",
+        "operationId": "rerun_sweep_api_runs__run_id__sweep_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rerun Sweep",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/system/config": {
+      "get": {
+        "operationId": "config_api_system_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Config",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/doctor": {
+      "get": {
+        "description": "Installation checks (spec §7.4). `probe=true` adds the slow context-window probe.",
+        "operationId": "doctor_api_system_doctor_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "probe",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Probe",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Doctor",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/tiers": {
+      "get": {
+        "operationId": "tiers_api_system_tiers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TierTable"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tiers",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/teams": {
+      "get": {
+        "description": "CGL-26: team names to suggest when moving a set (admins only).",
+        "operationId": "teams_api_teams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Teams Api Teams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Teams",
+        "tags": [
+          "system"
+        ]
+      }
+    }
+  }
+}

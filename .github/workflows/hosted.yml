@@ -1,0 +1,76 @@
+name: hosted
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+concurrency: { group: hosted-deploy, cancel-in-progress: false }
+permissions:
+  contents: read
+jobs:
+  deploy:
+    # A fork PR from a branch named main also matches the branches filter, so require a push from this repo.
+    # A manual run deploys main only.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    # The deploy secrets live in this Environment, which needs the owner's approval per run.
+    environment: hosted-preview
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      COGLOSSA_SMOKE_PASSWORD: ${{ secrets.COGLOSSA_SMOKE_PASSWORD }}
+      # the Modal workspace proxy-auth token: the smoke test reaches the API with it
+      COGLOSSA_MODAL_KEY: ${{ secrets.COGLOSSA_MODAL_KEY }}
+      COGLOSSA_MODAL_SECRET: ${{ secrets.COGLOSSA_MODAL_SECRET }}
+      SITE_URL: ${{ vars.COGLOSSA_SITE_URL }}
+      API_ORIGIN: ${{ vars.COGLOSSA_API_ORIGIN }}
+    steps:
+      - name: skip without deploy secrets
+        id: gate
+        run: |
+          if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::hosted deploy skipped: MODAL_TOKEN_ID or VERCEL_TOKEN is not set"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - if: steps.gate.outputs.run == 'true'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - if: steps.gate.outputs.run == 'true'
+        name: deploy the backend
+        # migrations first: the new code never runs against the old schema
+        run: |
+          uv run --with-requirements deploy/hosted/modal/requirements.txt modal run deploy/hosted/modal/app.py::migrate
+          uv run --with-requirements deploy/hosted/modal/requirements.txt modal deploy deploy/hosted/modal/app.py
+      - if: steps.gate.outputs.run == 'true'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: deploy/hosted/vercel/package.json
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - if: steps.gate.outputs.run == 'true'
+        name: deploy the front door
+        run: |
+          deploy/hosted/vercel/build.sh
+          cd deploy/hosted/vercel
+          npx --yes vercel@61.1.0 deploy --prod --yes --token "$VERCEL_TOKEN"
+      - if: steps.gate.outputs.run == 'true' && env.COGLOSSA_SMOKE_PASSWORD != '' && env.SITE_URL != '' && env.API_ORIGIN != ''
+        name: smoke test
+        run: uv run --with httpx python deploy/hosted/smoke.py --site "$SITE_URL" --api-origin "$API_ORIGIN" --user ci

@@ -1,0 +1,224 @@
+/* Spec §3.1, §7.3: the frame. */
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* a link that looks like the top bar's quiet buttons (Help, the theme switch): the same box as
+   button.quiet in base.css, transparent border included, so the items line up */
+.topbar-actions a.quiet {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-1);
+  color: var(--text);
+  text-decoration: none;
+  text-underline-offset: 0.25em;
+}
+
+.topbar-actions a.quiet:hover,
+.topbar-actions a.quiet:focus-visible {
+  background: var(--surface-2);
+  text-decoration: underline;
+}
+
+/* the current page: a heavier underline rather than bold text, so the bar doesn't shift */
+.topbar-actions a.quiet[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 0.125em;
+}
+
+.topbar-actions .user {
+  color: var(--text-muted);
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--topbar-height);
+  width: var(--sidebar-width);
+  height: calc(100vh - var(--topbar-height));
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar .new {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+
+.sidebar input[type="search"] {
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+.sidebar .group {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-1);
+}
+
+.set-row:hover {
+  background: var(--surface-2);
+}
+
+.set-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  border-radius: var(--radius-1);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.set-link.active {
+  background: var(--selected);
+}
+
+.set-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  font-size: var(--text-sm);
+}
+
+.row-menu > button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-5) var(--space-6);
+}
+
+.shortcuts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+}
+
+.shortcuts dd {
+  margin: 0;
+}
+
+kbd {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.narrow-only {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .narrow-only {
+    display: inline-flex;
+  }
+
+  /* A phone's top bar stays one line: the menu is an icon, the signed-in name is left out
+     (Sign out stays), and nothing wraps below the bar. */
+  .topbar,
+  .topbar > .row {
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  .topbar-actions {
+    gap: var(--space-2);
+    white-space: nowrap;
+  }
+
+  /* tighter quiet items (the menu icon, Help, Settings) so the bar fits a 360px screen */
+  .topbar button.quiet,
+  .topbar a.quiet {
+    padding-inline: var(--space-2);
+  }
+
+  /* The theme toggle stays in Settings ▸ Appearance. */
+  .topbar-actions .user,
+  .wide-only {
+    display: none;
+  }
+
+  .nav-toggle {
+    font-size: var(--text-lg);
+    line-height: 1;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    z-index: 15;
+    display: none;
+    box-shadow: var(--shadow);
+  }
+
+  .sidebar.open {
+    display: block;
+  }
+
+  .main {
+    padding: var(--space-4);
+  }
+}

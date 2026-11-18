@@ -1,0 +1,16 @@
+# Development and test database only; the deployable compose file is deploy/compose.yaml.
+name: coglossa-dev
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: coglossa
+      POSTGRES_PASSWORD: coglossa
+      POSTGRES_DB: coglossa
+    ports: ["127.0.0.1:55432:5432"]
+    tmpfs: [/var/lib/postgresql/data]  # throwaway: tests create and drop their own databases
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coglossa"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

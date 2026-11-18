@@ -1,0 +1,211 @@
+"""Sweep stage (spec §4.1): after every chunk is done, enforce the locked guide entries
+(glossary terms and names a human locked) across the whole document, and resolve the terms the
+reviewers proposed. Every text change is a SpanChange with a reason; nothing changes silently.
+Scores keep describing the reviewed draft they were computed on."""
+
+import asyncio
+from dataclasses import dataclass
+
+from pydantic import BaseModel, Field
+
+from coglossa.llm.agent import AGENT_FAILURES
+from coglossa.schema import (
+    DocumentProfile,
+    FlagCode,
+    FlagStatus,
+    GlossaryEntry,
+    Guide,
+    Revision,
+    RevisionSource,
+    RunError,
+    Segment,
+    Span,
+)
+from coglossa.scoring.rules import GuideViolation, guide_check
+from coglossa.stages.context import StageContext
+from coglossa.stages.guide import guide_slice
+from coglossa.stages.translate import CUT_OFF, looks_cut_off
+
+
+class SweepFix(BaseModel):
+    text: str = Field(description="The full revised translation of the passage")
+
+
+@dataclass(frozen=True)
+class SpanChange:
+    span_id: str
+    before: str
+    after: str
+    reason: str
+    resolved: tuple[FlagCode, ...]  # flag codes the change fixed
+
+
+@dataclass
+class SweepResult:
+    spans: list[Span]  # same order as the input; text and flag status updated
+    changes: list[SpanChange]
+    errors: list[RunError]
+
+    @property
+    def revisions(self) -> list[Revision]:
+        return [
+            Revision(
+                span_id=c.span_id,
+                source=RevisionSource.SWEEP,
+                before=c.before,
+                after=c.after,
+                reason=c.reason,
+            )
+            for c in self.changes
+        ]
+
+
+def span_sources(spans: list[Span], segments: list[Segment]) -> list[str]:
+    positions = {s.id: i for i, s in enumerate(segments)}
+    return [
+        " ".join(seg.text for seg in segments[positions[sp.start] : positions[sp.end] + 1])
+        for sp in spans
+    ]
+
+
+def _locked_violations(source: str, text: str, guide: Guide) -> list[GuideViolation]:
+    _, violations = guide_check(source, text, guide)
+    return [v for v in violations if v.locked]
+
+
+async def run_sweep(
+    ctx: StageContext,
+    profile: DocumentProfile,
+    guide: Guide,
+    spans: list[Span],
+    segments: list[Segment],
+) -> SweepResult:
+    sources = span_sources(spans, segments)
+    todo = [
+        (i, violations)
+        for i, span in enumerate(spans)
+        if span.text.strip() and (violations := _locked_violations(sources[i], span.text, guide))
+    ]
+    results = await asyncio.gather(
+        *(_fix(ctx, profile, guide, spans[i], sources[i], v) for i, v in todo),
+        return_exceptions=True,
+    )
+    new_spans = list(spans)
+    changes: list[SpanChange] = []
+    errors: list[RunError] = []
+    for (i, violations), result in zip(todo, results, strict=True):
+        span = spans[i]
+        if isinstance(result, AGENT_FAILURES):
+            errors.append(
+                RunError(
+                    stage="sweep",
+                    chunk_id=span.chunk_id,
+                    role="sweep",
+                    message=f"{span.id}: {result}",
+                )
+            )
+            continue
+        if isinstance(result, BaseException):
+            raise result
+        # validation guarantees the text changed: it now contains a rendering it lacked
+        rules = "; ".join(f"'{v.term}' → '{v.expected}'" for v in violations)
+        flags = [
+            f.model_copy(update={"status": FlagStatus.RESOLVED})
+            if f.code is FlagCode.TERMINOLOGY_VIOLATION and f.status is FlagStatus.OPEN
+            else f
+            for f in span.flags
+        ]
+        new_spans[i] = span.model_copy(update={"text": result, "flags": flags})
+        changes.append(
+            SpanChange(
+                span_id=span.id,
+                before=span.text,
+                after=result,
+                reason=f"Applied locked guide entries: {rules}.",
+                resolved=(FlagCode.TERMINOLOGY_VIOLATION,),
+            )
+        )
+    return SweepResult(spans=new_spans, changes=changes, errors=errors)
+
+
+async def _fix(
+    ctx: StageContext,
+    profile: DocumentProfile,
+    guide: Guide,
+    span: Span,
+    source: str,
+    violations: list[GuideViolation],
+) -> str:
+
+    def check(out: SweepFix) -> list[str]:
+        # every locked rendering must hold, including ones that were already right
+        problems = [
+            f"the revised text must contain '{v.expected}' exactly as written"
+            for v in _locked_violations(source, out.text, guide)
+        ]
+        if not out.text.strip():
+            problems.append("text must not be empty")
+        elif looks_cut_off(out.text):
+            problems.append(CUT_OFF)
+        return problems
+
+    out = await ctx.runner.run(
+        role="sweep",
+        model_key=ctx.cfg.roles.reviewer.model,
+        max_output_tokens=ctx.cfg.output_limit(ctx.cfg.roles.reviewer),
+        prompt_id="sweep",
+        prompt_vars={"source_lang": profile.source_lang, "target_lang": profile.target_lang},
+        payload={
+            "task": "sweep",
+            "source_lang": profile.source_lang,
+            "target_lang": profile.target_lang,
+            "source": source,
+            "translation": span.text,
+            "requirements": [
+                {"term": v.term, "rendering": v.expected, "kind": v.kind} for v in violations
+            ],
+            "entities": [e.model_dump() for e in guide_slice(guide, source).entities],
+        },
+        output_type=SweepFix,
+        validate=check,
+    )
+    return out.text
+
+
+def resolve_proposals(guide: Guide, proposals: list[GlossaryEntry]) -> list[GlossaryEntry]:
+    """One unlocked entry per new term: the most frequent rendering (ties: first seen), with
+    conflicting alternatives noted. Terms already in the guide are skipped."""
+    known = {g.term.strip().casefold() for g in guide.glossary}
+    groups: dict[str, list[GlossaryEntry]] = {}
+    for p in proposals:
+        key = p.term.strip().casefold()
+        if key and key not in known:
+            groups.setdefault(key, []).append(p)
+    resolved: list[GlossaryEntry] = []
+    for entries in groups.values():
+        counts: dict[str, int] = {}
+        first: dict[str, GlossaryEntry] = {}
+        for e in entries:
+            k = e.rendering.strip().casefold()
+            counts[k] = counts.get(k, 0) + 1
+            first.setdefault(k, e)
+        best = max(counts, key=lambda k: counts[k])  # max keeps the first of equal counts
+        chosen = first[best]
+        notes = chosen.notes
+        if len(counts) > 1:
+            alternatives = ", ".join(
+                f"'{first[k].rendering.strip()}' ({n})" for k, n in counts.items()
+            )
+            notes = f"{notes} " if notes else ""
+            notes += f"Reviewers proposed different renderings: {alternatives}."
+        resolved.append(
+            chosen.model_copy(
+                update={
+                    "term": chosen.term.strip(),
+                    "rendering": chosen.rendering.strip(),
+                    "notes": notes,
+                    "locked": False,
+                }
+            )
+        )
+    return resolved

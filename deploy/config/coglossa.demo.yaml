@@ -1,0 +1,17 @@
+# The demo configuration (compose.demo.yaml): synthetic models and scores, so the stack can be
+# tried before it is pointed at model servers. Translations are placeholders.
+backends:
+  demo: { base_url: http://fake-openai:8000/v1, max_concurrency: 4 }
+models:
+  m1: { backend: demo, name: fake-model, context_window: 32768 }
+  m2: { backend: demo, name: fake-model, context_window: 32768 }
+roles:
+  literal_translator:    { model: m1 }
+  contextual_translator: { model: m1 }
+  reviewer:              { model: m1 }
+  profiler_guide:        { model: m1 }
+  judge:                 { model: m2 }
+  roundtrip:             { model: m2 }
+scorer: { url: http://scorer:8080 }
+storage: { path: /data/files }
+profiles: { sweep: { short: true } }     # demo documents are short; show the sweep anyway
