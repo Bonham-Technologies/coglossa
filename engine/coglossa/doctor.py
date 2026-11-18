@@ -7,6 +7,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
+
 from coglossa.config import (
     HTTP_BIND_ENV,
     PROXY_SECRET_HEADER,
@@ -37,8 +39,9 @@ from coglossa.schema import CheckStatus, DoctorCheck, DoctorReport
 from coglossa.scoring.client import build_scorer, probe_scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.storage import StorageError, build_storage, describe_storage
-from coglossa.store.db import redact
+from coglossa.store.db import Database, error_reason, redact
 from coglossa.store.migrate import connect_error, migration_state
+from coglossa.store.models import Project
 from coglossa.worker.execute import DB_ERRORS
 
 PING_SCHEMA = {
@@ -102,6 +105,8 @@ async def run_doctor(
         )
     checks.append(await _aguard("database", lambda: _database(cfg)))
     checks.append(_guard("storage", lambda: _storage(cfg)))
+    if all(c.status is CheckStatus.PASS for c in checks[-2:]):
+        checks.append(await _aguard("leftover files", lambda: _leftover_files(cfg)))
     return DoctorReport.of(checks)
 
 
@@ -422,3 +427,41 @@ def _storage(cfg: CoglossaConfig) -> DoctorCheck:
     except StorageError as e:
         return _check("storage", CheckStatus.FAIL, str(e), fix)
     return _check("storage", CheckStatus.PASS, f"{where} is writable")
+
+
+_SHOWN_LEFTOVERS = 10
+
+
+async def _leftover_files(cfg: CoglossaConfig) -> DoctorCheck:
+    """CGL-84: a set whose files could not be removed when it was deleted leaves a folder under
+    projects/ that no set owns. Listed only: doctor never deletes anything."""
+    url = cfg.database.url()
+    assert url is not None  # run only after the database check passed
+    try:
+        # storage first: a set created in between is then in the database's list
+        names = await asyncio.to_thread(build_storage(cfg.storage).list_prefixes, "projects/")
+        db = Database(url)
+        try:
+            async with db.session() as s:
+                owned = {str(i) for i in await s.scalars(select(Project.id))}
+        finally:
+            await db.dispose()
+    except StorageError as e:
+        return _check("leftover files", CheckStatus.WARN, f"cannot look for leftover files: {e}")
+    except DB_ERRORS as e:
+        reason = error_reason(e)
+        return _check(
+            "leftover files", CheckStatus.WARN, f"cannot look for leftover files: {reason}"
+        )
+    left = [f"projects/{n}/" for n in names if n not in owned]
+    if not left:
+        return _check("leftover files", CheckStatus.PASS, "every folder under projects/ has a set")
+    shown = ", ".join(left[:_SHOWN_LEFTOVERS]) + (", …" if len(left) > _SHOWN_LEFTOVERS else "")
+    return _check(
+        "leftover files",
+        CheckStatus.WARN,
+        f"{len(left)} folder(s) in {describe_storage(cfg.storage)} belong to no set, "
+        f"probably left when deleting a set could not remove its files: {shown}",
+        "check the coglossa-api logs for why, then remove these folders by hand; doctor never "
+        "deletes them (a set being added or deleted right now can show here for a moment)",
+    )
