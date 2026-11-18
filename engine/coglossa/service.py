@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import dataclasses
 import hashlib
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -45,6 +46,8 @@ from coglossa.store import outputs, runs
 from coglossa.store.db import Database
 from coglossa.store.models import Document, GuideVersion, Project, Run, StageResult, utcnow
 from coglossa.text import clean_guide
+
+log = logging.getLogger("coglossa.service")
 
 TASK_START_RUN = "coglossa.start_run"
 TASK_TRANSLATE_RUN = "coglossa.translate_run"
@@ -579,7 +582,13 @@ async def _delete(
     async with db.session() as s, s.begin():
         project = await find(s)
         await runs.delete_project(s, project.id)
-    await asyncio.to_thread(storage.delete_prefix, f"projects/{project.id}/")
+    # The set is gone once the rows are, so a failed file clean-up does not fail the delete
+    # (CGL-84): it is logged, and `coglossa doctor` lists the folder under "leftover files".
+    prefix = f"projects/{project.id}/"
+    try:
+        await asyncio.to_thread(storage.delete_prefix, prefix)
+    except StorageError as e:
+        log.error("set %s was deleted but its files under %s were not: %s", project.id, prefix, e)
 
 
 async def delete_project(db: Database, storage: Storage, name: str) -> None:

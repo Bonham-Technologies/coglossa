@@ -314,6 +314,25 @@ it("says so when another reviewer changed the passage before a version was picke
   expect(accepted).toEqual([]);
 });
 
+it("says in plain words when an edit is too long to save (CGL-69)", async () => {
+  const tooLong = "This passage is too long: keep it to 20,000 characters or fewer.";
+  server.use(
+    http.post("*/api/runs/r-1/spans/s-2/edit", () =>
+      HttpResponse.json(
+        { detail: [{ type: "too_long", loc: ["body", "text"], msg: tooLong }] },
+        { status: 422 },
+      ),
+    ),
+  );
+  const { user } = renderPanel();
+  await user.click(await screen.findByRole("button", { name: "Edit" }));
+  await user.type(screen.getByLabelText("Your translation"), " Mine.");
+  await user.click(screen.getByRole("button", { name: "Save edit" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(new RegExp(`^${tooLong}$`));
+  expect(screen.getByLabelText("Your translation")).toBeInTheDocument();
+  expect(accepted).toEqual([]);
+});
+
 it("saves an edit and marks the passage checked", async () => {
   server.use(
     http.post("*/api/runs/r-1/spans/s-2/edit", () =>

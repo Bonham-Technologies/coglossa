@@ -46,6 +46,18 @@ def test_delete_prefix(tmp_path):
     store.delete_prefix("projects/none/")  # missing prefix is fine
 
 
+def test_list_prefixes(tmp_path):
+    store = LocalStorage(tmp_path)
+    assert store.list_prefixes("projects/") == []  # nothing stored yet
+    store.put("projects/p2/documents/d/a.txt", b"1")
+    store.put("projects/p1/b.txt", b"2")
+    store.put("projects/loose.txt", b"3")  # a file is not a prefix
+    assert store.list_prefixes("projects/") == ["p1", "p2"]
+    assert store.list_prefixes("projects") == ["p1", "p2"]
+    with pytest.raises(StorageError, match="cannot list projects/loose.txt/"):
+        store.list_prefixes("projects/loose.txt/")
+
+
 def test_check_writable(tmp_path):
     LocalStorage(tmp_path / "new").check_writable()
     blocker = tmp_path / "file"
