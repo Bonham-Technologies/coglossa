@@ -394,8 +394,14 @@ match as written. The proxy should send names in UTF-8; only ASCII spaces and ta
 from a name's ends. Team names are 1–64 letters, digits, spaces, `.`, `_` or `-`.
 
 When upgrading from a version before CGL-31: a personal set made by someone whose name has
-letters outside A–Z was saved under the name as Coglossa then misread it, so it may no longer
-show to its maker. An admin still sees it and can move it to one of that person's teams.
+letters outside A–Z was saved under the name as Coglossa then misread it ("JosÃ©" for "José").
+`coglossa db upgrade` repairs those names (CGL-75) and says how many it changed, so each set
+shows to its maker again. Rolling the database back does not undo the repair. Some names
+cannot be repaired and are left as they are: names your proxy sent in latin-1 rather than
+UTF-8, and names whose last letter was cut off when they were saved ("Pietà" saved as
+"PietÃ"; this happens to some names ending in à, Å, х or م, and to some ending in a Chinese,
+Japanese or Korean character). An admin still sees those sets and can move each one to one
+of its maker's teams.
 
 ```yaml
 auth:
