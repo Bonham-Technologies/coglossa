@@ -329,7 +329,7 @@ describe("readEnv", () => {
   });
 });
 
-// CGL-35: the front door sends the API's security headers on what it serves itself.
+// CGL-35, CGL-70: the front door sends the API's security headers on what it serves itself.
 describe("securityHeaders", () => {
   const ROOT = join(__dirname, "..");
   const directives = (csp: string) =>
@@ -349,12 +349,21 @@ describe("securityHeaders", () => {
     const apiCsp = [...block.matchAll(/"([^"]+)"/g)]
       .map((m) => m[1])
       .join("; ");
+    // CGL-70: and the same PERMISSIONS_POLICY
+    const features = python.match(/^PERMISSIONS_POLICY = ", "\.join\(\s*\[([\s\S]*?)\]/m)![1];
+    const apiPermissions = [...features.matchAll(/"([^"]+)"/g)]
+      .map((m) => m[1])
+      .join(", ");
+    expect(apiPermissions).toContain("camera=()");
     expect(ROBOTS_TAG).toBe("noindex, nofollow");
     for (const path of ["/", "/t/abc", "/assets/index-1a2b.js", "/login?x", "/robots.txt"]) {
       const h = securityHeaders(path);
       expect(h["X-Content-Type-Options"]).toBe("nosniff");
       expect(h["Referrer-Policy"]).toBe("same-origin");
       expect(h["X-Frame-Options"]).toBe("DENY");
+      expect(h["Permissions-Policy"]).toBe(apiPermissions);
+      expect(h["Cross-Origin-Opener-Policy"]).toBe("same-origin");
+      expect(h["Cross-Origin-Resource-Policy"]).toBe("same-origin");
       expect(h["X-Robots-Tag"]).toBe("noindex, nofollow"); // CGL-85
       if (!path.startsWith("/login"))
         expect(h["Content-Security-Policy"]).toBe(apiCsp);
