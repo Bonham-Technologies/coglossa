@@ -65,16 +65,17 @@ Playwright's own (`pnpm exec playwright-core install chromium`).
    domain has CAA records, allow the certificate authority Vercel names.
 4. **Registrar lock.** At Porkbun, turn on the domain's transfer lock, and auto-renew.
 5. **Accounts.** Passkeys or 2FA on GitHub, Vercel and Porkbun, for everyone with access.
-6. **GitHub Actions.** When the repository goes public (CGL-78): Settings ▸ Actions ▸ General ▸
-   require approval for workflows from outside contributors (all outside collaborators).
+6. **GitHub Actions.** The repository is public (CGL-78, 2026-11-18): Settings ▸ Actions ▸
+   General ▸ require approval for workflows from outside contributors (all outside collaborators).
 7. **Vercel plan.** Hobby is for non-commercial use only. Confirm the team the project lands in
    is on Pro (the hosted preview's README says that team is), or move it to one that is.
 8. **Before you share the link,** read "Owner checks" below and run `node check.mjs --launch`.
 
 ## Owner checks
 
-- **Licence.** The page says "Coglossa will be released under the Apache License 2.0." The
-  repository's `LICENSE` is still proprietary until CGL-77 lands; change the sentence then.
+- **Licence.** The page says "Coglossa is licensed under the Apache License 2.0" and links the
+  repository, whose `LICENSE` is Apache-2.0 (CGL-77). That link is the only GitHub link
+  `check.mjs` allows (`REPO_URL`).
 - **Contact.** The page gives `support@bonham.tech`, as Corelata's and Unvarnish's sites do (owner,
   2026-11-15: mail and contact for the product domains go through bonham.tech). So does
   `public/.well-known/security.txt`, whose `Expires:` must stay under a year out: move it
