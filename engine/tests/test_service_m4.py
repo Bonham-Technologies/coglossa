@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 import pytest
@@ -157,6 +158,29 @@ async def test_delete_project_by_id(env):
     assert not (storage.root / "projects" / str(doc.project_id)).exists()
     with pytest.raises(NotFoundError):
         await service.delete_project_id(db, storage, doc.project_id)
+
+
+async def test_a_file_cleanup_failure_after_the_delete_is_logged_not_raised(
+    env, monkeypatch, caplog
+):
+    """CGL-84: the rows are gone once the delete commits; a storage error after that must not
+    report the delete as failed. It is logged with the prefix, and doctor lists the leftover."""
+    db, storage, *_ = env
+    run_id = await _submit(env)
+    _, doc = await _document(db, run_id)
+
+    def cannot_delete(prefix):
+        raise StorageError(f"cannot delete {prefix}: Permission denied")
+
+    monkeypatch.setattr(storage, "delete_prefix", cannot_delete)
+    with caplog.at_level(logging.ERROR, logger="coglossa"):
+        await service.delete_project_id(db, storage, doc.project_id)
+    prefix = f"projects/{doc.project_id}/"
+    assert [r.levelno for r in caplog.records] == [logging.ERROR]
+    assert prefix in caplog.text and "Permission denied" in caplog.text
+    with pytest.raises(NotFoundError):
+        await service.delete_project_id(db, storage, doc.project_id)
+    assert (storage.root / "projects" / str(doc.project_id)).exists()
 
 
 def test_conflicts_and_invalid_requests_are_distinct():

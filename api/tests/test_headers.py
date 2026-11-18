@@ -1,8 +1,9 @@
-"""CGL-35: every response carries the security headers, so a site's proxy need not add them."""
+"""CGL-35, CGL-70: every response carries the security headers, so a site's proxy need not add
+them."""
 
 from coglossa.testing.seed import seed_run
 
-from coglossa_api.headers import CSP, EXPORT_CSP
+from coglossa_api.headers import CSP, EXPORT_CSP, PERMISSIONS_POLICY
 
 INDEX = "<!doctype html><title>Coglossa</title><div id=root></div>"
 
@@ -11,7 +12,17 @@ def assert_secured(response, csp: str = CSP) -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "same-origin"
     assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["permissions-policy"] == PERMISSIONS_POLICY
+    assert response.headers["cross-origin-resource-policy"] == "same-origin"
+    assert response.headers["cross-origin-opener-policy"] == "same-origin"
     assert response.headers.get_list("content-security-policy") == [csp]
+
+
+def test_the_permissions_policy_turns_off_what_the_app_never_uses():
+    features = dict(f.strip().split("=", 1) for f in PERMISSIONS_POLICY.split(","))
+    for name in ("camera", "microphone", "geolocation", "payment", "usb", "display-capture"):
+        assert features[name] == "()", name
+    assert set(features.values()) == {"()"}  # nothing is allowed, not even for this origin
 
 
 def test_the_app_policy_allows_only_its_own_origin():
@@ -56,5 +67,7 @@ async def test_the_html_export_gets_a_policy_that_runs_nothing(api, db):
     assert directives["default-src"] == "'none'"
     assert directives["style-src"] == "'unsafe-inline'"
     assert "sandbox" in [d.strip() for d in EXPORT_CSP.split(";")]
+    # CGL-70: the new headers leave it a download with its own policy
+    assert page.headers["content-disposition"].startswith("attachment;")
     report = await api.client.get(f"/api/runs/{seeded.run_id}/exports/json")
     assert_secured(report)

@@ -1,15 +1,19 @@
 import json
+import uuid
 
 import boto3
 import pytest
 import yaml
 from moto import mock_aws
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 
 from coglossa.cli import main
 from coglossa.doctor import run_doctor
 from coglossa.llm.types import OutputTruncatedError, PermanentBackendError
 from coglossa.schema import CheckStatus
+from coglossa.storage import LocalStorage, StorageError
+from coglossa.store import runs
 from coglossa.testing.fake_backend import FakeBackend
 from coglossa.testing.fake_openai import FakeOpenAIServer
 from coglossa.testing.fake_scorer import FakeScorerServer
@@ -60,6 +64,7 @@ async def test_a_healthy_installation(tmp_path, server, monkeypatch, pg_url):
         "scorer",
         "database",
         "storage",
+        "leftover files",
     ):
         assert checks[name].status is CheckStatus.PASS, (name, checks[name])
     assert "fake-model" in checks["backend local"].message
@@ -170,6 +175,61 @@ async def test_storage_not_writable(tmp_path, server):
     path = _config(tmp_path, server.base_url, storage={"path": str(blocker / "sub")})
     report = await run_doctor(path, probe_context=False)
     assert _by_name(report)["storage"].status is CheckStatus.FAIL
+
+
+async def test_leftover_files_are_listed_and_kept(tmp_path, server, monkeypatch, db, pg_url):
+    """CGL-84: a folder under projects/ that no set owns, left when a delete could not remove
+    its files, is reported; doctor never deletes it."""
+    async with db.session() as s, s.begin():
+        kept = await runs.get_or_create_project(s, "kept")
+    orphan = uuid.uuid4()
+    files = tmp_path / "files" / "projects"
+    for owner in (kept.id, orphan):
+        (files / str(owner) / "documents" / "d").mkdir(parents=True)
+        (files / str(owner) / "documents" / "d" / "story.txt").write_text("x")
+    monkeypatch.setenv("COGLOSSA_DATABASE_URL", pg_url)
+    report = await run_doctor(_config(tmp_path, server.base_url), probe_context=False)
+    check = _by_name(report)["leftover files"]
+    assert check.status is CheckStatus.WARN and report.ok
+    assert f"projects/{orphan}/" in check.message and str(kept.id) not in check.message
+    assert "never deletes" in check.fix
+    assert (files / str(orphan) / "documents" / "d" / "story.txt").exists()
+
+
+async def test_leftover_files_need_the_database_and_storage(tmp_path, server, monkeypatch):
+    monkeypatch.delenv("COGLOSSA_DATABASE_URL", raising=False)
+    report = await run_doctor(_config(tmp_path, server.base_url), probe_context=False)
+    assert "leftover files" not in _by_name(report)
+
+
+async def test_leftover_files_listing_failure_warns(tmp_path, server, monkeypatch, pg_url):
+    def cannot_list(self, prefix):
+        raise StorageError(f"cannot list {prefix}: Permission denied")
+
+    monkeypatch.setattr(LocalStorage, "list_prefixes", cannot_list)
+    monkeypatch.setenv("COGLOSSA_DATABASE_URL", pg_url)
+    report = await run_doctor(_config(tmp_path, server.base_url), probe_context=False)
+    check = _by_name(report)["leftover files"]
+    assert check.status is CheckStatus.WARN and "Permission denied" in check.message
+
+
+async def test_leftover_files_database_failure_warns_in_one_line(
+    tmp_path, server, monkeypatch, pg_url
+):
+    """A database error during the look shows the driver's one-line reason, not SQLAlchemy's
+    multi-line text with the SQL and a docs link."""
+
+    def cannot_list(self, prefix):
+        raise OperationalError(
+            "SELECT projects.id FROM projects", {}, Exception("server closed\nmore")
+        )
+
+    monkeypatch.setattr(LocalStorage, "list_prefixes", cannot_list)
+    monkeypatch.setenv("COGLOSSA_DATABASE_URL", pg_url)
+    report = await run_doctor(_config(tmp_path, server.base_url), probe_context=False)
+    check = _by_name(report)["leftover files"]
+    assert check.status is CheckStatus.WARN
+    assert check.message == "cannot look for leftover files: server closed"
 
 
 @pytest.fixture
