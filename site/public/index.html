@@ -9,9 +9,9 @@
       content="Coglossa translates documents with a team of AI agents on your own model servers, then shows you which passages a person should check, and why. Built to run offline, including on air-gapped networks."
     />
     <link rel="canonical" href="https://coglossa.com/" />
-    <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#f3f0e8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Coglossa" />
@@ -69,7 +69,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link
       rel="preload"
-      href="/fonts/instrument-serif-latin-400-normal.woff2"
+      href="/fonts/archivo-latin-wght-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -81,7 +81,7 @@
 
     <header class="site-header">
       <div class="wrap">
-        <a class="wordmark" href="/">COGLOSSA<span>.</span></a>
+        <a class="logo" href="/"><b>COGLOSSA</b> <span>by Bonham Technologies</span></a>
         <nav aria-label="Sections">
           <ul>
             <li><a href="#how">How it works</a></li>
@@ -95,18 +95,47 @@
 
     <main id="main">
       <div class="wrap hero">
-        <p class="eyebrow">Multi-agent translation · on your own servers</p>
-        <h1>Translation that <em>shows its work</em></h1>
-        <p class="lede">
-          Coglossa has several AI translators work on every passage, a reviewer settle their
-          differences, and independent checks score the result. Each passage says how sure
-          Coglossa is and why, so a person knows exactly where to look. It runs on your own
-          model servers and never needs the internet.
-        </p>
-        <div class="actions">
-          <a class="button primary" href="#demo">Watch the walkthrough</a>
-          <a class="button" href="#how">How it works</a>
+        <div>
+          <p class="eyebrow">Multi-agent translation · on your own servers</p>
+          <h1>Translation that <em>shows its work</em></h1>
+          <p class="lede">
+            Coglossa has several AI translators work on every passage, a reviewer settle their
+            differences, and independent checks score the result. Each passage says how sure
+            Coglossa is and why, so a person knows exactly where to look. It runs on your own
+            model servers and never needs the internet.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#demo">Watch the walkthrough</a>
+            <a class="button" href="#how">How it works</a>
+          </div>
         </div>
+        <svg class="gloss" viewBox="0 0 400 300" aria-hidden="true" focusable="false">
+          <line class="g-margin" x1="264.5" y1="0" x2="264.5" y2="300" />
+          <rect class="g-line" x="0" y="12" width="232" height="6" />
+          <rect class="g-line" x="0" y="44" width="208" height="6" />
+          <rect class="g-mark" x="96" y="56" width="112" height="2" />
+          <rect class="g-line" x="0" y="76" width="240" height="6" />
+          <rect class="g-line" x="0" y="108" width="176" height="6" />
+          <rect class="g-line" x="0" y="140" width="224" height="6" />
+          <rect class="g-mark" x="24" y="152" width="88" height="2" />
+          <rect class="g-line" x="0" y="172" width="240" height="6" />
+          <rect class="g-line" x="0" y="204" width="192" height="6" />
+          <rect class="g-line" x="0" y="236" width="216" height="6" />
+          <rect class="g-mark" x="136" y="248" width="80" height="2" />
+          <rect class="g-line" x="0" y="268" width="144" height="6" />
+          <path class="g-tie" d="M208 57.5H280" />
+          <path class="g-tie" d="M112 153.5H280" />
+          <path class="g-tie" d="M216 249.5H280" />
+          <rect class="g-mark" x="280" y="53" width="8" height="8" />
+          <rect class="g-note" x="296" y="54" width="96" height="6" />
+          <rect class="g-note" x="296" y="70" width="64" height="6" />
+          <rect class="g-mark" x="280" y="149" width="8" height="8" />
+          <rect class="g-note" x="296" y="150" width="80" height="6" />
+          <rect class="g-note" x="296" y="166" width="104" height="6" />
+          <rect class="g-note" x="296" y="182" width="48" height="6" />
+          <rect class="g-mark" x="280" y="245" width="8" height="8" />
+          <rect class="g-note" x="296" y="246" width="88" height="6" />
+        </svg>
       </div>
 
       <section class="band" aria-labelledby="who-title">
@@ -152,7 +181,7 @@
           </p>
           <ol class="cards">
             <li class="card">
-              <span class="step">01 · Read</span>
+              <span class="step">01</span>
               <h3>Understand the document</h3>
               <p>
                 Coglossa splits the document into passages, detects its language, kind and tone,
@@ -160,7 +189,7 @@
               </p>
             </li>
             <li class="card">
-              <span class="step">02 · Guide</span>
+              <span class="step">02</span>
               <h3>Write a translation guide</h3>
               <p>
                 A summary, the names, the terms and the style every translator must follow. You
@@ -169,7 +198,7 @@
               </p>
             </li>
             <li class="card">
-              <span class="step">03 · Translate</span>
+              <span class="step">03</span>
               <h3>Several translators</h3>
               <p>
                 One translator stays close to the meaning of every sentence. Another writes
@@ -178,7 +207,7 @@
               </p>
             </li>
             <li class="card">
-              <span class="step">04 · Reconcile</span>
+              <span class="step">04</span>
               <h3>A reviewer settles the differences</h3>
               <p>
                 The reviewer reads every version, picks, merges or rewrites, says how far the
@@ -187,7 +216,7 @@
               </p>
             </li>
             <li class="card">
-              <span class="step">05 · Check</span>
+              <span class="step">05</span>
               <h3>Independent checks on every passage</h3>
               <p>
                 A judge, ideally a different model, marks errors in the final text. A
@@ -201,7 +230,7 @@
               </p>
             </li>
             <li class="card">
-              <span class="step">06 · Sweep</span>
+              <span class="step">06</span>
               <h3>Keep the whole document consistent</h3>
               <p>
                 When every passage of a longer document is done, a final sweep fixes any passage
@@ -601,9 +630,8 @@ docker compose exec api coglossa doctor</code></pre>
           © 2026 Bonham Technologies, LLC.
         </p>
         <p>
-          Set in Instrument Serif, DM Sans and Geist Mono, under the SIL Open Font Licence
-          (<a href="/fonts/OFL-instrument-serif.txt">1</a>,
-          <a href="/fonts/OFL-dm-sans.txt">2</a>, <a href="/fonts/OFL-geist-mono.txt">3</a>).
+          Set in Archivo and IBM Plex Mono, under the SIL Open Font Licence
+          (<a href="/fonts/OFL-archivo.txt">1</a>, <a href="/fonts/OFL-ibm-plex-mono.txt">2</a>).
         </p>
       </div>
     </footer>
