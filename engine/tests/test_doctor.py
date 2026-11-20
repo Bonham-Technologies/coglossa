@@ -68,7 +68,7 @@ async def test_a_healthy_installation(tmp_path, server, monkeypatch, pg_url):
     ):
         assert checks[name].status is CheckStatus.PASS, (name, checks[name])
     assert "fake-model" in checks["backend local"].message
-    assert "0006" in checks["database"].message
+    assert "0007" in checks["database"].message
     assert f":{make_url(pg_url).password}@" not in checks["database"].message  # redacted
 
 
