@@ -1,11 +1,18 @@
 import json
 import re
+import uuid
 
 import pytest
 import yaml
+from sqlalchemy import create_engine
+from sqlalchemy import text as sa_text
+from sqlalchemy.pool import NullPool
 
 from coglossa.cli import main
+from coglossa.store.db import to_sqlalchemy_url
+from coglossa.store.migrate import upgrade
 from coglossa.testing.fake_openai import FakeOpenAIServer
+from coglossa.testing.postgres import create_test_database, drop_test_database
 
 
 @pytest.fixture
@@ -49,7 +56,7 @@ def _run_id(out: str) -> str:
 def test_db_upgrade_is_idempotent(setup, capsys):
     config, _ = setup
     code, out, _ = _cli(capsys, "db", "upgrade", "--config", str(config))
-    assert code == 0 and "at revision 0005" in out and "coglossa:coglossa@" not in out
+    assert code == 0 and "at revision 0006" in out and "coglossa:coglossa@" not in out
 
 
 def test_submit_work_status_report(setup, capsys, tmp_path):
@@ -248,6 +255,31 @@ def test_unreachable_database(setup, capsys, monkeypatch):
     )
     assert code == 1 and "cannot connect to the database at" in err and "secret" not in err
     assert len(err.strip().splitlines()) == 1
+
+
+def test_db_upgrade_says_how_many_set_owners_it_repaired(setup, capsys, monkeypatch, pg_admin):
+    """CGL-75: the operator sees what revision 0006 changed."""
+    config, _ = setup
+    url = create_test_database(pg_admin)
+    engine = create_engine(to_sqlalchemy_url(url), poolclass=NullPool)
+    try:
+        upgrade(url, "0005")
+        with engine.begin() as conn:
+            conn.execute(
+                sa_text(
+                    "INSERT INTO project (id, name, created_at, created_by) "
+                    "VALUES (:id, 'p', now(), :by)"
+                ),
+                {"id": uuid.uuid4(), "by": "José".encode().decode("latin-1")},
+            )
+        monkeypatch.setenv("COGLOSSA_DATABASE_URL", url)
+        code, out, _ = _cli(capsys, "db", "upgrade", "--config", str(config))
+        assert code == 0 and "repaired 1 set owner names saved misread as latin-1" in out
+        code, out, _ = _cli(capsys, "db", "upgrade", "--config", str(config))
+        assert code == 0 and "repaired" not in out  # nothing left to run
+    finally:
+        engine.dispose()
+        drop_test_database(pg_admin, url)
 
 
 def test_db_upgrade_unreachable_database(setup, capsys, monkeypatch):

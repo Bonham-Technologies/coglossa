@@ -82,6 +82,20 @@ def test_delete_prefix_pages_through_many_keys(s3):
     assert listed.get("KeyCount", 0) == 0
 
 
+@pytest.mark.parametrize("prefix", ["", "pv"])
+def test_list_prefixes(s3, prefix):
+    store = S3Storage(_cfg(prefix=prefix))
+    assert store.list_prefixes("projects/") == []
+    for key in ["projects/p2/documents/d/a.txt", "projects/p1/b.txt", "projects/loose.txt"]:
+        store.put(key, b"x")
+    for i in range(1002):  # more than one list page (1000)
+        store.put(f"other/{i:04}/x.txt", b"x")
+    assert store.list_prefixes("projects/") == ["p1", "p2"]
+    assert len(store.list_prefixes("other")) == 1002
+    with pytest.raises(StorageError, match="cannot list projects/"):
+        S3Storage(_cfg(bucket="no-such-bucket")).list_prefixes("projects/")
+
+
 def test_check_writable_and_failures(s3):
     S3Storage(_cfg()).check_writable()
     with pytest.raises(StorageError, match="storage bucket no-such-bucket .* is not writable"):

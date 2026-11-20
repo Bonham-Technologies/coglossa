@@ -61,12 +61,33 @@ const LOGIN_CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// CGL-70: the API's PERMISSIONS_POLICY, features the app never uses; the tests check it matches.
+const PERMISSIONS_POLICY = [
+  "accelerometer=()",
+  "browsing-topics=()",
+  "camera=()",
+  "display-capture=()",
+  "geolocation=()",
+  "gyroscope=()",
+  "hid=()",
+  "magnetometer=()",
+  "microphone=()",
+  "midi=()",
+  "payment=()",
+  "serial=()",
+  "usb=()",
+  "xr-spatial-tracking=()",
+].join(", ");
+
 export function securityHeaders(path: string): Record<string, string> {
   const pathname = new URL(path, "https://front.door").pathname;
   return {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
     "X-Frame-Options": "DENY",
+    "Permissions-Policy": PERMISSIONS_POLICY,
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
     "X-Robots-Tag": ROBOTS_TAG,
     "Content-Security-Policy": OPEN_PATHS.has(pathname) ? LOGIN_CSP : APP_CSP,
   };

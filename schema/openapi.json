@@ -60,7 +60,7 @@
           "guide": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Guide"
+                "$ref": "#/components/schemas/GuideEdit"
               },
               {
                 "type": "null"
@@ -733,6 +733,7 @@
           "reason": {
             "anyOf": [
               {
+                "maxLength": 2000,
                 "type": "string"
               },
               {
@@ -742,6 +743,7 @@
             "title": "Reason"
           },
           "text": {
+            "maxLength": 20000,
             "title": "Text",
             "type": "string"
           }
@@ -800,6 +802,63 @@
           "kind"
         ],
         "title": "Entity",
+        "type": "object"
+      },
+      "EntityEdit": {
+        "description": "A name as a reviewer saves it: each field at most 2,000 characters.",
+        "properties": {
+          "forms_of_address": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Forms Of Address",
+            "type": "string"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "kind": {
+            "description": "person, place, organization, or other",
+            "maxLength": 2000,
+            "title": "Kind",
+            "type": "string"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 2000,
+            "title": "Name",
+            "type": "string"
+          },
+          "rendering": {
+            "maxLength": 2000,
+            "title": "Rendering",
+            "type": "string"
+          },
+          "speech_style": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Speech Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "rendering",
+          "kind"
+        ],
+        "title": "EntityEdit",
         "type": "object"
       },
       "ErrorBody": {
@@ -940,6 +999,7 @@
           "reason": {
             "anyOf": [
               {
+                "maxLength": 2000,
                 "type": "string"
               },
               {
@@ -1008,6 +1068,40 @@
           "rendering"
         ],
         "title": "GlossaryEntry",
+        "type": "object"
+      },
+      "GlossaryEntryEdit": {
+        "description": "A term as a reviewer saves it: each field at most 2,000 characters.",
+        "properties": {
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "rendering": {
+            "description": "Target-language rendering to use",
+            "maxLength": 2000,
+            "title": "Rendering",
+            "type": "string"
+          },
+          "term": {
+            "description": "Source-language term exactly as it appears",
+            "maxLength": 2000,
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "rendering"
+        ],
+        "title": "GlossaryEntryEdit",
         "type": "object"
       },
       "GlossaryImportPreview": {
@@ -1249,7 +1343,7 @@
           "entity": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Entity"
+                "$ref": "#/components/schemas/EntityEdit"
               },
               {
                 "type": "null"
@@ -1259,7 +1353,7 @@
           "glossary": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/GlossaryEntry"
+                "$ref": "#/components/schemas/GlossaryEntryEdit"
               },
               {
                 "type": "null"
@@ -1268,6 +1362,52 @@
           }
         },
         "title": "GuideAddition",
+        "type": "object"
+      },
+      "GuideEdit": {
+        "description": "A guide as a reviewer saves or approves it: the summary and the style guide at most\n20,000 characters each (a generated guide's can run to several paragraphs), each cultural\nreference at most 2,000.",
+        "properties": {
+          "cultural_references": {
+            "default": [],
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": "Cultural References",
+            "type": "array"
+          },
+          "entities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EntityEdit"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "glossary": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntryEdit"
+            },
+            "title": "Glossary",
+            "type": "array"
+          },
+          "style_guide": {
+            "maxLength": 20000,
+            "title": "Style Guide",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 20000,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "style_guide"
+        ],
+        "title": "GuideEdit",
         "type": "object"
       },
       "GuideVersionInfo": {
@@ -2560,7 +2700,7 @@
             "title": "Base Version"
           },
           "guide": {
-            "$ref": "#/components/schemas/Guide"
+            "$ref": "#/components/schemas/GuideEdit"
           }
         },
         "required": [

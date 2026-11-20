@@ -1,6 +1,6 @@
-"""CGL-35: the security headers on every response, the web app's files included, so a site's
-proxy does not have to add them (operator guide, "Security headers"). A pure ASGI middleware,
-like ProxySecretMiddleware, so the progress stream passes through unbuffered."""
+"""CGL-35, CGL-70: the security headers on every response, the web app's files included, so a
+site's proxy does not have to add them (operator guide, "Security headers"). A pure ASGI
+middleware, like ProxySecretMiddleware, so the progress stream passes through unbuffered."""
 
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -37,10 +37,36 @@ EXPORT_CSP = "; ".join(
     ]
 )
 
+# CGL-70: browser features Coglossa never uses, turned off for its pages and anything they
+# embed, so a flaw elsewhere cannot use them either.
+PERMISSIONS_POLICY = ", ".join(
+    [
+        "accelerometer=()",
+        "browsing-topics=()",
+        "camera=()",
+        "display-capture=()",
+        "geolocation=()",
+        "gyroscope=()",
+        "hid=()",
+        "magnetometer=()",
+        "microphone=()",
+        "midi=()",
+        "payment=()",
+        "serial=()",
+        "usb=()",
+        "xr-spatial-tracking=()",
+    ]
+)
+
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
     "X-Frame-Options": "DENY",
+    "Permissions-Policy": PERMISSIONS_POLICY,
+    # Coglossa's pages share no window with another site's (a popup's window.opener included)
+    "Cross-Origin-Opener-Policy": "same-origin",
+    # and other sites may not load Coglossa's responses into their own pages
+    "Cross-Origin-Resource-Policy": "same-origin",
 }
 
 

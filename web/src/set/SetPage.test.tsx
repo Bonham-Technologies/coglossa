@@ -785,6 +785,17 @@ it("names whose set it is", () => {
   expect(teamLabel({ ...project, team: "desk" }, twoTeams)).toBe("desk");
 });
 
+it("knows a set is your own when the server would: é and É are different names", () => {
+  const jose = { ...me, admin: true, user: "José", teams: [] };
+  const personal = { ...project, team: null };
+  expect(teamLabel({ ...personal, created_by: "Jose\u0301 " }, jose)).toBe("Only you");
+  expect(teamLabel({ ...personal, created_by: "JOSé" }, jose)).toBe("Only you");
+  expect(teamLabel({ ...personal, created_by: "JosÉ" }, jose)).toBe("Personal to JosÉ");
+  const upper = { ...jose, user: "JOSÉ" };
+  expect(teamLabel({ ...personal, created_by: "josé" }, upper)).toBe("Personal to josé");
+  expect(teamLabel({ ...personal, created_by: "José\u00a0" }, jose)).toBe("Personal to José\u00a0");
+});
+
 it("labels nothing on an install without sign-in, where everyone sees everything", () => {
   expect(teamLabel({ ...project, team: null, created_by: null }, me)).toBeNull(); // me: no sign-in
   expect(teamLabel({ ...project, team: "desk" }, me)).toBeNull();

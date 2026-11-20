@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 const SITE = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = join(SITE, "public");
 const ORIGIN = "https://coglossa.com";
+const REPO_URL = "https://github.com/Bonham-Technologies/coglossa";
 const BUDGET_BYTES = 3 * 1024 * 1024;
 const LAUNCH = process.argv.includes("--launch");
 const PAGES = ["index.html", "404.html"]; // the site's own pages; sample/export.html is the app's
@@ -89,7 +90,9 @@ async function reference(from, ref, what) {
   if (!ref || ref.startsWith("mailto:")) return;
   if (/^https?:\/\//.test(ref)) {
     const url = new URL(ref);
-    if (/github\.com$/i.test(url.hostname)) fail(`${from}: links to ${ref} before the repo is public (CGL-78)`);
+    // The only GitHub link the site may carry is the public repository itself (CGL-78).
+    if (/github\.com$/i.test(url.hostname) && url.href.replace(/\/$/, "") !== REPO_URL)
+      fail(`${from}: links to ${ref}, a GitHub page other than the repository`);
     if (url.origin === ORIGIN) return reference(from, url.pathname + url.hash, what);
     notes.push(`${from}: external ${what} ${ref}`);
     return;
