@@ -7,4 +7,4 @@ All notable changes to this project are recorded here. The format follows
 
 - Secret scanning: the `.gitleaksignore` history entries now name the public release commit, so `gitleaks git` reports no findings on the public history (CGL-103).
 - Performance: the file list, the run list and the progress stream no longer load each run's full configuration snapshot on every poll (CGL-101).
-- Workers pick up queued jobs faster when many jobs are waiting: the job queue moves to procrastinate 3.11, which skips the lock check for jobs that have no lock. The upgrade includes a database migration that runs before the new worker starts. (CGL-106)
+- Job queue: moves to procrastinate 3.11, whose job fetch skips the lock check for jobs that have no lock. The upgrade includes a database migration that runs before the new worker starts (CGL-106).
