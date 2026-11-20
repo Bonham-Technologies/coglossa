@@ -77,8 +77,8 @@ def can_see(viewer: Viewer, project: Project) -> bool:
 def _sql_key(column: ColumnElement[str | None]) -> ColumnElement[str]:
     """team_key in SQL: trimmed of the same whitespace, A-Z folded with translate(), which,
     unlike lower(), does the same under every collation. Stored names are already NFC
-    (catalog.create_project; names stored before CGL-31 are latin-1 text, which NFC leaves
-    as it is)."""
+    (catalog.create_project; names misread as latin-1 before CGL-31 are repaired to NFC by
+    revision 0006, CGL-75)."""
     trimmed = func.btrim(column, NAME_SPACE)
     return func.translate(trimmed, string.ascii_uppercase, string.ascii_lowercase)
 

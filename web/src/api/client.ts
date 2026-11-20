@@ -49,8 +49,11 @@ function currentTextOf(body: unknown): string | null {
   return typeof text === "string" ? text : null;
 }
 
-type ValidationItem = { loc?: (string | number)[]; msg?: string };
+type ValidationItem = { type?: string; loc?: (string | number)[]; msg?: string };
 const PLACES = new Set(["body", "query", "path"]);
+/** Validation errors whose message the API already words for the reader (CGL-69: "This passage
+ * is too long: …"), so it is shown without the field's name. */
+const PLAIN_TYPES = new Set(["too_long"]);
 
 /** The one line to show for a failed request: the API's `detail` (spec: errors are one line). */
 export function errorText(status: number, body: unknown): string {
@@ -65,6 +68,7 @@ export function errorText(status: number, body: unknown): string {
   if (typeof detail === "string" && detail) return detail;
   if (Array.isArray(detail) && detail.length > 0) {
     const first = detail[0] as ValidationItem;
+    if (first.type && PLAIN_TYPES.has(first.type) && first.msg) return first.msg;
     const field = (first.loc ?? []).filter((part) => !PLACES.has(String(part))).join(".");
     return field ? `${field}: ${first.msg}` : String(first.msg);
   }

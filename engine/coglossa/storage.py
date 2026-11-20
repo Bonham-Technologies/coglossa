@@ -28,6 +28,8 @@ class Storage(Protocol):
 
     def delete_prefix(self, prefix: str) -> None: ...
 
+    def list_prefixes(self, prefix: str) -> list[str]: ...
+
     def check_writable(self) -> None: ...
 
 
@@ -119,6 +121,16 @@ class LocalStorage:
                 target.unlink()
         except OSError as e:
             raise StorageError(f"cannot delete {prefix}: {e.strerror or e}") from e
+
+    def list_prefixes(self, prefix: str) -> list[str]:
+        """The names of the folders directly under prefix, sorted."""
+        target = self._path(prefix.rstrip("/"))
+        try:
+            return sorted(p.name for p in target.iterdir() if p.is_dir())
+        except FileNotFoundError:
+            return []
+        except OSError as e:
+            raise StorageError(f"cannot list {prefix}: {e.strerror or e}") from e
 
     def check_writable(self) -> None:
         try:
@@ -216,6 +228,18 @@ class S3Storage:
                 self._s3.delete_object(Bucket=self.cfg.bucket, Key=key)
         except _s3_errors() as e:
             raise StorageError(f"cannot delete {prefix}: {_reason(e)}") from e
+
+    def list_prefixes(self, prefix: str) -> list[str]:
+        """The names of the folders directly under prefix, sorted."""
+        base = self._key(prefix.rstrip("/")) + "/"
+        try:
+            pages = self._s3.get_paginator("list_objects_v2").paginate(
+                Bucket=self.cfg.bucket, Prefix=base, Delimiter="/"
+            )
+            found = [p["Prefix"] for page in pages for p in page.get("CommonPrefixes", [])]
+        except _s3_errors() as e:
+            raise StorageError(f"cannot list {prefix}: {_reason(e)}") from e
+        return sorted(p[len(base) :].rstrip("/") for p in found)
 
     def check_writable(self) -> None:
         probe = self._key(f".coglossa-check-{uuid.uuid4().hex}")

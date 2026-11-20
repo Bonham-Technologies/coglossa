@@ -1,8 +1,10 @@
 import contextlib
+import logging
 import uuid
 
 import pytest
 from coglossa import catalog
+from coglossa.storage import LocalStorage, StorageError
 from coglossa.store import runs
 from coglossa.testing.seed import seed_run
 from sqlalchemy import event
@@ -53,6 +55,22 @@ async def test_delete_needs_the_name(api, db):
     assert wrong.json()["detail"] == "to delete project 'demo', pass confirm=demo"
     assert (await api.client.delete(url)).status_code == 422
     assert (await api.client.delete(url, params={"confirm": "demo"})).status_code == 204
+    assert (await api.client.get(url)).status_code == 404
+
+
+async def test_delete_answers_204_when_the_files_cannot_be_removed(api, db, monkeypatch, caplog):
+    """CGL-84: the set is gone once its rows are; a file clean-up failure is logged."""
+    seeded = await seed_run(db, project="demo")
+
+    def cannot_delete(self, prefix):
+        raise StorageError(f"cannot delete {prefix}: Permission denied")
+
+    monkeypatch.setattr(LocalStorage, "delete_prefix", cannot_delete)
+    url = f"/api/projects/{seeded.project_id}"
+    with caplog.at_level(logging.ERROR, logger="coglossa"):
+        response = await api.client.delete(url, params={"confirm": "demo"})
+    assert response.status_code == 204, response.text
+    assert f"projects/{seeded.project_id}/" in caplog.text
     assert (await api.client.get(url)).status_code == 404
 
 

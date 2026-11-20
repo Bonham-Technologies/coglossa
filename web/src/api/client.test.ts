@@ -79,6 +79,17 @@ describe("errorText", () => {
     expect(errorText(422, { detail: [{ msg: "x" }] })).toBe("x");
   });
 
+  it("shows the API's plain words for text that is too long (CGL-69)", () => {
+    const passage = "This passage is too long: keep it to 20,000 characters or fewer.";
+    const body = { detail: [{ type: "too_long", loc: ["body", "text"], msg: passage }] };
+    expect(errorText(422, body)).toBe(passage);
+    const term = "A term's translation is too long: keep it to 2,000 characters or fewer.";
+    const nested = {
+      detail: [{ type: "too_long", loc: ["body", "guide", "glossary", 3, "rendering"], msg: term }],
+    };
+    expect(errorText(422, nested)).toBe(term);
+  });
+
   it("says a 413 without a detail means the file is too large", () => {
     expect(errorText(413, undefined)).toBe("The file is too large to upload here.");
     expect(errorText(413, { detail: "File too big (limit 4 MB)." })).toBe(
