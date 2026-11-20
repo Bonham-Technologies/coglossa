@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from coglossa import access, service
 from coglossa.access import EVERYONE, Viewer
@@ -338,6 +339,14 @@ async def document_project(db: Database, document_id: uuid.UUID) -> ProjectInfo:
     return await get_project(db, doc.project_id)
 
 
+# A run summary reads neither column; the polled list reads skip them (CGL-101). raiseload
+# turns a stray read into an error rather than a lazy load the async session cannot run.
+_SUMMARY_ONLY = (
+    defer(Run.config_snapshot, raiseload=True),
+    defer(Run.prompt_versions, raiseload=True),
+)
+
+
 def run_summary(run: Run, doc: Document) -> RunSummary:
     profile = run.profile or {}
     chosen = profile.get("pipeline_profile") or run.pipeline_profile
@@ -369,6 +378,7 @@ async def list_documents(db: Database, project_id: uuid.UUID) -> list[DocumentSu
         )
         run_rows = await s.scalars(
             select(Run)
+            .options(*_SUMMARY_ONLY)
             .where(Run.document_id.in_([d.id for d in docs]))
             .order_by(Run.created_at.desc(), Run.id)
         )
@@ -405,6 +415,7 @@ async def list_runs(
 ) -> list[RunSummary]:
     query = (
         select(Run, Document)
+        .options(*_SUMMARY_ONLY)
         .join(Document, Run.document_id == Document.id)
         .join(Project, Project.id == Document.project_id)
         .where(access.visible(viewer))
