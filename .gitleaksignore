@@ -3,9 +3,10 @@
 # which gitleaks' generic-api-key rule reads as a key. No credential is involved.
 # Found by the open-source audit and CGL-60.
 
-# history (gitleaks git): the line as first committed, and the same code quoted in the M2 plan
-d93c284f3503759231b1a04f7a5c091e2c425c66:scorer/coglossa_scorer/qe.py:generic-api-key:46
-8a367c893d2bd151c24b524b6e0cc95bbf52ba2a:docs/superpowers/plans/2026-10-09-m2-scoring.md:generic-api-key:3356
+# history (gitleaks git): the history starts at the public release (8ec78b6), which holds both
+# lines as they were first published
+8ec78b675bb317244083885513c3255bf326613a:scorer/coglossa_scorer/qe.py:generic-api-key:54
+8ec78b675bb317244083885513c3255bf326613a:docs/superpowers/plans/2026-10-09-m2-scoring.md:generic-api-key:3356
 
 # working tree (gitleaks dir): the same two lines where they sit today
 scorer/coglossa_scorer/qe.py:generic-api-key:54
