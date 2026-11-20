@@ -705,7 +705,7 @@ export interface components {
         ApproveGuide: {
             /** Base Version */
             base_version?: number | null;
-            guide?: components["schemas"]["Guide"] | null;
+            guide?: components["schemas"]["GuideEdit"] | null;
         };
         /** Block */
         Block: {
@@ -978,6 +978,38 @@ export interface components {
             speech_style: string;
         };
         /**
+         * EntityEdit
+         * @description A name as a reviewer saves it: each field at most 2,000 characters.
+         */
+        EntityEdit: {
+            /**
+             * Forms Of Address
+             * @default
+             */
+            forms_of_address: string;
+            /** Gender */
+            gender?: string | null;
+            /**
+             * Kind
+             * @description person, place, organization, or other
+             */
+            kind: string;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /** Name */
+            name: string;
+            /** Rendering */
+            rendering: string;
+            /**
+             * Speech Style
+             * @default
+             */
+            speech_style: string;
+        };
+        /**
          * ErrorBody
          * @description What an error answers (coglossa_api.errors): one line, plus a code for some conflicts.
          */
@@ -1045,6 +1077,32 @@ export interface components {
         Genre: "literary_prose" | "poetry" | "technical" | "academic" | "legal" | "news" | "correspondence" | "social_media" | "transcript" | "other";
         /** GlossaryEntry */
         GlossaryEntry: {
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Rendering
+             * @description Target-language rendering to use
+             */
+            rendering: string;
+            /**
+             * Term
+             * @description Source-language term exactly as it appears
+             */
+            term: string;
+        };
+        /**
+         * GlossaryEntryEdit
+         * @description A term as a reviewer saves it: each field at most 2,000 characters.
+         */
+        GlossaryEntryEdit: {
             /**
              * Locked
              * @default false
@@ -1169,8 +1227,35 @@ export interface components {
          * @description Exactly one of `glossary` (a term) or `entity` (a name).
          */
         GuideAddition: {
-            entity?: components["schemas"]["Entity"] | null;
-            glossary?: components["schemas"]["GlossaryEntry"] | null;
+            entity?: components["schemas"]["EntityEdit"] | null;
+            glossary?: components["schemas"]["GlossaryEntryEdit"] | null;
+        };
+        /**
+         * GuideEdit
+         * @description A guide as a reviewer saves or approves it: the summary and the style guide at most
+         *     20,000 characters each (a generated guide's can run to several paragraphs), each cultural
+         *     reference at most 2,000.
+         */
+        GuideEdit: {
+            /**
+             * Cultural References
+             * @default []
+             */
+            cultural_references: string[];
+            /**
+             * Entities
+             * @default []
+             */
+            entities: components["schemas"]["EntityEdit"][];
+            /**
+             * Glossary
+             * @default []
+             */
+            glossary: components["schemas"]["GlossaryEntryEdit"][];
+            /** Style Guide */
+            style_guide: string;
+            /** Summary */
+            summary: string;
         };
         /** GuideVersionInfo */
         GuideVersionInfo: {
@@ -1603,7 +1688,7 @@ export interface components {
         SaveGuide: {
             /** Base Version */
             base_version: number | null;
-            guide: components["schemas"]["Guide"];
+            guide: components["schemas"]["GuideEdit"];
         };
         /** ScorerHealth */
         ScorerHealth: {

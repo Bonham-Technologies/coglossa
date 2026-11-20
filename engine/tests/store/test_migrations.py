@@ -1,3 +1,5 @@
+import logging
+import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -68,7 +70,7 @@ def test_upgrade_creates_our_tables_and_the_job_queue(pg_url):
 
 def test_migration_state_is_current(pg_url):
     state = migration_state(pg_url)
-    assert state.current == state.head == "0005"
+    assert state.current == state.head == "0006"
     assert state.up_to_date
 
 
@@ -157,9 +159,9 @@ def _insert(conn, table_name, /, **values):
     conn.execute(table.insert().values(**values))
 
 
-def _project(conn, name, target_lang):
+def _project(conn, name, target_lang, **extra):
     pid = uuid.uuid4()
-    _insert(conn, "project", id=pid, name=name, target_lang=target_lang, created_at=_NOW)
+    _insert(conn, "project", id=pid, name=name, target_lang=target_lang, created_at=_NOW, **extra)
     return pid
 
 
@@ -313,6 +315,68 @@ def test_0005_leaves_existing_sets_without_a_team(pg_admin):
                 sa_text("SELECT team, created_by FROM project WHERE id = :id"), {"id": pid}
             ).one()
         assert tuple(row) == (None, None)
+    finally:
+        engine.dispose()
+        drop_test_database(pg_admin, url)
+
+
+def _misread(name):
+    """A name as Coglossa read it before CGL-31: the proxy's UTF-8 bytes taken as latin-1."""
+    return name.encode("utf-8").decode("latin-1")
+
+
+def _owners(engine):
+    with engine.begin() as conn:
+        return dict(conn.execute(sa_text("SELECT id, created_by FROM project")).all())
+
+
+def test_0006_repairs_names_misread_as_latin1(pg_admin, caplog):
+    """CGL-75: a set saved under a name read as latin-1 before CGL-31 goes back to the name
+    the proxy sent, in NFC, so its maker sees it again. Every other name is left as it is."""
+    url = create_test_database(pg_admin)
+    engine = create_engine(to_sqlalchemy_url(url), poolclass=NullPool)
+    decomposed = unicodedata.normalize("NFD", "Zoë")
+    owners = {
+        "José": _misread("José"),
+        "Łukasz": _misread("Łukasz"),  # its UTF-8 bytes read as a C1 control character
+        "Zoë": _misread(decomposed),  # sent decomposed: stored in NFC
+        "ana": "ana",
+        "latin-1 José": "José",  # sent in latin-1: b"Jos\xe9" is not UTF-8
+        # str.strip() before CGL-31 cut off the misread à's last byte, U+00A0: not UTF-8 now
+        "Pietà": _misread("Pietà").strip(),
+        "李": "李",  # outside latin-1: saved after CGL-31
+        "none": None,
+    }
+    try:
+        upgrade(url, "0005")
+        with engine.begin() as conn:
+            ids = {
+                key: _project(conn, key, "en", created_by=stored) for key, stored in owners.items()
+            }
+        with caplog.at_level(logging.INFO, logger="coglossa.migrations"):
+            upgrade(url, "0006")
+        assert "repaired 3 set owner names" in caplog.text
+        expected = {
+            ids["José"]: "José",
+            ids["Łukasz"]: "Łukasz",
+            ids["Zoë"]: unicodedata.normalize("NFC", "Zoë"),
+            ids["ana"]: "ana",
+            ids["latin-1 José"]: "José",
+            ids["Pietà"]: "PietÃ",
+            ids["李"]: "李",
+            ids["none"]: None,
+        }
+        assert _owners(engine) == expected
+        assert unicodedata.is_normalized("NFC", _owners(engine)[ids["Zoë"]])
+
+        # the downgrade changes nothing, and a second upgrade finds nothing left to repair
+        downgrade(url, "0005")
+        assert _owners(engine) == expected
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger="coglossa.migrations"):
+            upgrade(url)
+        assert "repaired 0 set owner names" in caplog.text
+        assert _owners(engine) == expected
     finally:
         engine.dispose()
         drop_test_database(pg_admin, url)

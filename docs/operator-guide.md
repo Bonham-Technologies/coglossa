@@ -272,6 +272,13 @@ What the proxy must do:
 - **Live progress.** Progress is a server-sent event stream. Turn off response buffering for `/api/runs/*/events` and allow long reads.
 - **CSRF.** If your SSO proxy uses a session cookie, set it `SameSite=Lax` or `Strict`. Otherwise another website could trigger actions such as cancel or retry on a run whose id it knows.
 - **TLS.** Terminate it at the proxy.
+- **HTTPS only (HSTS).** Once HTTPS works for everyone, have the proxy send
+  `Strict-Transport-Security`, as in the example below. It tells browsers to use only HTTPS
+  for this address, so it belongs on the proxy that handles TLS, not on Coglossa. Browsers
+  remember it for a year: add it only after HTTPS works, and add `includeSubDomains` only
+  if every subdomain of this address has HTTPS too. With it on, browsers no longer let
+  people click past a certificate warning, so an expired certificate, or one from an
+  internal CA a computer doesn't trust, locks everyone out until it is fixed.
 - **Groups (only with `groups_header`, see "Teams and admins").** Set the groups header on
   **every** location that forwards to Coglossa, to an empty value when the person has no
   groups. nginx does not inherit `proxy_set_header` into a block that has its own
@@ -290,6 +297,10 @@ server {
 
     # At least api.max_upload_mb (200 by default).
     client_max_body_size 200m;
+
+    # HTTPS only, for a year. Add once HTTPS works (see "HTTPS only" above). nginx ignores
+    # this line in a location that has add_header lines of its own; none here do.
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     # Progress stream: no buffering, long reads.
     location ~ ^/api/runs/[^/]+/events$ {
@@ -341,10 +352,13 @@ Coglossa sets these security headers on every response, the web app's pages and 
 | `X-Frame-Options` | `DENY` | Stops framing in older browsers. |
 | `X-Content-Type-Options` | `nosniff` | Browsers treat every file as the type it is sent as. |
 | `Referrer-Policy` | `same-origin` | Coglossa addresses are never sent to other sites. |
+| `Permissions-Policy` | `accelerometer=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()` | Turns off browser features Coglossa never uses, such as the camera, microphone and location. |
+| `Cross-Origin-Opener-Policy` | `same-origin` | Coglossa's pages share no window with other websites' pages. |
+| `Cross-Origin-Resource-Policy` | `same-origin` | Other websites cannot load Coglossa's pages, files or data into their own pages. |
 
 The HTML export gets a stricter policy (`default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox`). If someone opens the file from Coglossa's address, it can style itself and do nothing else.
 
-If your proxy adds its own `Content-Security-Policy`, the browser enforces both policies, so yours must not be looser than Coglossa's. Otherwise, leave these headers to Coglossa.
+If your proxy adds its own `Content-Security-Policy`, the browser enforces both policies, so yours must not be looser than Coglossa's. Otherwise, leave these headers to Coglossa. The one header your proxy should add is `Strict-Transport-Security` (see "HTTPS only" above).
 
 
 ### Teams and admins
@@ -380,8 +394,14 @@ match as written. The proxy should send names in UTF-8; only ASCII spaces and ta
 from a name's ends. Team names are 1–64 letters, digits, spaces, `.`, `_` or `-`.
 
 When upgrading from a version before CGL-31: a personal set made by someone whose name has
-letters outside A–Z was saved under the name as Coglossa then misread it, so it may no longer
-show to its maker. An admin still sees it and can move it to one of that person's teams.
+letters outside A–Z was saved under the name as Coglossa then misread it ("JosÃ©" for "José").
+`coglossa db upgrade` repairs those names (CGL-75) and says how many it changed, so each set
+shows to its maker again. Rolling the database back does not undo the repair. Some names
+cannot be repaired and are left as they are: names your proxy sent in latin-1 rather than
+UTF-8, and names whose last letter was cut off when they were saved ("Pietà" saved as
+"PietÃ"; this happens to some names ending in à, Å, х or م, and to some ending in a Chinese,
+Japanese or Korean character). An admin still sees those sets and can move each one to one
+of its maker's teams.
 
 ```yaml
 auth:
@@ -540,6 +560,7 @@ To go back: migrations only go forward. Stop the new version (`docker compose do
 | --- | --- | --- |
 | `up` says `service "migrate" didn't complete successfully`, or `api` keeps restarting | `docker compose logs migrate api` | The config is invalid; the log says which setting. Fix `config/coglossa.yaml` (or `config/tiers.yaml`), then apply it (section 5, "Applying changes"). |
 | `doctor` fails on a backend | `docker compose exec api coglossa doctor` | Unreachable: check `base_url`, the port and the firewall from the host (`curl http://<server>/v1/models`). Wrong model id: use an id from that list. No structured output: set the model's `structured_output` to what the server supports, or `none`. |
+| `doctor` warns about `leftover files` | `docker compose exec api coglossa doctor`, `docker compose logs api` | Deleting a set removed it, but not its files (the api log has an error naming the folder and why). `doctor` lists such folders and never deletes them. Once you have checked a listed folder is not needed, remove it by hand: `docker compose exec api rm -r /data/files/projects/<id>`, or with the provider's tools for a bucket. A set being added or deleted at that moment can show briefly; run `doctor` again. |
 | The scorer stays `starting` or becomes unhealthy | `docker compose logs scorer` | Missing `models/` files: copy the bundle again and run `./install.sh`. Out of memory: MetricX large needs 16 GB, XL on CPU 32 GB; set `COGLOSSA_QE_MODEL=metricx-24-hybrid-large-v2p6` in `.env`. Still loading after 15 minutes (the log shows no error): set `COGLOSSA_SCORER_START_PERIOD=30m` in `.env` (section 3). |
 | Runs finish with no scores ("unscored") | `docker compose ps`, `docker compose logs scorer worker` | The scorer was down or unreachable, or no scorer or judge is configured. Fix the scorer until `docker compose ps` shows it healthy, then open the translation, then choose **Translate again** from its ⋯ menu; a finished run cannot be retried. |
 | The GPU is not visible to the scorer | `docker run --rm --gpus all ubuntu nvidia-smi` | If this fails, install the NVIDIA Container Toolkit, restart Docker, and check the driver is 525 or newer. |
