@@ -3,6 +3,7 @@ lifecycle. They talk to Postgres; `coglossa run` does not need any of them."""
 
 import argparse
 import asyncio
+import logging
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
@@ -171,10 +172,20 @@ def _with_queue[T](
 def _db(args: argparse.Namespace) -> int:
     cfg = _load(args)
     url = database_url(cfg)
+    # what a data migration changed (CGL-75), told to the operator as plain lines
+    report = logging.StreamHandler(sys.stdout)
+    report.setFormatter(logging.Formatter("%(message)s"))
+    migrations = logging.getLogger("coglossa.migrations")
+    level = migrations.level
+    migrations.addHandler(report)
+    migrations.setLevel(logging.INFO)
     try:
         upgrade(url)
     except DB_ERRORS as e:
         raise connect_error(url, e) from e
+    finally:
+        migrations.removeHandler(report)
+        migrations.setLevel(level)
     print(f"database at {redact(url)} is at revision {migration_state(url).head}")
     return EXIT_OK
 

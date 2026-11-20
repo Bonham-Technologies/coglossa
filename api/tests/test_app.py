@@ -159,6 +159,8 @@ async def test_exceptions_map_to_one_line_responses(db, write_config, caplog):
             # CGL-35: an unhandled error's 500 comes from outside every middleware
             assert response.headers["x-frame-options"] == "DENY", kind
             assert response.headers.get_list("content-security-policy") == [CSP], kind
+            assert response.headers["cross-origin-opener-policy"] == "same-origin", kind  # CGL-70
+
         # CGL-97: the driver's reason is logged, never sent
         for kind, reason in [
             ("db", "connection refused"),

@@ -40,8 +40,9 @@ async def approve(run_id: uuid.UUID, ctx: Ctx, body: ApproveGuide | None = None)
     `base_version` without a `guide`, or one that is neither the draft's nor the project
     guide's version."""
     body = body or ApproveGuide()
+    guide = body.guide.as_guide() if body.guide is not None else None
     version = await service.approve_guide(
-        ctx.db, ctx.queue, run_id, body.guide, base_version=body.base_version
+        ctx.db, ctx.queue, run_id, guide, base_version=body.base_version
     )
     return await action_result(ctx, run_id, f"guide version {version} approved; translation queued")
 
@@ -71,7 +72,11 @@ async def save_guide(
 ) -> GuideView:
     """A person's edit of one language's set guide (`target_lang`, else the set's first)."""
     return await catalog.save_project_guide(
-        ctx.db, project_id, body.guide, base_version=body.base_version, target_lang=target_lang
+        ctx.db,
+        project_id,
+        body.guide.as_guide(),
+        base_version=body.base_version,
+        target_lang=target_lang,
     )
 
 

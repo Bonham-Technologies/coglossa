@@ -11,6 +11,7 @@ import { Menu } from "../components/Menu";
 import { RenameDialog } from "../components/SetDialogs";
 import { whenText } from "../lib/dates";
 import { languageName } from "../lib/languages";
+import { teamKey } from "../lib/teams";
 import { runsIn } from "./languages";
 import type { Picked } from "./SetPage";
 
@@ -197,8 +198,7 @@ export function teamLabel(project: ProjectInfo, me: Me): string | null {
   if (!me.admin && me.teams.length < 2) return null;
   if (project.team) return project.team;
   if (project.created_by === null) return "No team";
-  // names compare case-insensitively, as the server compares them
-  const own = project.created_by.trim().toLowerCase() === me.user?.trim().toLowerCase();
+  const own = teamKey(project.created_by) === teamKey(me.user); // as the server compares them
   return own ? "Only you" : `Personal to ${project.created_by}`;
 }
 
