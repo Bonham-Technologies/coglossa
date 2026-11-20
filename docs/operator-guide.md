@@ -548,6 +548,8 @@ If you lost `.env`, keep the one `install.sh` created: the database dump holds n
 
    The `migrate` service upgrades the database before the API and worker start.
 
+   The upgrade to procrastinate 3.11 (CGL-106) includes such a migration: revision 0007 changes how the job queue picks the next job. It runs in the `migrate` service before the new worker starts and needs nothing from you.
+
 The data lives in Docker volumes that belong to the project name `coglossa`, not to the directory, so the new directory finds it.
 
 If a cron job runs `backup.sh`, change its `cd` to the new directory (section 8). Once the new version runs, you can delete the old directory.
