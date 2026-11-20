@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import event, update
 
 from coglossa import catalog, service
 from coglossa.prompts.library import PromptLibrary
@@ -314,3 +314,32 @@ async def test_a_set_records_its_team_and_creator_and_can_move(db):
     assert (moved.team, moved.created_by) == (None, "ana")
     with pytest.raises(NotFoundError):
         await catalog.set_team(db, uuid.uuid4(), "x")
+
+
+async def test_polled_reads_skip_the_run_config_snapshot(db):
+    """CGL-101: the polled list and progress reads never fetch a run's config snapshot or
+    prompt versions, which only the worker, a re-run and the report need."""
+    seeded = await seed_run(db)
+    statements: list[str] = []
+
+    @event.listens_for(db.engine.sync_engine, "before_cursor_execute")
+    def _grab(_c, _cur, statement, *_rest):
+        statements.append(statement)
+
+    try:
+        documents = await catalog.list_documents(db, seeded.project_id)
+        listed = await catalog.list_runs(db, project_id=seeded.project_id)
+        progress = await service.run_progress(db, seeded.run_id)
+    finally:
+        event.remove(db.engine.sync_engine, "before_cursor_execute", _grab)
+    assert [r.id for r in documents[0].runs] == [r.id for r in listed] == [str(seeded.run_id)]
+    assert progress.run_id == str(seeded.run_id) and progress.state is RunState(listed[0].state)
+    sql = " ".join(statements).lower()
+    assert "run.state" in sql
+    assert "config_snapshot" not in sql and "prompt_versions" not in sql
+    with pytest.raises(NotFoundError):
+        await service.run_progress(db, uuid.uuid4())
+    # The full row still loads where the snapshot is needed.
+    async with db.session() as s:
+        run = await runs.get_run(s, seeded.run_id)
+        assert run.config_snapshot and run.prompt_versions is not None

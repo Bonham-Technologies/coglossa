@@ -469,8 +469,11 @@ async def _retry_scope(s: AsyncSession, run_id: uuid.UUID) -> tuple[list[str], b
 
 async def run_progress(db: Database, run_id: uuid.UUID) -> RunProgress:
     async with db.session() as s:
-        run = await runs.get_run(s, run_id)
-        state = RunState(run.state)
+        # Only the columns progress shows: streams poll this every second (CGL-101).
+        row = (await s.execute(select(Run.state, Run.error).where(Run.id == run_id))).one_or_none()
+        if row is None:
+            raise runs.NotFoundError(f"run {run_id} not found")
+        state = RunState(row.state)
         total = await runs.chunk_count(s, run_id)
         done = await runs.chunk_progress(s, run_id)
         done["score"] = await runs.finished_chunk_count(s, run_id)  # failed chunks are done too
@@ -480,11 +483,11 @@ async def run_progress(db: Database, run_id: uuid.UUID) -> RunProgress:
     )
     return RunProgress(
         run_id=str(run_id),
-        state=RunState(run.state),
+        state=state,
         chunks_total=total,
         chunks_done={stage: done.get(stage, 0) for stage in ("translate", "reconcile", "score")},
         chunks_with_errors=len(failed),
-        error=run.error,
+        error=row.error,
         retryable=retryable,
     )
 
