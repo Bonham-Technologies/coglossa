@@ -5,7 +5,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from coglossa.scoring.numbers import SPELLED_OUT, NumberMismatch, number_check
+from coglossa.scoring.numbers import SPELLED_OUT, NumberMismatch, decimal_mark, number_check
 
 # --- changed, dropped and added numbers are flagged -----------------------------------------
 
@@ -157,6 +157,92 @@ def test_documented_limits_of_spelled_out_numbers():
 def test_a_time_like_decimal_still_matches_a_decimal():
     assert number_check("It grew 12.30 percent.", "Es wuchs um 12,30 Prozent.") is None
     assert number_check("It grew 12.3 percent.", "Es wuchs um 12,30 Prozent.") is None
+
+
+# --- the languages decide how an ambiguous 1,500 or 1.500 is read (CGL-114) -----------------
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "langs", "found"),
+    [
+        ("It costs 1,500 dollars.", "Il coûte 1.5 dollars.", ("en", "fr"), ("1,500", "1.5")),
+        ("Es kostet 1.500 Euro.", "It costs 1.5 euros.", ("de", "en"), ("1.500", "1.5")),
+        ("It costs 1.5 dollars.", "Il coûte 1,500 dollars.", ("en", "fr-FR"), None),  # 1.5
+        ("Il coûte 1,500 dollars.", "It costs 1,500 dollars.", ("fr", "en"), None),  # copied
+        ("Costs 2,500 and 1,500.", "Kostet 2.5 und 1,500.", ("en", "de"), ("2,500", "2.5")),
+        ("Il pèse 3.250 kg.", "It weighs 3.25 kg.", ("fr", "en-US"), ("3.250", "3.25")),
+        ("It costs 1,500 pesos.", "Cuesta 1.5 pesos.", ("en", "es"), ("1,500", "1.5")),
+        ("1,500 and 1,500", "1,500 et 1,5", ("en", "fr"), ("1,500", "1,5")),  # one copy only
+        ("It costs 1,500 yen.", "1.500円です。", ("en", "ja"), ("1,500", "1.500")),
+    ],
+)
+def test_a_thousandfold_change_is_flagged_once_the_languages_are_known(
+    source, target, langs, found
+):
+    expected = None
+    if found is not None:
+        expected = NumberMismatch(source=(found[0],), target=(found[1],))
+    assert number_check(source, target, *langs) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "langs"),
+    [
+        ("It costs 1,500 dollars.", "Il coûte 1 500 dollars.", ("en", "fr")),
+        ("It weighs 1.500 kg.", "Es wiegt 1,500 kg.", ("en", "de")),
+        ("Es wiegt 1.500 kg.", "It weighs 1,500 kg.", ("de", "en")),
+        ("It costs 1,500 yen.", "1,500円です。", ("en", "ja")),
+        ("Es kostet 1.500 Yen.", "1,500円です。", ("de", "ja")),
+        ("It costs 1,000 dollars.", "Il coûte 1.000 dollars.", ("en", "fr")),  # never 1.000
+        ("It costs 1,500.25 dollars.", "Es kostet 1.500,25 Dollar.", ("en", "de")),
+        ("It costs 1,500 dollars.", "Il coûte 1,500 dollars.", ("en", "fr")),  # copied as is
+        ("We meet at 12.30.", "Wir treffen uns um 12:30.", ("en", "de")),
+    ],
+)
+def test_the_same_amount_in_each_languages_notation_is_not_flagged(source, target, langs):
+    assert number_check(source, target, *langs) is None
+    assert number_check(target, source, *reversed(langs)) is None
+
+
+@pytest.mark.parametrize("langs", [(None, None), ("en", None), ("xx", "yy"), ("en", "es-419")])
+def test_an_unknown_language_keeps_both_readings(langs):
+    # without both languages' marks, "1,500" may still be read as 1.5 on the unknown side
+    assert number_check("1.5 dollars", "1,500 dollars", *langs) is None
+
+
+@pytest.mark.parametrize(
+    ("lang", "mark"),
+    [
+        ("en", "."),
+        ("en-GB", "."),
+        ("zh-Hans", "."),
+        ("zh-Hant-TW", "."),
+        ("ja", "."),
+        ("ko", "."),
+        ("hi", "."),
+        ("th", "."),
+        ("de", ","),
+        ("de-AT", ","),
+        ("de-CH", "."),
+        ("fr", ","),
+        ("fr_CA", ","),
+        ("es", ","),
+        ("es-ES", ","),
+        ("es-MX", "."),
+        ("es-419", None),
+        ("es-AR", None),
+        ("en-150", None),
+        ("en-DE", None),
+        ("it", ","),
+        ("pt-BR", ","),
+        ("ru", ","),
+        ("ar", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_decimal_mark_by_language(lang, mark):
+    assert decimal_mark(lang) == mark
 
 
 def test_many_ambiguous_numbers_fall_back_to_their_first_reading():
