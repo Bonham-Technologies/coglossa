@@ -4,12 +4,18 @@ source's headings, paragraphs, list items and breaks.
 
 Where the blocks record the structure (DOCX sources, CGL-87) the clean document also rebuilds
 it: headings at their levels, tables with their rows, columns, merged cells and nested tables,
-and the page header and footer. Footnotes and endnotes become a marked notes section at the end:
-each note starts with its mark, and each passage that cites one ends with the mark in
-superscript (where in the passage the source cited it is not recorded). Table cells without a
-recorded position, as in older runs and other formats, become paragraphs."""
+and the page header and footer, with a first-page and an even-page variant where the source has
+one (CGL-117). The clean document has one section. The page header comes from the first source
+section that has one (a cover section without a header leaves it to the next), and so does the
+footer; the headers and footers of later sections are kept out of the page and come at the end
+of the document, after the notes, so their translation is kept without repeating on every page.
+Footnotes and endnotes become a marked notes section at the end: each note starts with its mark,
+and each passage that cites one ends with the mark in superscript (where in the passage the
+source cited it is not recorded). Table cells without a recorded position, as in older runs and
+other formats, become paragraphs."""
 
 import io
+import re
 from typing import Any
 
 import docx
@@ -111,6 +117,39 @@ def _style(kind: BlockKind, level: int | None) -> str | None:
     return None
 
 
+# The first part of a header or footer block's locator (coglossa.ingest.docx)
+_FURNITURE = re.compile(r"(?:section (\d+) )?(first-page |even-page )?(?:header|footer)")
+
+
+def _furniture(locator: str | None) -> tuple[int, str]:
+    """The section and the variant ("", "first-page ", "even-page ") of a header or footer
+    block; section 1's default for a locator that names neither, as in older runs."""
+    m = _FURNITURE.fullmatch((locator or "").split(", ")[0])
+    if m is None:
+        return 1, ""
+    return int(m.group(1) or 1), m.group(2) or ""
+
+
+def _furniture_section(item: TranslatedBlock) -> tuple[Region, int] | None:
+    """The region and section of a header or footer block; None for any other block."""
+    provenance = item.block.provenance
+    if provenance.region not in (Region.HEADER, Region.FOOTER):
+        return None
+    return provenance.region, _furniture(provenance.locator)[0]
+
+
+def later_sections(items: list[TranslatedBlock]) -> set[int]:
+    """The positions of the header and footer blocks of a section after the first one that has
+    a header (or a footer): a cover section without one leaves the next section's on the page."""
+    found = [_furniture_section(item) for item in items]
+    first: dict[Region, int] = {}
+    for where in found:
+        if where is not None:
+            region, section = where
+            first[region] = min(first.get(region, section), section)
+    return {i for i, where in enumerate(found) if where is not None and where[1] > first[where[0]]}
+
+
 class _CleanDocument:
     def __init__(self, report: Report) -> None:
         self.document = _new_document(report)
@@ -127,12 +166,18 @@ class _CleanDocument:
         self.merged: set[tuple[int, int, int]] = set()
         self.marked: set[tuple[Region | None, str]] = set()  # notes whose mark is written
 
-    def _region(self, region: Region | None) -> Any:
-        if region is Region.HEADER:
-            return self.header
-        if region is Region.FOOTER:
-            return self.footer
-        return self.body  # body text, and the notes section at its end
+    def _region(self, region: Region | None, locator: str | None = None) -> Any:
+        if region not in (Region.HEADER, Region.FOOTER):
+            return self.body  # body text, and the notes section at its end
+        name = region.value
+        _, variant = _furniture(locator)
+        if variant == "first-page ":
+            self.section.different_first_page_header_footer = True
+            return getattr(self.section, f"first_page_{name}")
+        if variant == "even-page ":
+            self.document.settings.odd_and_even_pages_header_footer = True
+            return getattr(self.section, f"even_page_{name}")
+        return self.header if region is Region.HEADER else self.footer
 
     def _paragraph(self, container: Any, style: str | None) -> Any:
         """A new paragraph at the end of `container`, or its empty last one (a new header's,
@@ -144,12 +189,12 @@ class _CleanDocument:
             paragraph.style = style
         return paragraph
 
-    def _table(self, cell: TableCellPosition, region: Region | None) -> Any:
+    def _table(self, cell: TableCellPosition, region: Region | None, locator: str | None) -> Any:
         table = self.tables.get(cell.table)
         if table is not None:
             return table
         if cell.parent is not None:
-            outer = self._cell(cell.parent, region)
+            outer = self._cell(cell.parent, region, locator)
             last = outer.paragraphs[-1]
             table = outer.add_table(cell.rows, cell.cols)  # and the paragraph Word requires
             if _is_empty(last):
@@ -157,7 +202,7 @@ class _CleanDocument:
         elif region not in (Region.HEADER, Region.FOOTER):  # the body, or the notes after it
             table = self.body.add_table(cell.rows, cell.cols, self.width)
         else:
-            container = self._region(region)
+            container = self._region(region, locator)
             last = container.paragraphs[-1]
             table = container.add_table(cell.rows, cell.cols, self.width)
             if _is_empty(last):  # Word wants a header or footer to end with a paragraph
@@ -176,8 +221,8 @@ class _CleanDocument:
             grid = self.grids[number] = table._cells
         return grid[(row - 1) * table._column_count + col - 1]
 
-    def _cell(self, cell: TableCellPosition, region: Region | None) -> Any:
-        table = self._table(cell, region)
+    def _cell(self, cell: TableCellPosition, region: Region | None, locator: str | None) -> Any:
+        table = self._table(cell, region, locator)
         target = self._grid_cell(cell.table, table, cell.row, cell.col)
         key = (cell.table, cell.row, cell.col)
         if (cell.row_span > 1 or cell.col_span > 1) and key not in self.merged:
@@ -189,13 +234,14 @@ class _CleanDocument:
             self.grids.pop(cell.table)  # the merge changed which cell each grid place holds
         return target
 
-    def add(self, item: TranslatedBlock) -> None:
+    def add(self, item: TranslatedBlock, *, in_body: bool = False) -> None:
+        """`in_body`: write a header or footer block in the body (a later section's)."""
         kind, provenance = item.block.kind, item.block.provenance
-        region = provenance.region
+        region, locator = (None if in_body else provenance.region), provenance.locator
         if provenance.cell is not None:
-            container = self._cell(provenance.cell, region)
+            container = self._cell(provenance.cell, region, locator)
         else:
-            container = self._region(region)
+            container = self._region(region, locator)
         paragraph = self._paragraph(container, _style(kind, provenance.level))
         if kind is BlockKind.BREAK:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -220,6 +266,11 @@ class _CleanDocument:
 
 def clean_docx(report: Report) -> bytes:
     clean = _CleanDocument(report)
-    for item in translated_blocks(report):
-        clean.add(item)
+    items = translated_blocks(report)
+    later = later_sections(items)
+    for i, item in enumerate(items):
+        if i not in later:
+            clean.add(item)
+    for i in sorted(later):  # later sections' headers and footers, out of the page header
+        clean.add(items[i], in_body=True)
     return _save(clean.document)

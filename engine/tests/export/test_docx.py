@@ -351,3 +351,145 @@ def test_the_clean_document_does_not_rescan_itself_for_every_block(monkeypatch):
     assert document.tables[0].cell(29, 4).text == "[en] Zelle 149"
     calls["_cells"] -= 51  # listing each table's cells once is fine; per block is not
     assert max(calls.values(), default=0) <= 3, calls  # a few per document, never per block
+
+
+# CGL-117: header and footer variants, and later sections' headers -------------------------
+
+
+def _texts(part) -> list[str]:
+    return [p.text for p in part.paragraphs if p.text]
+
+
+def test_first_page_even_page_and_later_section_headers_are_not_stacked(tmp_path):
+    d = docx.Document()
+    d.settings.odd_and_even_pages_header_footer = True
+    first = d.sections[0]
+    first.different_first_page_header_footer = True
+    first.header.paragraphs[0].text = "Running header"
+    first.first_page_header.paragraphs[0].text = "Cover header"
+    first.even_page_header.paragraphs[0].text = "Even header"
+    first.footer.paragraphs[0].text = "Page footer"
+    first.first_page_footer.paragraphs[0].text = "Cover footer"
+    first.even_page_footer.paragraphs[0].text = "Even footer"
+    d.add_paragraph("Chapter one.")
+    second = d.add_section()
+    second.header.is_linked_to_previous = False
+    second.header.paragraphs[0].text = "Chapter 2 header"
+    d.add_paragraph("Chapter two.")
+    path = tmp_path / "variants.docx"
+    d.save(path)
+
+    document = _open(clean_docx(_ingested(path)))
+    assert len(document.sections) == 1
+    section = document.sections[0]
+    assert section.different_first_page_header_footer
+    assert document.settings.odd_and_even_pages_header_footer
+    assert _texts(section.header) == ["[en] Running header"]
+    assert _texts(section.first_page_header) == ["[en] Cover header"]
+    assert _texts(section.even_page_header) == ["[en] Even header"]
+    assert _texts(section.footer) == ["[en] Page footer"]
+    assert _texts(section.first_page_footer) == ["[en] Cover footer"]
+    assert _texts(section.even_page_footer) == ["[en] Even footer"]
+    # the second section's header is kept, at the end, out of the page header
+    assert _texts(document) == ["[en] Chapter one.", "[en] Chapter two.", "[en] Chapter 2 header"]
+
+
+def test_a_file_with_one_header_turns_no_variant_on(tmp_path):
+    d = docx.Document()
+    d.sections[0].header.paragraphs[0].text = "Acme"
+    d.sections[0].footer.paragraphs[0].text = "Page"
+    d.add_paragraph("Body.")
+    path = tmp_path / "one.docx"
+    d.save(path)
+    document = _open(clean_docx(_ingested(path)))
+    section = document.sections[0]
+    assert not section.different_first_page_header_footer
+    assert not document.settings.odd_and_even_pages_header_footer
+    assert _texts(section.header) == ["[en] Acme"]
+    assert _texts(section.footer) == ["[en] Page"]
+    assert _texts(document) == ["[en] Body."]
+
+
+def test_a_later_sections_header_table_goes_to_the_end_too(tmp_path):
+    d = docx.Document()
+    d.sections[0].header.paragraphs[0].text = "First"
+    d.add_paragraph("Body.")
+    later = d.add_section()
+    later.header.is_linked_to_previous = False
+    later.header.paragraphs[0].text = "Later"
+    grid = later.header.add_table(rows=1, cols=2, width=later.page_width)
+    grid.cell(0, 0).text, grid.cell(0, 1).text = "A", "B"
+    path = tmp_path / "later.docx"
+    d.save(path)
+    document = _open(clean_docx(_ingested(path)))
+    assert _texts(document.sections[0].header) == ["[en] First"]
+    assert document.sections[0].header.tables == []
+    assert _texts(document) == ["[en] Body.", "[en] Later"]
+    (table,) = document.tables
+    assert [c.text for c in table.rows[0].cells] == ["[en] A", "[en] B"]
+
+
+def test_an_older_runs_header_locator_still_goes_to_the_page_header():
+    blocks = [
+        Block(
+            id="b1",
+            kind=BlockKind.PARAGRAPH,
+            text="Old header",
+            provenance=Provenance(
+                source_path="x.docx", index=0, region=Region.HEADER, locator=None
+            ),
+        ),
+        Block(
+            id="b2",
+            kind=BlockKind.PARAGRAPH,
+            text="Body.",
+            provenance=Provenance(source_path="x.docx", index=1),
+        ),
+    ]
+    document = _open(clean_docx(_translated(blocks)))
+    assert _texts(document.sections[0].header) == ["[en] Old header"]
+
+
+def test_a_cover_section_without_a_header_leaves_the_next_sections_on_the_page(tmp_path):
+    d = docx.Document()
+    d.add_paragraph("Cover.")
+    body = d.add_section()
+    body.header.is_linked_to_previous = False
+    body.header.paragraphs[0].text = "Running header"
+    body.footer.is_linked_to_previous = False
+    body.footer.paragraphs[0].text = "Running footer"
+    d.add_paragraph("Body.")
+    path = tmp_path / "cover.docx"
+    d.save(path)
+    document = _open(clean_docx(_ingested(path)))
+    section = document.sections[0]
+    assert _texts(section.header) == ["[en] Running header"]
+    assert _texts(section.footer) == ["[en] Running footer"]
+    assert _texts(document) == ["[en] Cover.", "[en] Body."]
+
+
+def test_an_older_runs_header_table_cell_still_goes_to_the_page_header():
+    blocks = [
+        Block(
+            id="b1",
+            kind=BlockKind.PARAGRAPH,
+            text="Cell",
+            provenance=Provenance(
+                source_path="x.docx",
+                index=0,
+                region=Region.HEADER,
+                locator="header, table 1 row 1 col 1",
+                cell=TableCellPosition(table=1, rows=1, cols=1, row=1, col=1),
+            ),
+        ),
+        Block(
+            id="b2",
+            kind=BlockKind.PARAGRAPH,
+            text="Body.",
+            provenance=Provenance(source_path="x.docx", index=1),
+        ),
+    ]
+    document = _open(clean_docx(_translated(blocks)))
+    (table,) = document.sections[0].header.tables
+    assert table.rows[0].cells[0].text == "[en] Cell"
+    assert _texts(document) == ["[en] Body."]
