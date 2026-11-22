@@ -263,7 +263,6 @@ function GuideForm({
                 {importSummary(imported)}
               </p>
             ) : null}
-            <TermRows terms={draft.glossary} onChange={(glossary) => set({ glossary })} />
             {mode.kind === "project" ? (
               <TermImport
                 projectId={projectId}
@@ -272,6 +271,7 @@ function GuideForm({
                 onImported={onImported}
               />
             ) : null}
+            <TermRows terms={draft.glossary} onChange={(glossary) => set({ glossary })} />
           </>
         ) : null}
       </div>

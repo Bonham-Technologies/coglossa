@@ -13,6 +13,24 @@ dialog.guide-panel {
   margin-bottom: var(--space-3);
 }
 
+/* CGL-116: find a row, and add one, above a long list. */
+.list-tools .row {
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.list-search {
+  flex: 1;
+  min-width: 12rem;
+  margin: 0;
+}
+
+/* kept in the accessibility tree while empty, so its first message is read out */
+.list-status:empty {
+  margin: 0;
+}
+
 .guide-rows ul {
   list-style: none;
   margin: 0 0 var(--space-3);
@@ -50,7 +68,7 @@ dialog.guide-panel {
 
 /* CGL-88: importing terms from a glossary file. */
 .term-import {
-  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .term-import label {
