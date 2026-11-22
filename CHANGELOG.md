@@ -5,6 +5,7 @@ All notable changes to this project are recorded here. The format follows
 
 ## Unreleased
 
+- Word download: the first-page and even-page headers and footers are rebuilt as Word's own variants instead of stacking on every page, and a later section's header or footer comes at the end of the document (CGL-117).
 - Guide: the Terms and Names tabs have a search box and show a hundred rows at a time, with Add and Import above the list, so a guide of thousands of terms stays quick to open and find in (CGL-116).
 - Guide: a guide without a summary can be saved, and a glossary file with a term, translation or note over 2,000 characters is refused at preview with its line, so an imported guide can always be saved again (CGL-115).
 - Numbers check: a lone comma or point before three digits is read the way each side's language writes it, so 1,500 translated as 1.5 is flagged (CGL-114).

@@ -274,9 +274,9 @@ def test_a_repeated_header_is_read_once_but_repeats_within_one_are_kept(tmp_path
         ("Acme", "header"),
         ("Draft", "header, table 1 row 1 col 1"),
         ("Draft", "header, table 1 row 1 col 2"),
-        ("Acme", "header"),
-        ("Final", "header, table 2 row 1 col 1"),
-        ("Final", "header, table 2 row 1 col 2"),
+        ("Acme", "section 3 header"),
+        ("Final", "section 3 header, table 2 row 1 col 1"),
+        ("Final", "section 3 header, table 2 row 1 col 2"),
     ]
     assert [b.id for b in doc.blocks] == [f"b{n}" for n in range(1, len(doc.blocks) + 1)]
     assert doc.notices == [

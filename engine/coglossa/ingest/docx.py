@@ -336,10 +336,13 @@ class _Reader:
     def _page_furniture(self, region: Region) -> None:
         """Every section's headers (or footers) that are in use and not linked to the
         previous section's. A header (or footer) that repeats one already read, block for
-        block, is read once; within one, every block is kept, repeats too."""
+        block, is read once; within one, every block is kept, repeats too. The locator names
+        the variant and, after the first, the section: "header", "first-page header",
+        "even-page footer", "section 2 header" (`coglossa.export.docx` rebuilds from it)."""
         name = region.value
         odd_and_even = self.document.settings.odd_and_even_pages_header_footer
-        for section in self.document.sections:
+        for number, section in enumerate(self.document.sections, 1):
+            where = "" if number == 1 else f"section {number} "
             variants = [("", getattr(section, name))]
             if section.different_first_page_header_footer:
                 variants.append(("first-page ", getattr(section, f"first_page_{name}")))
@@ -347,7 +350,7 @@ class _Reader:
                 variants.append(("even-page ", getattr(section, f"even_page_{name}")))
             for prefix, part in variants:
                 if not part.is_linked_to_previous:
-                    self._furniture_part(part._element, region, prefix + name)
+                    self._furniture_part(part._element, region, where + prefix + name)
 
     def _furniture_part(self, element: Any, region: Region, locator: str) -> None:
         start, tables, boxes = len(self.blocks), self.tables, self.text_boxes
