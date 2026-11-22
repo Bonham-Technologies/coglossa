@@ -230,6 +230,26 @@ async def test_changed_number_is_flagged_and_a_reordered_date_is_not(make_config
     assert all(s.meaning is None for s in result.scores)  # no scorer or judge: still checked
 
 
+async def test_the_numbers_check_reads_each_side_in_its_language(make_config, make_runner):
+    # French writes 1.500 for fifteen hundred; the English 1.5 is a thousandfold change (CGL-114)
+    segs = make_segments("Il pleut.", "Il coûte 1.500 euros.", "Demain 1.500.")
+    ci = build_chunk_inputs([Chunk(id="c1", segment_ids=["s1", "s2", "s3"])], segs)[0]
+    result = await score_chunk(
+        _ctx(make_runner(make_config())),
+        None,
+        PROFILE,
+        GUIDE,
+        ci,
+        _cands(),
+        _reconciled(("It rains. It costs 1.5 euros.", "Tomorrow 1,500.")),
+        tier=Reliability.A,
+        diverse=False,
+    )
+    [flag] = [f for f in result.flags[0] if f.code is FlagCode.NUMBER_MISMATCH]
+    assert flag.evidence == {"source": ["1.500"], "target": ["1.5"]}
+    assert result.flags[1] == []
+
+
 async def test_over_long_span_is_not_sent_and_short_span_stays_aligned(scored_config, make_runner):
     long_text = " ".join(["It rains"] * 200)  # 1799 chars: over both the QE and similarity budgets
     scorer = FakeScorer(qe_overrides={"Tomorrow.": 5.0})

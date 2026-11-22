@@ -83,7 +83,10 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   translation (one changed, dropped or added); the evidence lists the unmatched values on each
   side. It never changes the scores. Digit scripts (١٠٠٠, १०००), grouping and decimal marks
   (1,000.5, 1.000,5, 1 000,5), dates in another order (2026-11-17, 17.11.2026), percent signs and
-  ordinal endings (21st, 21.) count as the same number. A scale word right next to a number is
+  ordinal endings (21st, 21.) count as the same number. A lone comma or point before three
+  digits is read the way each side's language writes it: 1,500 is fifteen hundred in English
+  and one and a half in French, so 1,500 against 1.5 is flagged between them, while a number
+  copied exactly as written is not. A scale word right next to a number is
   applied, so 1.5 million, 150万, 15 लाख and 1,500,000 all match; without one, 5 against 50 is
   flagged. Numbers written as words are not read: a number found on one side only is let
   through when it is one commonly spelled out (0 to 20, the tens to 100, 1000), so "three"

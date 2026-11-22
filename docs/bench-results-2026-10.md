@@ -260,6 +260,11 @@ catches 88%, 97% and 99% of changed numbers (1,295/1,477, 1,326/1,370, 1,290/1,3
 12-hour times written as 24-hour ones (11 pm, 23 h; 1200 GMT against 12:00), decades written
 with their century (the 1960s, 20世纪60年代), and again spelled-out Yoruba numbers.
 
+From records version 3 (CGL-114) the check reads a lone comma or point before three digits the
+way each side's language writes it, so English 1,500 against French 1.5 is flagged. Run on the
+human references of all 21 pairs (21,252 devtest sentence pairs, rule only), it flags 174
+before and 174 after: the clean false-positive rate does not move.
+
 A scale word changes a number's size only when it stands next to the number (1.5 million,
 150万, 10 آلاف), so the same digits at another size (5 days against 50) are flagged; on the full
 devtest this also catches two real errors in the references (AD 1000–13000 for 1000–1300, 30,00

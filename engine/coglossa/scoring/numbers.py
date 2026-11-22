@@ -12,12 +12,16 @@ What counts as the same number:
   grouping only when the groups after it have three digits (or two then three, Indian style).
   A single ``,`` or ``.`` before exactly three digits is ambiguous (``1,000`` is a thousand in
   English and one in German), so both readings are tried and whichever matches the other side
-  wins (but ``1,000`` is never read as 1.000, one to three places). Text that is not a
-  well-formed grouped or decimal number (``17.11.2026``, ``3:16``, ``2026-11-17``) is read as
-  separate numbers, so a date written in another order still matches: ``2026-11-17`` and
-  ``17.11.2026`` are both {2026, 11, 17}; ``12.30`` may also be a time, 12 and 30. A less likely
-  reading is used only when it explains more than one number, so it cannot excuse a real
-  change.
+  wins (but ``1,000`` is never read as 1.000, one to three places). When the side's language is
+  known and has a known decimal mark (`decimal_mark`), such a token is read only that way:
+  English ``1,500`` is 1500 and French ``1,500`` is 1.5, so ``1,500`` translated as ``1.5`` is
+  flagged. A number written exactly the same on both sides (copied as it was) matches its
+  copy, one copy for one occurrence, and a side whose language is unknown keeps both readings.
+  Text that is not a well-formed grouped or decimal number (``17.11.2026``, ``3:16``,
+  ``2026-11-17``) is read as separate numbers, so a date written in another order still
+  matches: ``2026-11-17`` and ``17.11.2026`` are both {2026, 11, 17}; ``12.30`` may also be a
+  time, 12 and 30. A less likely reading is used only when it explains more than one number, so
+  it cannot excuse a real change.
 - **Signs, units and suffixes are ignored.** ``50%``, ``%50`` and ``50 %`` are all 50; ``1st``,
   ``21.`` and ``1er`` are 1 and 21; a minus sign or a dash in a range is not part of a number.
 - **Large-number words.** Languages group large numbers differently (1.5 million is 150万 in
@@ -203,8 +207,54 @@ def _grouped(groups: list[str], kinds: list[str]) -> bool:
     return kind == "," and rest[-1] == 3 and all(n == 2 for n in rest[:-1])
 
 
-def _readings(token: str) -> list[Reading]:
-    """Every plausible reading of one run of digits and separators, most likely first."""
+# The decimal mark each language writes with Latin digits (CLDR), by primary language subtag.
+# Only languages whose usage is settled are listed: an unlisted one keeps both readings of an
+# ambiguous number, which can excuse a thousandfold change but never flags a correct one.
+_POINT_LANGS = "en zh ja ko hi th he ms ne bn ta te mr gu pa sw yo ha am fil tl ga"
+_COMMA_LANGS = (
+    "de fr es it pt ru uk nl pl cs sk sv da fi nb nn no tr id vi el ro hu bg hr sl lt lv et ca"
+)
+_DECIMAL_BY_LANG = dict.fromkeys(_POINT_LANGS.split(), ".") | dict.fromkeys(
+    _COMMA_LANGS.split(), ","
+)
+# Regions that write numbers differently from their language's default, or not one way.
+_DECIMAL_BY_REGION: dict[str, str | None] = {
+    "de-ch": ".",
+    "de-li": ".",
+    "it-ch": ".",
+    **dict.fromkeys(
+        ("fr-ch", "en-za", "en-150", "en-at", "en-be", "en-de", "en-dk", "en-fi", "en-nl"),
+        None,
+    ),
+    **dict.fromkeys(("en-se", "en-si", "sw-cd", "ms-bn"), None),
+    **dict.fromkeys(
+        ("es-mx", "es-us", "es-pr", "es-do", "es-gt", "es-hn", "es-ni", "es-pa", "es-sv"), "."
+    ),
+}
+_REGION = re.compile(r"[a-z]{2}|\d{3}")
+
+
+def decimal_mark(lang: str | None) -> str | None:
+    """The decimal mark ("." or ",") a BCP-47 language writes, or None when it is not known
+    (no language, an unlisted one, or a region with mixed usage such as es-419)."""
+    if not lang:
+        return None
+    subtags = lang.replace("_", "-").casefold().split("-")
+    primary = subtags[0]
+    region = next((t for t in subtags[1:3] if _REGION.fullmatch(t)), None)
+    if region is not None:
+        key = f"{primary}-{region}"
+        if key in _DECIMAL_BY_REGION:
+            return _DECIMAL_BY_REGION[key]
+        if primary == "es" and region != "es":  # Latin America is split between the two
+            return None
+    return _DECIMAL_BY_LANG.get(primary)
+
+
+def _readings(token: str, mark: str | None = None) -> list[Reading]:
+    """Every plausible reading of one run of digits and separators, most likely first. With the
+    language's decimal ``mark``, a token that is either a grouped integer or a decimal (1,500)
+    is read only the language's way."""
     digits = "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in token)
     parts = _SPLIT.split(digits)
     groups, seps = parts[::2], parts[1::2]
@@ -224,6 +274,9 @@ def _readings(token: str) -> list[Reading]:
     if not readings or (len(seps) == 1 and decimal in ".," and len(groups[-1]) == 2):
         texts = _SPLIT.split(token)[::2]
         readings.append(tuple(Number(_canonical(g), t) for g, t in zip(groups, texts, strict=True)))
+    elif mark is not None and len(readings) == 2 and len(seps) == 1 and decimal in ".,":
+        # grouped and decimal readings of one "," or "." before three digits
+        readings = readings[1:] if decimal == mark else readings[:1]
     return readings
 
 
@@ -271,13 +324,17 @@ def _remove(numbers: list[Number], common: Counter[str]) -> list[Number]:
     return kept
 
 
-def _choices(text: str) -> list[list[Reading]]:
+def _choices(text: str, mark: str | None, copied: Counter[str]) -> list[list[Reading]]:
     choices = []
+    copied = Counter(copied)
     for m in _TOKEN.finditer(text):
+        if copied[m.group()]:  # matched by a verbatim copy on the other side
+            copied[m.group()] -= 1
+            continue
         after = _exponents_after(_fold(text[m.end() : m.end() + _SCALE_WINDOW]))
         before = _exponents_before(_fold(text[max(0, m.start() - _SCALE_WINDOW) : m.start()]))
         readings = []
-        for r in _readings(m.group()):
+        for r in _readings(m.group(), mark):
             if len(r) == 1:
                 readings.append((r[0].scale(before | after),))
             else:
@@ -320,10 +377,20 @@ def _listed(values: tuple[str, ...]) -> str:
     )
 
 
-def number_check(source_text: str, final_text: str) -> NumberMismatch | None:
+def number_check(
+    source_text: str,
+    final_text: str,
+    source_lang: str | None = None,
+    target_lang: str | None = None,
+) -> NumberMismatch | None:
     """Compare the numbers written in digits on both sides (see the module docstring for what
-    counts as the same number and what the check cannot see)."""
-    src_choices, tgt_choices = _choices(source_text), _choices(final_text)
+    counts as the same number and what the check cannot see). The languages (BCP-47) decide how
+    an ambiguous ``1,500`` or ``1.500`` is read on each side; None keeps both readings."""
+    copied = Counter(m.group() for m in _TOKEN.finditer(source_text)) & Counter(
+        m.group() for m in _TOKEN.finditer(final_text)
+    )
+    src_choices = _choices(source_text, decimal_mark(source_lang), copied)
+    tgt_choices = _choices(final_text, decimal_mark(target_lang), copied)
     if not src_choices and not tgt_choices:
         return None
     choices = src_choices + tgt_choices
