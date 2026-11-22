@@ -241,7 +241,7 @@ async def score_chunk(
             guide_signal=signal,
             guide_violations=tuple(violations),
             length_ratio=length_ratio(sources[i], rs.text),
-            number_mismatch=number_check(sources[i], rs.text),
+            number_mismatch=number_check(sources[i], rs.text, profile.source_lang, ctx.target_lang),
         )
         score, span_flags = score_span(evidence, tier=tier, cfg=cfg, diverse=diverse)
         scores.append(score)

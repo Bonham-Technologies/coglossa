@@ -98,7 +98,7 @@ SAMPLES_PER_KIND = 3
 # Bump when a pair's records would mean something else: saved pairs are then scored again. The
 # fingerprint sees settings, prompts and the tiers file, not code: bump it when the injections
 # (inject.py), the scoring stage or the flags it raises change, or the built-in tiers do.
-RECORDS_VERSION = 2  # 2: the numbers check (number_mismatch, CGL-86)
+RECORDS_VERSION = 3  # 2: the numbers check (number_mismatch, CGL-86); 3: by language (CGL-114)
 # Settings that never change a pair's records: how fast, how often and how many calls are made,
 # credentials, and where the deployment keeps its data. Raising a timeout so that a shared CPU
 # scorer keeps up must not cost the pairs already finished. The prompts and the tiers file are
