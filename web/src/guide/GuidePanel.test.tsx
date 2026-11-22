@@ -249,11 +249,12 @@ it("starts a guide when the set has none", async () => {
   const form = screen.getByRole("group", { name: "Name 1" });
   await user.type(within(form).getByLabelText("Name"), "Riverside Community Centre");
   await user.type(within(form).getByLabelText("Translation"), "Centro Comunitario Riverside");
-  expect(screen.getByText("Add a short summary on the Style tab.")).toBeInTheDocument();
-  await user.click(screen.getByRole("tab", { name: "Style" }));
-  await user.type(screen.getByLabelText("Summary"), "A welcome letter.");
+  // a summary is optional (CGL-115): a guide of names alone saves
+  expect(screen.queryByText(/summary/i)).toBeNull();
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   await user.click(screen.getByRole("button", { name: "Save" }));
   await vi.waitFor(() => expect(saved?.base_version).toBeNull());
+  expect(saved?.guide.summary).toBe("");
 });
 
 it("asks before closing with unsaved changes", async () => {

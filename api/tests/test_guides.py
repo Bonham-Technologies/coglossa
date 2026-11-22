@@ -1,6 +1,9 @@
+from coglossa.glossary_import import MAX_FIELD_CHARS
 from coglossa.schema import Guide, RunState
 from coglossa.store import runs
 from coglossa.testing.seed import seed_run
+
+from coglossa_api.models import SHORT_MAX
 
 LOCKED = {
     "summary": "A cat sleeps while it rains.",
@@ -225,6 +228,32 @@ async def test_a_bad_glossary_names_the_line_and_writes_nothing(api, db):
     assert "choose a .csv, .tsv or .tbx file" in xlsx.json()["detail"]
     versions = (await api.client.get(f"/api/projects/{seeded.project_id}/guide/versions")).json()
     assert len(versions) == 1
+
+
+async def test_an_over_long_glossary_field_is_refused_with_its_line(api, db):
+    # CGL-115: each field at most what a guide edit may hold, so the guide saves again
+    assert MAX_FIELD_CHARS == SHORT_MAX
+    seeded = await seed_run(db)
+    base = f"/api/projects/{seeded.project_id}/guide/import"
+    long = ("terms.csv", f"chien,dog\nchat,{'x' * (SHORT_MAX + 1)}\n".encode(), "text/csv")
+    for url, data in ((f"{base}/preview", {}), (base, {"base_version": "1"})):
+        response = await api.client.post(url, files={"file": long}, data=data)
+        assert response.status_code == 422
+        assert response.json()["detail"].startswith("line 2 has a translation of 2,001 characters")
+
+
+async def test_a_guide_imported_into_an_empty_set_saves_again(api, db):
+    made = await api.client.post("/api/projects", json={"name": "letters", "target_lang": "en"})
+    project = made.json()["id"]
+    base = f"/api/projects/{project}/guide"
+    done = await api.client.post(f"{base}/import", files={"file": CSV})
+    assert done.status_code == 200, done.text
+    guide = done.json()["view"]["guide"]
+    assert guide["summary"] == ""
+    guide["glossary"][0]["rendering"] = "cat"
+    saved = await api.client.put(base, json={"guide": guide, "base_version": 1})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["guide"]["glossary"][0]["rendering"] == "cat"
 
 
 async def test_glossary_uploads_keep_to_the_upload_limit(make_api, db, monkeypatch):

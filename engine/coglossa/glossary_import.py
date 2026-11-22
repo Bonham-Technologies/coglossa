@@ -6,7 +6,8 @@ Spreadsheets: the term in the first column and its translation in the second; fu
 are ignored. A first row that names the columns ("term, translation", "source, target", or the
 languages, as codes or English names) is a header and is skipped; the columns it names (the
 guide's languages, else "term" and "translation" or their like) are used, in whatever order,
-and a column of ids or notes never is. At most 20,000 terms, read until the limit is passed;
+and a column of ids or notes never is. At most 20,000 terms, read until the limit is passed,
+and each term, translation and note at most 2,000 characters, as the guide editor saves them;
 the delimiter is guessed from the first lines. UTF-8 with or without a byte-order mark,
 or UTF-16 with one (Excel's "Unicode text"). A .tsv file is split on tabs; any other file on
 commas, semicolons or tabs, whichever the file uses.
@@ -39,6 +40,9 @@ from coglossa.text import clean_text, entry_key
 
 MAX_GLOSSARY_MB = 20  # a termbase of a hundred thousand entries is a few MB
 MAX_TERMS = 20_000
+# Each term, translation and note: what a guide edit may hold (coglossa_api.models.SHORT_MAX),
+# so an imported guide can always be saved again (CGL-115).
+MAX_FIELD_CHARS = 2_000
 
 GlossaryFormat = Literal["csv", "tsv", "tbx"]
 _FORMATS: dict[str, GlossaryFormat] = {
@@ -119,7 +123,18 @@ def parse_glossary(
         parsed = ParsedGlossary(format=fmt, source_lang=source_lang, terms=terms)
     if not parsed.terms:
         raise GlossaryFileError("the file has no terms in it")
+    _check_lengths(parsed.terms)
     return parsed
+
+
+def _check_lengths(terms: list[ImportedTerm]) -> None:
+    for t in terms:
+        for value, what in ((t.term, "term"), (t.rendering, "translation"), (t.notes, "note")):
+            if len(value) > MAX_FIELD_CHARS:
+                raise GlossaryFileError(
+                    f"line {t.line} has a {what} of {len(value):,} characters: keep each term, "
+                    f"translation and note to {MAX_FIELD_CHARS:,} characters or fewer"
+                )
 
 
 def _check_count(terms: list[ImportedTerm]) -> None:
