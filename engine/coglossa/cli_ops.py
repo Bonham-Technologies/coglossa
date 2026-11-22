@@ -94,7 +94,8 @@ def add_commands(sub: argparse._SubParsersAction) -> None:
         help="add the terms of a CSV, TSV or TBX glossary to a project guide",
         description="Compares the file with the project guide in one language and adds its new "
         "terms as a new guide version. Terms the guide already has with another translation "
-        "are reported and kept as they are unless --overwrite-conflicts is given.",
+        "are reported and kept as they are unless --overwrite-conflicts is given. Each term, "
+        "translation and note may be at most 2,000 characters.",
     )
     _config_arg(glossary)
     glossary.add_argument("input", type=Path, help="CSV or TSV (term, translation) or TBX file")

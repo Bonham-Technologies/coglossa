@@ -174,7 +174,8 @@ nothing is written until the import, which adds a guide version by the user, all
 term the guide has with another translation keeps it unless you choose to replace it
 (`--overwrite-conflicts`, `overwrite_conflicts`), locked ones too, and **Lock all imported terms**
 (`--lock-all`, `lock_all`) locks every imported term, so the sweep enforces it like one locked by
-hand. A file that cannot be read is refused with the line at fault. TBX languages match
+hand. A file that cannot be read is refused with the line at fault, and so is a term,
+translation or note over 2,000 characters, the most a guide entry may hold. TBX languages match
 case-insensitively, with `-` and `_` alike: a guide in `pt-BR` takes `pt-BR`, else plain `pt`; a
 guide in `pt` takes `pt`, else a regional `pt-…`; `pt-PT` never serves `pt-BR`. The terms are
 read from the project's source language, else the file's one other language (or its main

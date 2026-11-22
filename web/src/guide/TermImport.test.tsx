@@ -332,3 +332,40 @@ it("sums up what an import did", () => {
     "The guide was saved.",
   );
 });
+
+it("imports into a set with no guide, and the new guide saves without a summary", async () => {
+  let saved: { guide: { summary: string; glossary: unknown[] } } | undefined;
+  server.use(
+    http.get("*/api/projects/p-1/guide", () =>
+      HttpResponse.json({ detail: "no guide yet" }, { status: 404 }),
+    ),
+    http.post("*/api/projects/p-1/guide/import/preview", () =>
+      HttpResponse.json({ ...preview, base_version: null }),
+    ),
+    http.post("*/api/projects/p-1/guide/import", () =>
+      HttpResponse.json({
+        ...imported,
+        view: { ...imported.view, guide: { ...imported.view.guide, summary: "" } },
+      }),
+    ),
+    http.put("*/api/projects/p-1/guide", async ({ request }) => {
+      saved = (await request.json()) as typeof saved;
+      return HttpResponse.json(guideView);
+    }),
+  );
+  const { user } = renderAt(
+    <GuidePanel projectId="p-1" targetLang="en" mode={{ kind: "project" }} onClose={vi.fn()} />,
+  );
+  await screen.findByText("No names yet.");
+  await user.click(screen.getByRole("tab", { name: "Terms" }));
+  await user.upload(screen.getByLabelText("Choose a glossary file"), csv());
+  const area = screen.getByRole("region", { name: "Import terms" });
+  await user.click(await within(area).findByRole("button", { name: "Add the terms" }));
+  expect(await screen.findByRole("list", { name: "Terms" })).toHaveTextContent("vent → wind");
+  expect(screen.queryByText(/summary/i)).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Remove vent" }));
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(saved?.guide.glossary).toHaveLength(2));
+  expect(saved?.guide.summary).toBe("");
+});
