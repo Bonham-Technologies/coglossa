@@ -24,10 +24,11 @@ export function sameGuide(a: Guide, b: Guide): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** What stops a guide from being saved, in plain words (the API refuses the same). */
+/** What stops a guide from being saved, in plain words. The API takes these entries too; they are
+ * refused here because an entry without its words or translation does nothing. A summary is
+ * optional: a guide started by importing a glossary has none (CGL-115). */
 export function guideProblems(guide: Guide): string[] {
   const found: string[] = [];
-  if (!guide.summary.trim()) found.push("Add a short summary on the Style tab.");
   if (guide.glossary.some((g) => !g.term.trim())) found.push("Every term needs its words.");
   else if (guide.glossary.some((g) => !g.rendering.trim()))
     found.push("Every term needs a translation.");

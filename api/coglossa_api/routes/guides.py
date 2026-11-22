@@ -94,7 +94,10 @@ _IMPORT_ERRORS: dict[int | str, dict[str, Any]] = {
     413: {"model": ErrorBody, "description": "The file is larger than the upload limit."},
     422: {
         "model": ErrorBody,
-        "description": "The file cannot be read; the message names the line.",
+        "description": (
+            "The file cannot be read, or a term, translation or note is over 2,000 characters; "
+            "the message names the line."
+        ),
     },
 }
 
@@ -108,7 +111,9 @@ async def preview_glossary_import(
     source_lang: LanguageField = None,
 ) -> GlossaryImportPreview:
     """What importing a CSV, TSV or TBX glossary into one language's set guide would do: how
-    many terms are new, already there, or there with another translation. Writes nothing.
+    many terms are new, already there, or there with another translation. Writes nothing. A
+    term, translation or note over 2,000 characters, more than a guide edit may hold, is
+    refused with its line (422).
     `source_lang`: the language of a TBX file's terms (default: the set's, else the file's
     one other language, else that of the set's documents)."""
     glossary = await _glossary_file(ctx, file, source_lang)

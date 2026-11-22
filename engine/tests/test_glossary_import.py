@@ -7,6 +7,7 @@ import pytest
 
 from coglossa import glossary_import
 from coglossa.glossary_import import (
+    MAX_FIELD_CHARS,
     MAX_TERMS,
     GlossaryFileError,
     ImportedTerm,
@@ -180,7 +181,7 @@ def test_the_delimiter_is_guessed_from_the_first_lines_only(monkeypatch):
     )
     many = "".join(f"t{i},r{i}\n" for i in range(5000)).encode()
     assert len(_parse(many).terms) == 5000
-    long_line = b"a," + b"b" * 100_000 + b"\nc,d\n"
+    long_line = b"a,b" + b",x" * 50_000 + b"\nc,d\n"  # extra columns are ignored
     assert len(_parse(long_line).terms) == 2
     assert len(samples) == 2
     assert samples[0].count("\n") <= 20
@@ -429,3 +430,39 @@ def test_an_overwritten_name_keeps_its_notes_field():
     plan = plan_import(GUIDE, [ImportedTerm("Paris", "Paname", 1, "slang")])
     merged, _ = merge_import(GUIDE, plan, lock_all=False, overwrite_conflicts=True)
     assert merged.entities[0].rendering == "Paname" and merged.glossary == GUIDE.glossary
+
+
+# CGL-115: a field the guide editor could not save again is refused at preview -----------------
+
+
+@pytest.mark.parametrize(
+    ("row", "what"),
+    [
+        ("x" * 2001 + ",cat", "term"),
+        ("chat," + "x" * 2001, "translation"),
+    ],
+)
+def test_a_field_over_the_editors_limit_is_refused_with_its_line(row, what):
+    assert MAX_FIELD_CHARS == 2_000
+    data = f"term,translation\nchien,dog\n{row}\n".encode()
+    with pytest.raises(GlossaryFileError, match=f"line 3 has a {what} of 2,001 characters"):
+        _parse(data)
+
+
+def test_a_field_at_the_limit_is_read():
+    parsed = _parse(f"chat,{'x' * 2000}\n".encode())
+    assert len(parsed.terms[0].rendering) == 2000
+
+
+@pytest.mark.parametrize(
+    ("note", "rendering", "what"),
+    [("x" * 2001, "cat", "note"), ("", "x" * 2001, "translation")],
+)
+def test_a_tbx_field_over_the_limit_is_refused(note, rendering, what):
+    tbx = (
+        f'<martif><termEntry><descrip type="definition">{note}</descrip>'
+        '<langSet xml:lang="fr"><term>chat</term></langSet>'
+        f'<langSet xml:lang="en"><term>{rendering}</term></langSet></termEntry></martif>'
+    ).encode()
+    with pytest.raises(GlossaryFileError, match=f"has a {what} of 2,001 characters"):
+        _parse(tbx, "base.tbx")

@@ -3953,7 +3953,7 @@
                 }
               }
             },
-            "description": "The file cannot be read; the message names the line."
+            "description": "The file cannot be read, or a term, translation or note is over 2,000 characters; the message names the line."
           }
         },
         "summary": "Import Glossary",
@@ -3964,7 +3964,7 @@
     },
     "/api/projects/{project_id}/guide/import/preview": {
       "post": {
-        "description": "What importing a CSV, TSV or TBX glossary into one language's set guide would do: how\nmany terms are new, already there, or there with another translation. Writes nothing.\n`source_lang`: the language of a TBX file's terms (default: the set's, else the file's\none other language, else that of the set's documents).",
+        "description": "What importing a CSV, TSV or TBX glossary into one language's set guide would do: how\nmany terms are new, already there, or there with another translation. Writes nothing. A\nterm, translation or note over 2,000 characters, more than a guide edit may hold, is\nrefused with its line (422).\n`source_lang`: the language of a TBX file's terms (default: the set's, else the file's\none other language, else that of the set's documents).",
         "operationId": "preview_glossary_import_api_projects__project_id__guide_import_preview_post",
         "parameters": [
           {
@@ -4045,7 +4045,7 @@
                 }
               }
             },
-            "description": "The file cannot be read; the message names the line."
+            "description": "The file cannot be read, or a term, translation or note is over 2,000 characters; the message names the line."
           }
         },
         "summary": "Preview Glossary Import",
