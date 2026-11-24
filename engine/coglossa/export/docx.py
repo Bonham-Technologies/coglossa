@@ -12,7 +12,9 @@ of the document, after the notes, so their translation is kept without repeating
 Footnotes and endnotes become a marked notes section at the end: each note starts with its mark,
 and each passage that cites one ends with the mark in superscript (where in the passage the
 source cited it is not recorded). Table cells without a recorded position, as in older runs and
-other formats, become paragraphs."""
+other formats, become paragraphs. Bold, italic, underlined, superscript and subscript words and
+links come back on the translated words where the passage kept them (CGL-108); a passage
+without them is one plain run, as before."""
 
 import io
 import re
@@ -21,9 +23,12 @@ from typing import Any
 import docx
 from docx.enum.table import WD_TABLE_DIRECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 
 from coglossa.export.rows import (
     BREAK_MARKER,
@@ -34,7 +39,8 @@ from coglossa.export.rows import (
     source_name,
     translated_blocks,
 )
-from coglossa.schema import BlockKind, Region, Report, TableCellPosition
+from coglossa.schema import BlockKind, InlineMark, MarkKind, Region, Report, TableCellPosition
+from coglossa.segment.markup import MarkKey, char_keys
 from coglossa.text import clean_text
 
 _W_P = qn("w:p")
@@ -59,6 +65,51 @@ def _add_run(paragraph: Any, text: str, *, rtl: bool) -> Any:
     run = paragraph.add_run(clean_text(text))  # python-docx turns "\n" into a line break
     if rtl:
         run.font.rtl = True
+    return run
+
+
+def _add_marked_runs(
+    paragraph: Any, part: Any, text: str, marks: list[InlineMark], *, rtl: bool
+) -> list[Any]:
+    """`text` as runs with its inline formatting; one plain run when it has none. A link's
+    runs go inside a hyperlink to its target, which `part` (the story's part) holds."""
+    if not marks:
+        return [_add_run(paragraph, text, rtl=rtl)]
+    keys = char_keys(len(text), marks)
+    runs: list[Any] = []
+    start = 0
+    while start < len(text):
+        end = start + 1
+        while end < len(text) and keys[end] == keys[start]:
+            end += 1
+        runs.append(_formatted_run(paragraph, part, text[start:end], keys[start], rtl=rtl))
+        start = end
+    return runs
+
+
+def _formatted_run(
+    paragraph: Any, part: Any, text: str, key: frozenset[MarkKey], *, rtl: bool
+) -> Any:
+    run = _add_run(paragraph, text, rtl=rtl)
+    kinds = {kind for kind, _ in key}
+    font = run.font
+    if MarkKind.BOLD in kinds:
+        font.bold = True
+    if MarkKind.ITALIC in kinds:
+        font.italic = True
+    if MarkKind.UNDERLINE in kinds or MarkKind.LINK in kinds:
+        font.underline = True
+    if MarkKind.SUPERSCRIPT in kinds:
+        font.superscript = True
+    elif MarkKind.SUBSCRIPT in kinds:
+        font.subscript = True
+    href = next((h for kind, h in sorted(key, key=str) if kind is MarkKind.LINK and h), None)
+    if href is not None:
+        link = OxmlElement("w:hyperlink")
+        link.set(qn("r:id"), part.relate_to(href, RT.HYPERLINK, is_external=True))
+        run._r.addprevious(link)
+        link.append(run._r)
+        run = Run(run._r, paragraph)
     return run
 
 
@@ -179,6 +230,12 @@ class _CleanDocument:
             return getattr(self.section, f"even_page_{name}")
         return self.header if region is Region.HEADER else self.footer
 
+    def _part(self, region: Region | None, locator: str | None) -> Any:
+        """The part a block's links belong to: its header's or footer's, else the document's."""
+        if region in (Region.HEADER, Region.FOOTER):
+            return self._region(region, locator).part
+        return self.document.part
+
     def _paragraph(self, container: Any, style: str | None) -> Any:
         """A new paragraph at the end of `container`, or its empty last one (a new header's,
         footer's or cell's, or the one Word requires after a nested table)."""
@@ -254,7 +311,11 @@ class _CleanDocument:
             mark = _add_run(paragraph, note, rtl=self.rtl)
             mark.font.superscript = True
             runs += [mark, _add_run(paragraph, " ", rtl=self.rtl)]
-        runs.append(_add_run(paragraph, item.text, rtl=self.rtl))
+        if item.marks:
+            part = self._part(region, locator)
+            runs += _add_marked_runs(paragraph, part, item.text, item.marks, rtl=self.rtl)
+        else:
+            runs.append(_add_run(paragraph, item.text, rtl=self.rtl))
         for ref in provenance.note_refs:
             mark = _add_run(paragraph, ref, rtl=self.rtl)
             mark.font.superscript = True

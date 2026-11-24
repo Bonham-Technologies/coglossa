@@ -254,6 +254,7 @@ class SpanRow(Base):
     judge_errors: Mapped[JsonList | None]
     back_translation: Mapped[str | None]
     proposed_terms: Mapped[JsonList]
+    formatting: Mapped[Json | None]  # SpanFormatting (CGL-108); None: none kept, or older runs
 
 
 class SpanScoreRow(Base):

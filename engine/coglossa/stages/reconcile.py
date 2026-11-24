@@ -69,7 +69,7 @@ async def reconcile_chunk(
                 "source_lang": profile.source_lang,
                 "target_lang": profile.target_lang,
                 "guide": sliced.model_dump(),
-                "segments": [{"id": s.id, "text": s.text} for s in ci.segments],
+                "segments": [{"id": s.id, "text": ci.markup.text(s)} for s in ci.segments],
                 "candidates": [
                     {
                         "translator": n,

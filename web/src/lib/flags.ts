@@ -13,6 +13,7 @@ export const FLAG_TITLES: Record<FlagCode, string> = {
   unscored: "Couldn't be checked",
   engine_error: "Some checking didn't finish",
   unread_content: "Not everything was translated",
+  formatting_lost: "Formatting couldn't be kept",
 };
 
 /** A code a newer engine added falls back to a neutral title, never breaking the panel. */

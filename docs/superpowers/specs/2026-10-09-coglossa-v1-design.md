@@ -256,6 +256,7 @@ Flag codes:
 - `terminology_violation`
 - `possible_omission`
 - `number_mismatch` (CGL-86)
+- `formatting_lost` (CGL-108): the source's bold, italic, underline, superscript, subscript or link markers did not come back whole, so the passage is plain in the clean Word download
 - `cultural_or_wordplay`
 - `engine_error`
 - `low_reliability_language`

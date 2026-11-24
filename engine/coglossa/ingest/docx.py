@@ -9,7 +9,9 @@ i, ii, … in the order they are first cited, a block that cites one records its
 (`note_refs`) and each note's blocks carry it (`note`). A header or footer that another section
 repeats exactly is read once. Table rows and cells in content controls are read. Charts,
 diagrams, embedded objects and documents, equations and comments cannot be read: the
-document's notices name them (a document notice, not a run error)."""
+document's notices name them (a document notice, not a run error). Bold, italic, underlined,
+superscript and subscript runs (set on the run or by its character style) and links to web
+addresses are recorded as the block's marks (CGL-108)."""
 
 import dataclasses
 import re
@@ -23,17 +25,21 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import parse_xml
 from docx.oxml.ns import qn
+from docx.text.run import Run
 from lxml import etree
 
 from coglossa.ingest.base import UNREAD_PREFIX, IngestError, file_sha256, is_scene_break
 from coglossa.schema import (
     Block,
     BlockKind,
+    InlineMark,
+    MarkKind,
     Provenance,
     Region,
     SourceDocument,
     TableCellPosition,
 )
+from coglossa.segment.markup import MarkKey, join_marked, marks_from_keys, strip_marked
 
 _NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
@@ -41,11 +47,19 @@ _NS = {
     "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
     "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 }
 _P, _TBL, _SDT, _SDT_CONTENT = qn("w:p"), qn("w:tbl"), qn("w:sdt"), qn("w:sdtContent")
 _CUSTOM_XML, _ALT_CHUNK = qn("w:customXml"), qn("w:altChunk")
 _TR, _TC = qn("w:tr"), qn("w:tc")
 _HEADING_RE = re.compile(r"heading\s*(\d+)")
+_RUN_MARKS = (
+    ("bold", MarkKind.BOLD),
+    ("italic", MarkKind.ITALIC),
+    ("underline", MarkKind.UNDERLINE),
+    ("superscript", MarkKind.SUPERSCRIPT),
+    ("subscript", MarkKind.SUBSCRIPT),
+)
 
 # What cannot be read, in the order a notice names it: (singular, plural, XPath under a paragraph)
 _UNREADABLE = (
@@ -126,13 +140,21 @@ def unread_notice(counts: Counter[str]) -> list[str]:
     return [f"{UNREAD_PREFIX}{_plural_list(names)}."] if names else []
 
 
-def _related_xml(part: Any, reltype: str) -> Any | None:
+def _related_part(part: Any, reltype: str) -> Any | None:
     for rel in part.rels.values():
         if rel.reltype == reltype and not rel.is_external:
-            target = rel.target_part
-            element = getattr(target, "element", None)
-            return element if element is not None else parse_xml(target.blob)
+            return rel.target_part
     return None
+
+
+def _xml_of(part: Any) -> Any:
+    element = getattr(part, "element", None)
+    return element if element is not None else parse_xml(part.blob)
+
+
+def _related_xml(part: Any, reltype: str) -> Any | None:
+    target = _related_part(part, reltype)
+    return None if target is None else _xml_of(target)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -148,6 +170,7 @@ class _Paragraph:
     text: str
     refs: list[str]
     boxes: list[Any]
+    marks: list[InlineMark] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -183,6 +206,10 @@ class _Reader:
         self.tables = 0
         self.text_boxes = 0
         self.furniture: set[tuple[Any, ...]] = set()  # header and footer parts already read
+        self.part = document.part  # the part being read, whose relationships links name
+        self.char_styles = {
+            s.style_id: s for s in document.styles if s.type == WD_STYLE_TYPE.CHARACTER
+        }
 
     def read(self) -> None:
         self._page_furniture(Region.HEADER)
@@ -241,6 +268,9 @@ class _Reader:
             return _xpath(p, f".//{path}{own}")
 
         runs = find("w:r[not(ancestor::w:del) and not(ancestor::w:moveFrom)]")
+        texts = [r.text for r in runs]
+        keys = [k for r, t in zip(runs, texts, strict=True) for k in [self._format(r)] * len(t)]
+        text = "".join(texts)
         refs = [
             self._mark(ref.tag.rsplit("}", 1)[1].removesuffix("Reference"), ref.get(qn("w:id")))
             for ref in find("*[self::w:footnoteReference or self::w:endnoteReference]")
@@ -249,18 +279,42 @@ class _Reader:
             if path is not None:
                 self.unread[name] += len(find(path))
         return _Paragraph(
-            text="".join(r.text for r in runs), refs=refs, boxes=find("w:txbxContent")
+            text=text,
+            refs=refs,
+            boxes=find("w:txbxContent"),
+            marks=marks_from_keys(text, keys) if any(keys) else [],
         )
+
+    def _format(self, r: Any) -> frozenset[MarkKey]:
+        """A run's formatting: its own, over its character style's, and the web address of the
+        link it is in."""
+        fonts = [Run(r, None).font]
+        style = self.char_styles.get(r.style)
+        if style is not None:
+            fonts.insert(0, style.font)
+        keys: set[MarkKey] = set()
+        for attr, kind in _RUN_MARKS:
+            value = None
+            for font in fonts:
+                own = getattr(font, attr)
+                value = own if own is not None else value
+            if value:
+                keys.add((kind, None))
+        rid = _xpath(r, "string(ancestor::w:hyperlink[1]/@r:id)")
+        rel = self.part.rels.get(rid) if rid else None
+        if rel is not None and rel.is_external and rel.target_ref.strip():
+            keys.add((MarkKind.LINK, rel.target_ref.strip()))
+        return frozenset(keys)
 
     def _container(self, element: Any, ctx: _Context, *, cell: bool = False) -> None:
         """A cell's paragraphs are joined into one block, up to a nested table or a text box."""
-        buffer: list[str] = []
+        buffer: list[tuple[str, list[InlineMark]]] = []
         refs: list[str] = []
 
         def flush() -> None:
-            text = "\n".join(buffer).strip()
+            text, marks = strip_marked(*join_marked(buffer, "\n"))
             if text:
-                self._add(BlockKind.TABLE_CELL, text, ctx, note_refs=list(refs))
+                self._add(BlockKind.TABLE_CELL, text, ctx, note_refs=list(refs), marks=marks)
             buffer.clear()
             refs.clear()
 
@@ -271,7 +325,7 @@ class _Reader:
                 continue
             paragraph = self._paragraph(child)
             if cell:
-                buffer.append(paragraph.text)
+                buffer.append((paragraph.text, paragraph.marks))
                 refs.extend(paragraph.refs)
                 if paragraph.boxes:
                     flush()
@@ -286,17 +340,18 @@ class _Reader:
         flush()
 
     def _paragraph_block(self, p: Any, paragraph: _Paragraph, ctx: _Context) -> None:
-        text = paragraph.text.strip()
+        text, marks = strip_marked(paragraph.text, paragraph.marks)
         if not text:
             return
         if ctx.note is not None:
-            self._add(BlockKind.FOOTNOTE, text, ctx, note_refs=paragraph.refs)
+            self._add(BlockKind.FOOTNOTE, text, ctx, note_refs=paragraph.refs, marks=marks)
             return
         style_id = p.style
         style = self.default_style if style_id is None else self.styles.get(style_id, style_id)
         kind = _paragraph_kind(style or "", text)
         level = _heading_level(style or "") if kind is BlockKind.HEADING else None
-        self._add(kind, text, ctx, level=level, note_refs=paragraph.refs)
+        marks = [] if kind is BlockKind.BREAK else marks
+        self._add(kind, text, ctx, level=level, note_refs=paragraph.refs, marks=marks)
 
     def _table(self, tbl: Any, ctx: _Context) -> None:
         self.tables += 1
@@ -350,7 +405,9 @@ class _Reader:
                 variants.append(("even-page ", getattr(section, f"even_page_{name}")))
             for prefix, part in variants:
                 if not part.is_linked_to_previous:
+                    self.part = part.part
                     self._furniture_part(part._element, region, where + prefix + name)
+        self.part = self.document.part
 
     def _furniture_part(self, element: Any, region: Region, locator: str) -> None:
         start, tables, boxes = len(self.blocks), self.tables, self.text_boxes
@@ -368,9 +425,11 @@ class _Reader:
         self.tables, self.text_boxes, self.unread = tables, boxes, unread
 
     def _notes(self, kind: str, reltype: str, region: Region) -> None:
-        root = _related_xml(self.document.part, reltype)
-        if root is None:
+        part = _related_part(self.document.part, reltype)
+        if part is None:
             return
+        root = _xml_of(part)
+        self.part = part
         notes = {
             n.get(qn("w:id")): n
             for n in _xpath(root, f"./w:{kind}")
@@ -381,6 +440,7 @@ class _Reader:
             mark = self._mark(kind, note_id)
             ctx = _Context(region=region, locator=f"{kind} {mark}", note=mark)
             self._container(notes[note_id], ctx)
+        self.part = self.document.part
 
 
 class DocxIngestor:

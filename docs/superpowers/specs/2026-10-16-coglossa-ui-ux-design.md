@@ -236,6 +236,7 @@ The panel opens on the right, about 380 px wide. Between 1024 and 1280 px it ove
    | `low_reliability_language` | Less-practised language: check carefully |
    | `unscored` | Couldn't be checked |
    | `engine_error` | Some checking didn't finish |
+   | `formatting_lost` | Formatting couldn't be kept |
 
    A code missing from this table shows its explanation with the title "Worth a look". That way a new engine code never breaks the panel.
 

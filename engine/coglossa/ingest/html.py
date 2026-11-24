@@ -1,19 +1,32 @@
 """HTML ingestion (spec §4.1), also used for the XHTML chapters of EPUB files. Block-level
 elements become blocks in document order: headings, paragraphs, list items, table cells,
-footnotes and breaks. Inline markup is flattened to its text; the head, scripts, styles,
-comments and note-reference markers are skipped."""
+footnotes and breaks. Inline markup is flattened to its text, and bold, italic, underlined,
+superscript and subscript text and links to web addresses are recorded as the block's marks
+(CGL-108); the head, scripts, styles, comments and note-reference markers are skipped."""
 
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import lxml.html
 from lxml import etree
 
 from coglossa.ingest.base import file_sha256, is_scene_break, make_blocks, strip_nul
-from coglossa.schema import BlockKind, SourceDocument
+from coglossa.schema import BlockKind, InlineMark, MarkKind, SourceDocument
+from coglossa.segment.markup import MarkKey, marks_from_keys
 
 Item = tuple[BlockKind, str, str | None]
+_MARK_OF_TAG = {
+    "b": MarkKind.BOLD,
+    "strong": MarkKind.BOLD,
+    "i": MarkKind.ITALIC,
+    "em": MarkKind.ITALIC,
+    "u": MarkKind.UNDERLINE,
+    "sup": MarkKind.SUPERSCRIPT,
+    "sub": MarkKind.SUBSCRIPT,
+}
+_LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp"})  # targets a Word file can open
 
 _SKIP = frozenset(
     {
@@ -112,15 +125,68 @@ def _normalize(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
+Piece = tuple[str, frozenset[MarkKey]]  # text and its formatting
+
+
+def _normalize_marked(pieces: list[Piece]) -> tuple[str, list[frozenset[MarkKey]]]:
+    """`_normalize` of the pieces' text, with the formatting of each character it keeps (none
+    when nothing is formatted). A collapsed run of whitespace takes its first character's."""
+    text = "".join(t for t, _ in pieces)
+    if not any(k for _, k in pieces):
+        return _normalize(text), []
+    keys = [k for t, k in pieces for _ in range(len(t))]
+    out: list[str] = []
+    out_keys: list[frozenset[MarkKey]] = []
+    start = 0
+    for line in text.split(_LINE_BREAK):
+        chars: list[str] = []
+        line_keys: list[frozenset[MarkKey]] = []
+        space: frozenset[MarkKey] | None = None
+        for i in range(start, start + len(line)):
+            if text[i].isspace():  # what \s matches
+                if chars and space is None:
+                    space = keys[i]
+                continue
+            if space is not None:
+                chars.append(" ")
+                line_keys.append(space)
+                space = None
+            chars.append(text[i])
+            line_keys.append(keys[i])
+        if chars:
+            if out:
+                out.append("\n")
+                out_keys.append(frozenset())
+            out += chars
+            out_keys += line_keys
+        start += len(line) + 1
+    return "".join(out), out_keys
+
+
+def _mark(el: Any, tag: str) -> MarkKey | None:
+    kind = _MARK_OF_TAG.get(tag)
+    if kind is not None:
+        return kind, None
+    href = (el.get("href") or "").strip()
+    if tag == "a" and urlparse(href).scheme.lower() in _LINK_SCHEMES:
+        return MarkKind.LINK, href
+    return None
+
+
 class _Collector:
     def __init__(self, locator: str | None) -> None:
         self.locator = locator
         self.items: list[Item] = []
-        self._buffer: list[str] = []
+        self.marks: list[list[InlineMark]] = []  # each item's
+        self._buffer: list[Piece] = []
         self._kinds: list[BlockKind] = [BlockKind.PARAGRAPH]
+        self._keys: frozenset[MarkKey] = frozenset()  # the formatting of the text being read
+
+    def _text(self, text: str) -> None:
+        self._buffer.append((text, self._keys))
 
     def flush(self) -> None:
-        text = _normalize("".join(self._buffer))
+        text, keys = _normalize_marked(self._buffer)
         self._buffer.clear()
         if not text:
             return
@@ -128,17 +194,20 @@ class _Collector:
         if kind is BlockKind.PARAGRAPH and is_scene_break(text):
             kind = BlockKind.BREAK
         self.items.append((kind, text, self.locator))
+        plain = not keys or kind is BlockKind.BREAK
+        self.marks.append([] if plain else marks_from_keys(text, keys))
 
     def walk(self, el: Any) -> None:
         tag = _tag(el)
         if tag is None or tag in _SKIP or _is_noteref(el):
             return  # the caller keeps the element's tail text
         if tag == "br":
-            self._buffer.append(_LINE_BREAK)
+            self._text(_LINE_BREAK)
             return
         if tag == "hr":
             self.flush()
             self.items.append((BlockKind.BREAK, "* * *", self.locator))
+            self.marks.append([])
             return
         footnote = _is_footnote(el)
         block = footnote or tag in _BLOCK_TAGS
@@ -150,15 +219,20 @@ class _Collector:
             else:
                 kind = BlockKind.FOOTNOTE if footnote else _KIND_OF_TAG.get(tag, outer)
             self._kinds.append(kind)
+        outer_keys = self._keys
+        mark = _mark(el, tag)
+        if mark is not None:
+            self._keys = outer_keys | {mark}
         if tag == "pre":
-            self._buffer.append(_clean(el.text_content()).replace("\n", _LINE_BREAK))
+            self._text(_clean(el.text_content()).replace("\n", _LINE_BREAK))
         else:
             if el.text:
-                self._buffer.append(_clean(el.text))
+                self._text(_clean(el.text))
             for child in el:
                 self.walk(child)
                 if child.tail:
-                    self._buffer.append(_clean(child.tail))
+                    self._text(_clean(child.tail))
+        self._keys = outer_keys
         if block:
             self.flush()
             self._kinds.pop()
@@ -180,11 +254,16 @@ def parse_html(data: bytes) -> Any | None:
         return None
 
 
-def collect_blocks(root: Any, locator: str | None) -> list[Item]:
+def collect_marked(root: Any, locator: str | None) -> tuple[list[Item], list[list[InlineMark]]]:
+    """The blocks under `root`, and each one's marks."""
     collector = _Collector(locator)
     collector.walk(root)
     collector.flush()
-    return collector.items
+    return collector.items, collector.marks
+
+
+def collect_blocks(root: Any, locator: str | None) -> list[Item]:
+    return collect_marked(root, locator)[0]
 
 
 class HtmlIngestor:
@@ -193,10 +272,10 @@ class HtmlIngestor:
 
     def ingest(self, path: Path) -> SourceDocument:
         root = parse_html(path.read_bytes())
-        items = collect_blocks(root, None) if root is not None else []
+        items, marks = collect_marked(root, None) if root is not None else ([], [])
         return SourceDocument(
             source_path=str(path),
             format=self.format,
             sha256=file_sha256(path),
-            blocks=make_blocks(str(path), items),
+            blocks=make_blocks(str(path), items, marks),
         )

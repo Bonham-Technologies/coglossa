@@ -5,7 +5,7 @@ from docx.oxml.ns import nsdecls
 
 from coglossa.ingest.base import IngestError
 from coglossa.ingest.docx import DocxIngestor
-from coglossa.schema import BlockKind, Region, TableCellPosition
+from coglossa.schema import BlockKind, MarkKind, Region, TableCellPosition
 from tests.ingest.docx_parts import (
     add_chart,
     add_content_control,
@@ -13,6 +13,7 @@ from tests.ingest.docx_parts import (
     add_diagram,
     add_embedded_object,
     add_equation,
+    add_hyperlink,
     add_imported_chunk,
     add_note_reference,
     add_notes,
@@ -326,3 +327,68 @@ def test_a_header_that_differs_only_in_what_cannot_be_read_is_still_counted(tmp_
         "Some parts of this file couldn't be read, so they aren't translated: 1 chart and "
         "1 embedded object."
     ]
+
+
+def _marked(block) -> list[tuple[MarkKind, str | None, str]]:
+    return [(m.kind, m.href, block.text[m.start : m.end]) for m in block.provenance.marks]
+
+
+def test_inline_formatting_is_recorded_as_marks(tmp_path):
+    """CGL-108: bold, italic, a link and a superscript in one paragraph."""
+    d = docx.Document()
+    p = d.add_paragraph("  The ")
+    p.add_run("cat").bold = True
+    p.add_run(" and ")
+    p.add_run("the dog").italic = True
+    p.add_run(" see ")
+    add_hyperlink(p, d.part, "here", "https://example.org/a")
+    p.add_run(" and H")
+    p.add_run("2").font.subscript = True
+    p.add_run("O")
+    p.add_run("3").font.superscript = True
+    p.add_run(" ")
+    p.add_run("under").underline = True
+    p.add_run(" ")
+    p.add_run("strong").style = "Strong"  # bold by its character style
+    styled_off = p.add_run(" not")
+    styled_off.style = "Strong"
+    styled_off.bold = False  # the run's own formatting wins over its style
+    d.add_paragraph("Plain text.")
+    d.add_paragraph().add_run("* * *").bold = True
+    path = tmp_path / "f.docx"
+    d.save(path)
+
+    blocks = DocxIngestor().ingest(path).blocks
+    assert blocks[0].text == "The cat and the dog see here and H2O3 under strong not"
+    assert _marked(blocks[0]) == [
+        (MarkKind.BOLD, None, "cat"),
+        (MarkKind.ITALIC, None, "the dog"),
+        (MarkKind.LINK, "https://example.org/a", "here"),
+        (MarkKind.SUBSCRIPT, None, "2"),
+        (MarkKind.SUPERSCRIPT, None, "3"),
+        (MarkKind.UNDERLINE, None, "under"),
+        (MarkKind.BOLD, None, "strong"),
+    ]
+    assert blocks[1].provenance.marks == []  # no formatting
+    assert blocks[2].kind is BlockKind.BREAK and blocks[2].provenance.marks == []
+
+
+def test_marks_follow_cells_notes_and_headers(tmp_path):
+    d = docx.Document()
+    cell = d.add_table(rows=1, cols=1).cell(0, 0)
+    cell.text = "First line"
+    second = cell.add_paragraph("Second ")
+    second.add_run("bold").bold = True
+    note_paragraph = d.add_paragraph("Body")
+    add_note_reference(note_paragraph, 1)
+    add_notes(d, {1: "A note"})
+    header = d.sections[0].header.paragraphs[0]
+    header.text = "Visit "
+    add_hyperlink(header, d.sections[0].header.part, "us", "https://example.org/h")
+    path = tmp_path / "c.docx"
+    d.save(path)
+
+    blocks = {b.text: b for b in DocxIngestor().ingest(path).blocks}
+    assert _marked(blocks["First line\nSecond bold"]) == [(MarkKind.BOLD, None, "bold")]
+    assert _marked(blocks["Visit us"]) == [(MarkKind.LINK, "https://example.org/h", "us")]
+    assert blocks["A note"].provenance.marks == []

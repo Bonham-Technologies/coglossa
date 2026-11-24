@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from coglossa.schema.document import InlineMark
 from coglossa.schema.guide import GlossaryEntry
 
 
@@ -68,6 +69,7 @@ class FlagCode(StrEnum):
     UNSCORED = "unscored"
     NUMBER_MISMATCH = "number_mismatch"
     UNREAD_CONTENT = "unread_content"  # a document notice: parts of the file left out (CGL-87)
+    FORMATTING_LOST = "formatting_lost"  # inline formatting did not come back (CGL-108)
 
 
 class FlagStatus(StrEnum):
@@ -145,6 +147,15 @@ class SpanScore(BaseModel):
     reliability: Reliability = Reliability.UNSCORED
 
 
+class SpanFormatting(BaseModel):
+    """A passage's inline formatting (CGL-108): marks over `text`, the translation they were
+    found in. They hold only while the passage's text is still that text, so an edit or a sweep
+    leaves the passage plain."""
+
+    text: str
+    marks: list[InlineMark]
+
+
 class Span(BaseModel):
     id: str  # "p1", "p2", … in reading order
     chunk_id: str
@@ -159,6 +170,13 @@ class Span(BaseModel):
     flags: list[Flag] = Field(default_factory=list)
     judge_errors: list[JudgeError] | None = None  # None: not judged; []: judged, no errors
     back_translation: str | None = None  # None: not back-translated
+    formatting: SpanFormatting | None = None  # None: no inline formatting kept
+
+
+def kept_formatting(span: Span) -> SpanFormatting | None:
+    """The span's formatting while its text is still the one the marks were made for."""
+    f = span.formatting
+    return f if f is not None and f.text == span.text else None
 
 
 class RevisionSource(StrEnum):

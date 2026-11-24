@@ -12,6 +12,7 @@ export const FLAG_CODES: FlagCode[] = [
   "low_reliability_language",
   "unscored",
   "unread_content",
+  "formatting_lost",
 ];
 
 export function score(text: string | null): number | null {

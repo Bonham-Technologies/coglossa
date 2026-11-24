@@ -63,6 +63,7 @@ def test_flag_codes_match_spec():
         "unscored",
         "number_mismatch",
         "unread_content",
+        "formatting_lost",
     }
 
 
