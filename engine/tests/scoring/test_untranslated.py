@@ -164,6 +164,43 @@ def test_a_few_latin_names_inside_an_ethiopic_passage_are_not_flagged():
     assert untranslated_check("Dr. Okafor said the vaccine is safe.", translation, "am") is None
 
 
+@pytest.mark.parametrize(
+    ("translation", "lang"),
+    [
+        ("该函数返回一个 boolean 值，表示 cache 是否命中。", "zh"),
+        ("請打開 settings 並啟用 dark mode 功能", "zh-Hant"),
+        ("設定を開いて、editor window の dark mode を有効にします。", "ja"),
+        ("deployment file 과 함께 kubectl apply 명령을 사용합니다.", "ko"),
+        ("कृपया settings खोलें और dark mode चालू करें", "hi"),
+        ("يرجى فتح settings وتفعيل dark mode", "ar"),
+    ],
+)
+def test_a_few_english_terms_in_a_dense_script_are_not_flagged(translation, lang):
+    # a Chinese character or a Hangul syllable holds more than a Latin letter: counted one for
+    # one, these correct translations read as mostly Latin
+    assert untranslated_check("Open the settings.", translation, lang) is None
+
+
+def test_a_passage_mostly_in_english_is_still_flagged_for_a_dense_script():
+    found = untranslated_check(
+        "x", "ቤተ መዘክሩ በ1901 ተከፈተ። the museum has twelve rooms and a garden", "am"
+    )
+    assert found is not None and found.rule == "script" and found.script == "Latn"
+    found = untranslated_check("x", "会议将于明天中午在办公室举行，请准时参加", "en")
+    assert found is not None and found.script == "Hani"
+
+
+def test_a_copy_within_one_language_and_script_is_not_flagged():
+    # en-US to en-GB is allowed: most passages rightly stay as they are
+    passage = "The committee approved the budget, but the vote was close."
+    assert untranslated_check(passage, passage, "en-GB", source_lang="en-US") is None
+    assert untranslated_check(passage, passage, "en", source_lang="en_GB") is None
+    assert untranslated_check(passage, passage, "en-GB", source_lang="fr").rule == "copied"
+    # the same language in another script still has to be converted
+    chinese = "委员会批准了预算，但投票结果非常接近。"
+    assert untranslated_check(chinese, chinese, "zh-Hant", source_lang="zh-Hans").rule == "copied"
+
+
 def test_a_correct_hindi_translation_with_a_url_is_not_flagged():
     translation = "कृपया धीरे बोलें और https://example.com/help/getting-started देखें।"
     assert untranslated_check("Please speak slowly.", translation, "hi") is None

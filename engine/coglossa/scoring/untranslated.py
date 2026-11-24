@@ -6,7 +6,10 @@ similarity. Two rules, both plain text rules with no language model. Pure functi
   whitespace, punctuation, digits and accents are ignored ("nearly the same" means exactly
   that, so a real translation between close languages is never caught by a similarity score).
 - **Wrong script (rule b).** Most of the translation's letters are in a script the target
-  language is not written in: Latin text for an Amharic (`am`) or Hindi (`hi`) target. The
+  language is not written in: Latin text for an Amharic (`am`) or Hindi (`hi`) target. "Most"
+  weighs each letter by how much it holds (`_WEIGHT`: a Chinese character or a Hangul syllable
+  counts for three Latin letters), so a Chinese, Korean or Hindi passage with a few English
+  terms in it ("dark mode", "npm install") is not read as mostly Latin. The
   scripts each language is written in come from the FLORES-200 codes (`amh_Ethi`;
   `coglossa.bench.codes`), plus the other scripts some languages are commonly written in
   (`_ALSO_WRITTEN_IN`: Serbian in Latin as well as Cyrillic, ...). A language that is in neither
@@ -19,6 +22,9 @@ f(x), --option or key=value, or in camelCase; a passage dense with brackets and 
 passage needs at least `MIN_LETTERS` counted letters, in at least `MIN_WORDS` words unless its
 script is written without spaces, to be flagged, so passages that are only names, numbers,
 addresses or code, single words and very short ones never are.
+
+Rule (a) is left out when the source is already in the target language and script (en-US to
+en-GB, which the web app allows): there most passages rightly stay as they are.
 
 Limits, by design:
 
@@ -92,6 +98,35 @@ _SCRIPT_BY_NAME = {
     "MEETEI MAYEK": "Mtei",
 }
 _KNOWN = frozenset(_SCRIPT_BY_NAME.values())
+# Roughly how many Latin letters one counted letter of a script stands for, when telling which
+# script a passage is mostly in: a Chinese character or a Hangul syllable is a syllable or a word,
+# kana and the other syllabaries a syllable; the Brahmic scripts' vowel signs are not letters, so
+# each counted letter carries a vowel too; Arabic and Hebrew leave short vowels out. Others: 1.
+_WEIGHT = (
+    dict.fromkeys(("Hani", "Hang"), 3)
+    | dict.fromkeys(("Hira", "Kana", "Ethi", "Cher", "Vaii", "Thaa", "Mtei"), 2)
+    | dict.fromkeys(
+        (
+            "Deva",
+            "Beng",
+            "Guru",
+            "Gujr",
+            "Orya",
+            "Taml",
+            "Telu",
+            "Knda",
+            "Mlym",
+            "Sinh",
+            "Thai",
+            "Laoo",
+            "Tibt",
+            "Mymr",
+            "Khmr",
+        ),
+        2,
+    )
+    | dict.fromkeys(("Arab", "Hebr", "Syrc"), 1.5)
+)
 # ISO 15924 codes that stand for several scripts of letters.
 _MIXED = {
     "Hans": frozenset({"Hani"}),
@@ -151,17 +186,33 @@ def _script_table() -> tuple[dict[str, frozenset[str]], dict[str, frozenset[str]
 _EXACT, _BY_BASE = _script_table()
 
 
+def _language_and_script(lang: str) -> tuple[str, str | None]:
+    """A BCP-47 tag's language subtag and its script subtag (None when it has none), folded."""
+    subtags = lang.replace("_", "-").casefold().split("-")
+    return subtags[0], next((t for t in subtags[1:] if len(t) == 4 and t.isalpha()), None)
+
+
 def target_scripts(lang: str | None) -> frozenset[str] | None:
     """The scripts (ISO 15924, as letters are told apart) a BCP-47 language is written in, or
     None when it is not known: then the script rule does not fire."""
     if not lang:
         return None
-    subtags = lang.replace("_", "-").casefold().split("-")
-    script = next((t for t in subtags[1:] if len(t) == 4 and t.isalpha()), None)
+    base, script = _language_and_script(lang)
     if script is not None:
         return _expand(script.title()) or None
-    base = subtags[0]
     return _EXACT.get(base) or _BY_BASE.get(base) or None
+
+
+def _same_language(source_lang: str | None, target_lang: str | None) -> bool:
+    """Whether the source is already in the target language and script (en-US and en-GB; not
+    zh-Hans and zh-Hant)."""
+    if not source_lang or not target_lang:
+        return False
+    return _language_and_script(source_lang) == _language_and_script(target_lang)
+
+
+def _weighed(letters: Counter[str]) -> float:
+    return sum(n * _WEIGHT.get(script, 1) for script, n in letters.items())
 
 
 @cache
@@ -308,23 +359,27 @@ def untranslated_check(
     final_text: str,
     target_lang: str | None,
     keep: Iterable[str] = (),
+    *,
+    source_lang: str | None = None,
 ) -> Untranslated | None:
     """Flag a translation that is the source copied through (rule a) or is mostly written in a
     script the target language does not use (rule b); `keep` are names the guide keeps as they
-    are, which are not counted. See the module docstring for what is not counted."""
+    are, which are not counted. Rule (a) is left out when `source_lang` is the target language
+    in the same script. See the module docstring for what is not counted."""
     counted = _counted(final_text, _names_pattern(keep, final_text))
     if counted is None:
         return None
-    if _letters(source_text) == _letters(final_text):
+    copied = _letters(source_text) == _letters(final_text)
+    if copied and not _same_language(source_lang, target_lang):
         return Untranslated("copied", source_text, final_text)
     expected = target_scripts(target_lang)
     if expected is None:
         return None
-    inside = sum(n for s, n in counted.items() if s in expected)
+    inside = Counter({s: n for s, n in counted.items() if s in expected})
     outside = Counter({s: n for s, n in counted.items() if s not in expected})
-    if outside.total() < MIN_LETTERS or outside.total() <= inside:
+    if outside.total() < MIN_LETTERS or _weighed(outside) <= _weighed(inside):
         return None
-    [(script, _)] = outside.most_common(1)
+    script = max(outside, key=lambda s: outside[s] * _WEIGHT.get(s, 1))
     return Untranslated(
         "script", source_text, final_text, script, tuple(sorted(expected)), target_lang
     )

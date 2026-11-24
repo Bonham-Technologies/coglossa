@@ -259,6 +259,25 @@ async def test_a_passage_left_untranslated_is_flagged_and_scores_are_unchanged(
     assert clean.flags[0] == [] and clean.scores == result.scores
 
 
+async def test_a_copy_within_one_language_is_not_untranslated(make_config, make_runner):
+    # en-US to en-GB: the profile's source language is the target's, so a copy is expected
+    segs = make_segments("It rains.", "The cat sleeps on the sofa.", "Tomorrow.")
+    ci = build_chunk_inputs([Chunk(id="c1", segment_ids=["s1", "s2", "s3"])], segs)[0]
+    copied = "It rains. The cat sleeps on the sofa."
+    result = await score_chunk(
+        _ctx(make_runner(make_config())),
+        None,
+        PROFILE.model_copy(update={"source_lang": "en-US"}),
+        GUIDE,
+        ci,
+        _cands(),
+        _reconciled((copied, "Tomorrow.")),
+        tier=Reliability.A,
+        diverse=False,
+    )
+    assert result.flags == [[], []]
+
+
 async def test_terms_the_guide_keeps_as_they_are_are_not_untranslated(make_config, make_runner):
     term = "mise en place de la cuisine"
     segs = make_segments("Il pleut.", "Le chat dort.", term)
