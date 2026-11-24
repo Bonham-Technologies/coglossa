@@ -11,7 +11,8 @@ from coglossa.ingest.html import HtmlIngestor
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.pdf import PdfIngestor
 from coglossa.ingest.txt import TextIngestor
-from coglossa.schema import BlockKind, SourceDocument
+from coglossa.schema import Block, BlockKind, SourceDocument
+from coglossa.segment.markup import char_keys, marks_from_keys
 from coglossa.text import clean_text
 
 
@@ -46,6 +47,18 @@ def check_supported(path: Path) -> None:
     check_extension(path.name)
 
 
+def _cleaned(block: Block) -> Block:
+    """The block with clean text; its marks follow the characters they cover."""
+    if not block.provenance.marks:
+        return block.model_copy(update={"text": clean_text(block.text)})
+    keys = char_keys(len(block.text), block.provenance.marks)
+    kept = [(clean_text(c), k) for c, k in zip(block.text, keys, strict=True)]
+    text = "".join(c for c, _ in kept)
+    marks = marks_from_keys(text, [k for c, k in kept if c])
+    provenance = block.provenance.model_copy(update={"marks": marks})
+    return block.model_copy(update={"text": text, "provenance": provenance})
+
+
 def ingest_file(path: Path) -> SourceDocument:
     check_supported(path)
     ext = path.suffix.lower()
@@ -56,7 +69,7 @@ def ingest_file(path: Path) -> SourceDocument:
             except OSError as e:
                 raise IngestError(f"{path.name} cannot be read: {e.strerror or e}") from e
             if any(clean_text(b.text) != b.text for b in doc.blocks):  # NUL, form feeds, ...
-                blocks = [b.model_copy(update={"text": clean_text(b.text)}) for b in doc.blocks]
+                blocks = [_cleaned(b) for b in doc.blocks]
                 doc = doc.model_copy(update={"blocks": blocks})
             if not any(b.kind is not BlockKind.BREAK and b.text.strip() for b in doc.blocks):
                 raise IngestError(f"{path.name} contains no translatable text")

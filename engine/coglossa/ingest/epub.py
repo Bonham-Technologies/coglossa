@@ -11,8 +11,8 @@ from urllib.parse import unquote
 from lxml import etree
 
 from coglossa.ingest.base import IngestError, error_reason, file_sha256, make_blocks
-from coglossa.ingest.html import Item, collect_blocks, parse_html
-from coglossa.schema import SourceDocument
+from coglossa.ingest.html import Item, collect_marked, parse_html
+from coglossa.schema import InlineMark, SourceDocument
 
 MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
 _CHAPTER_TYPES = frozenset({"application/xhtml+xml", "text/html"})
@@ -78,10 +78,13 @@ class EpubIngestor:
                         f"{path.name} is DRM-protected; only DRM-free EPUB files can be translated"
                     )
                 items: list[Item] = []
+                marks: list[list[InlineMark]] = []
                 for href in chapters:
                     root = parse_html(z.read(href))
                     if root is not None:
-                        items += collect_blocks(root, href)
+                        chapter_items, chapter_marks = collect_marked(root, href)
+                        items += chapter_items
+                        marks += chapter_marks
         except (IngestError, OSError):
             raise  # OSError: the registry reports "cannot be read"
         except Exception as e:  # zipfile, zlib and lxml raise many unrelated types
@@ -90,5 +93,5 @@ class EpubIngestor:
             source_path=str(path),
             format=self.format,
             sha256=file_sha256(path),
-            blocks=make_blocks(str(path), items),
+            blocks=make_blocks(str(path), items, marks),
         )

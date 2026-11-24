@@ -9,11 +9,13 @@ from coglossa.schema import (
     FlagCode,
     FlagStatus,
     GlossaryEntry,
+    InlineMark,
     JudgeError,
     Reliability,
     RevisionSource,
     RunError,
     Span,
+    SpanFormatting,
     SpanScore,
 )
 from coglossa.stages.chunk import ChunkOutcome
@@ -84,6 +86,22 @@ def _outcome(chunk, texts, **kw):
         + [[]] * (len(spans) - 1),
         errors=[RunError(stage="judge", chunk_id=chunk, message="m")],
     )
+
+
+async def test_a_passages_formatting_is_stored_with_it(db):
+    """CGL-108: the marks a passage kept come back with it; a passage without them, None."""
+    run_id = await _run_id(db)
+    outcome = _outcome("c1", ["The cat.", "Plain."])
+    formatting = SpanFormatting(
+        text="The cat.",
+        marks=[InlineMark(start=4, end=7, kind="link", href="https://example.org/")],
+    )
+    outcome.spans[0].formatting = formatting
+    async with db.session() as s, s.begin():
+        await outputs.save_chunk_outcome(s, run_id, 0, outcome)
+    async with db.session() as s:
+        stored = await outputs.load_spans(s, run_id)
+    assert [sp.formatting for sp in stored.spans] == [formatting, None]
 
 
 async def test_outcome_round_trip_in_reading_order(db):

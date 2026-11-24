@@ -205,3 +205,15 @@ def test_render_version_changes_the_hash(spec, monkeypatch):
     before = output_hash(cfg, spec)
     monkeypatch.setattr(fp, "RENDER_VERSION", fp.RENDER_VERSION + 1)
     assert output_hash(cfg, spec) != before
+
+
+@pytest.mark.parametrize("spec", [PIPELINE, BASELINE])
+def test_source_version_changes_the_hash(spec, monkeypatch):
+    """CGL-108: results translated from the plain bench document are redone, even with
+    prompts a deployment overrides (whose hashes do not change)."""
+    import coglossa.bench.fingerprint as fp
+
+    cfg = CoglossaConfig.model_validate(DATA)
+    before = output_hash(cfg, spec)
+    monkeypatch.setattr(fp, "SOURCE_VERSION", fp.SOURCE_VERSION + 1)
+    assert output_hash(cfg, spec) != before
