@@ -218,6 +218,15 @@
     },
     "Entity": {
       "properties": {
+        "forms": {
+          "default": [],
+          "description": "Other accepted forms of the rendering, such as its plural or case forms",
+          "items": {
+            "type": "string"
+          },
+          "title": "Forms",
+          "type": "array"
+        },
         "forms_of_address": {
           "default": "",
           "title": "Forms Of Address",
@@ -252,6 +261,15 @@
         "rendering": {
           "title": "Rendering",
           "type": "string"
+        },
+        "source_forms": {
+          "default": [],
+          "description": "Other forms of the source words, such as plural or case forms, it also covers",
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Forms",
+          "type": "array"
         },
         "speech_style": {
           "default": "",
@@ -373,6 +391,15 @@
     },
     "GlossaryEntry": {
       "properties": {
+        "forms": {
+          "default": [],
+          "description": "Other accepted forms of the rendering, such as its plural or case forms",
+          "items": {
+            "type": "string"
+          },
+          "title": "Forms",
+          "type": "array"
+        },
         "locked": {
           "default": false,
           "title": "Locked",
@@ -387,6 +414,15 @@
           "description": "Target-language rendering to use",
           "title": "Rendering",
           "type": "string"
+        },
+        "source_forms": {
+          "default": [],
+          "description": "Other forms of the source words, such as plural or case forms, it also covers",
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Forms",
+          "type": "array"
         },
         "term": {
           "description": "Source-language term exactly as it appears",

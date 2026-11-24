@@ -76,7 +76,7 @@ async def test_submit_stores_the_file_and_queues_the_run(env, tmp_path):
     assert run.state == RunState.CREATED
     assert (run.target_lang, run.source_lang, run.checkpoint) == ("en", "fr", True)
     assert run.config_snapshot == cfg.model_dump(mode="json")
-    assert run.prompt_versions["sweep"] == 1
+    assert run.prompt_versions["sweep"] == 2
     assert doc.filename == "story.txt" and doc.format == "txt"
     assert storage.get(doc.storage_key) == b"Il pleut."
     assert doc.storage_key.endswith("/story.txt")
@@ -421,7 +421,7 @@ async def test_build_report(env, tmp_path):
     assert [g.term for g in report.guide_proposals] == ["pluie"]
     assert report.usage.tokens_in == 3 and report.usage.calls == 1
     assert report.config.hash == submitted_hash  # the snapshot taken at submission
-    assert report.config.prompt_versions["sweep"] == 1
+    assert report.config.prompt_versions["sweep"] == 2
     assert report.config.roles["reviewer"] == "model-a"
     assert report.language_tier is Reliability.A
     assert report.notices == []

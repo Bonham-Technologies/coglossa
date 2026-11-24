@@ -340,6 +340,61 @@ def test_guide_slice_keeps_only_relevant_entries():
     assert (sliced.summary, sliced.style_guide, sliced.cultural_references) == ("s", "g", ["c"])
 
 
+def test_guide_slice_finds_an_entry_by_its_source_forms():
+    """CGL-109: the agents see an entry whose source text uses one of its listed forms."""
+    guide = Guide(
+        summary="",
+        style_guide="",
+        glossary=[GlossaryEntry(term="Vertrag", rendering="contract", source_forms=["Verträge"])],
+        entities=[Entity(name="Москва", rendering="Moscow", kind="place", source_forms=["Москвы"])],
+    )
+    sliced = guide_slice(guide, "Die Verträge, улицы Москвы.")
+    assert [g.term for g in sliced.glossary] == ["Vertrag"]
+    assert [e.name for e in sliced.entities] == ["Москва"]
+
+
+def test_the_agents_see_forms_only_where_an_entry_has_them():
+    """CGL-109: a guide without forms reads to the agents exactly as before."""
+    guide = Guide(
+        summary="",
+        style_guide="",
+        glossary=[
+            GlossaryEntry(term="chat", rendering="cat"),
+            GlossaryEntry(term="contract", rendering="Vertrag", forms=["Verträge"]),
+        ],
+        entities=[Entity(name="Ana", rendering="Anna", kind="person")],
+    )
+    dumped = guide.prompt_dump()
+    assert dumped["glossary"] == [
+        {"term": "chat", "rendering": "cat", "notes": "", "locked": False},
+        {
+            "term": "contract",
+            "rendering": "Vertrag",
+            "notes": "",
+            "locked": False,
+            "forms": ["Verträge"],
+        },
+    ]
+    assert "forms" not in dumped["entities"][0] and "source_forms" not in dumped["entities"][0]
+
+
+async def test_a_models_guide_lists_no_forms_but_a_locked_entry_keeps_its_own(
+    make_runner, fake_backend
+):
+    """CGL-109: people list forms; a model's guide never adds them to an entry."""
+    term = {"term": "pluie", "rendering": "rain", "forms": ["rains"], "source_forms": ["pluies"]}
+    fake_backend.script(
+        "guide", json.dumps({"summary": "s", "style_guide": "g", "glossary": [term]})
+    )
+    locked = GlossaryEntry(term="chat", rendering="cat", forms=["cats"], locked=True)
+    prior = Guide(summary="", style_guide="", glossary=[locked])
+    segs, chunks = _chunks(1)
+    guide, _ = await run_guide(
+        _ctx(make_runner()), _profile(PipelineProfile.SHORT), segs, chunks, prior=prior
+    )
+    assert guide.glossary == [locked, GlossaryEntry(term="pluie", rendering="rain")]
+
+
 terms = st.text(alphabet="abcABC", min_size=1, max_size=3)
 
 

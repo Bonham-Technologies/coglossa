@@ -128,9 +128,7 @@ async def translate_with(
         "genre": profile.genre.value,
         "register": profile.tone_register,
         "guide": (
-            {"glossary": [g.model_dump() for g in sliced.glossary]}
-            if literal
-            else sliced.model_dump()
+            {"glossary": sliced.prompt_dump()["glossary"]} if literal else sliced.prompt_dump()
         ),
         "context_before": "" if literal else ci.context_before,
         "context_after": "" if literal else ci.context_after,

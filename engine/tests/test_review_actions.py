@@ -6,7 +6,8 @@ import pytest
 from sqlalchemy import delete, select
 
 from coglossa import review, service
-from coglossa.schema import Entity, FlagStatus, GlossaryEntry, RevisionSource, RunState
+from coglossa.schema import Entity, FlagStatus, GlossaryEntry, Guide, RevisionSource, RunState
+from coglossa.store import runs
 from coglossa.store.models import CandidateRow, GuideVersion, ReviewEvent, RevisionRow
 from coglossa.store.runs import NotFoundError
 from coglossa.testing.seed import seed_run
@@ -389,6 +390,8 @@ async def test_add_glossary_entry_and_entity(db):
         "rendering": "The End",
         "notes": "",
         "locked": True,
+        "forms": [],
+        "source_forms": [],
     }
 
 
@@ -410,10 +413,16 @@ async def test_guide_entries_and_dismiss_reasons_lose_control_characters(db):
         db,
         seeded.run_id,
         p3,
-        Entity(name="Min\x00ou", rendering="Kitty", kind="per\x01son", speech_style="\x0c"),
+        Entity(
+            name="Min\x00ou",
+            rendering="Kitty",
+            kind="per\x01son",
+            speech_style="\x0c",
+            forms=["Kit\x00ties", "\x01"],
+        ),
     )
     assert view.guide.entities == [
-        Entity(name="Minou", rendering="Kitty", kind="person", speech_style="\n")
+        Entity(name="Minou", rendering="Kitty", kind="person", speech_style="\n", forms=["Kitties"])
     ]
     with pytest.raises(service.InvalidRequestError, match="needs a term or name"):
         await review.add_guide_entry(
@@ -488,3 +497,80 @@ async def test_always_translate_writes_only_to_the_runs_language(db):
     assert [(r.target_lang, r.version) for r in rows] == [("en", 1), ("es", 1), ("es", 2)]
     assert all(g["term"] != "Fin" for g in rows[0].content["glossary"])
     assert rows[2].content["glossary"][-1]["term"] == "Fin"
+
+
+async def _term_flag(db, seeded, term="Fin", expected="The End", kind="glossary"):
+    """p3's terminology flag, with the evidence the scorer writes."""
+    from coglossa.store.models import FlagRow
+
+    flag_id = seeded.flag_ids["p3:terminology_violation"]
+    violation = {"term": term, "expected": expected, "kind": kind, "locked": True}
+    async with db.session() as s, s.begin():
+        (await s.get(FlagRow, flag_id)).evidence = {"violations": [violation]}
+    return flag_id
+
+
+async def test_this_form_is_fine_adds_the_form_and_dismisses_the_flag(db):
+    """CGL-109: the passage reads "End."; the reviewer accepts "End" as a form of "The End"."""
+    seeded = await seed_run(db)
+    p3 = seeded.span_ids[2]
+    await review.add_guide_entry(
+        db, seeded.run_id, p3, GlossaryEntry(term="Fin", rendering="The End", locked=True)
+    )
+    flag = await _term_flag(db, seeded)
+    detail = await review.accept_form(db, seeded.run_id, flag, " fin ", " End ", user="ana")
+    assert [(f.status, f.dismiss_reason) for f in detail.flags] == [
+        (FlagStatus.DISMISSED, "This form is fine: “End”")
+    ]
+    async with db.session() as s:
+        latest = await runs.prior_guide(s, seeded.project_id, "en")
+    assert latest.version == 3 and latest.status == "approved" and latest.author == "user"
+    entry = Guide.model_validate(latest.content).glossary[-1]
+    assert (entry.term, entry.rendering, entry.forms, entry.locked) == (
+        "Fin",
+        "The End",
+        ["End"],
+        True,
+    )
+    *_, (action, span, payload) = await _events(db, seeded.run_id)
+    assert (action, span) == ("dismiss_flag", p3)
+    assert payload["form"] == {"term": " fin ", "form": "End", "version": 3}
+    assert payload["user"] == "ana" and payload["reason"] == "This form is fine: “End”"
+
+
+async def test_this_form_is_fine_on_a_name(db):
+    seeded = await seed_run(db)
+    p3 = seeded.span_ids[2]
+    await review.add_guide_entry(
+        db, seeded.run_id, p3, Entity(name="Fin", rendering="Finn", kind="place", locked=True)
+    )
+    flag = await _term_flag(db, seeded, expected="Finn", kind="entity")
+    await review.accept_form(db, seeded.run_id, flag, "Fin", "End")
+    async with db.session() as s:
+        latest = await runs.prior_guide(s, seeded.project_id, "en")
+    assert Guide.model_validate(latest.content).entities[0].forms == ["End"]
+
+
+async def test_this_form_is_fine_refusals(db):
+    seeded = await seed_run(db)
+    p3 = seeded.span_ids[2]
+    flag = await _term_flag(db, seeded)
+    with pytest.raises(service.InvalidRequestError, match="no longer has “Fin”"):
+        await review.accept_form(db, seeded.run_id, flag, "Fin", "End")
+    await review.add_guide_entry(
+        db, seeded.run_id, p3, GlossaryEntry(term="Fin", rendering="The End", locked=True)
+    )
+    with pytest.raises(service.InvalidRequestError, match="name the form"):
+        await review.accept_form(db, seeded.run_id, flag, "Fin", " \x00")
+    with pytest.raises(service.InvalidRequestError, match="not about “chat”"):
+        await review.accept_form(db, seeded.run_id, flag, "chat", "End")
+    with pytest.raises(service.InvalidRequestError, match="does not use “Ending”"):
+        await review.accept_form(db, seeded.run_id, flag, "Fin", "Ending")
+    low = seeded.flag_ids["p2:low_meaning"]
+    with pytest.raises(service.InvalidRequestError, match="only an open terminology flag"):
+        await review.accept_form(db, seeded.run_id, low, "Fin", "End")
+    await review.set_flag_status(db, seeded.run_id, flag, FlagStatus.ACCEPTED)
+    with pytest.raises(service.InvalidRequestError, match="only an open terminology flag"):
+        await review.accept_form(db, seeded.run_id, flag, "Fin", "End")
+    async with db.session() as s:
+        assert (await runs.prior_guide(s, seeded.project_id, "en")).version == 2

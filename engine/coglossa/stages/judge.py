@@ -263,7 +263,7 @@ async def _judge_batch(
                 "task": "judge",
                 "source_lang": profile.source_lang,
                 "target_lang": profile.target_lang,
-                "guide": sliced.model_dump(),
+                "guide": sliced.prompt_dump(),
                 "segments": [{"id": seg.id, "text": seg.text} for seg in segments],
                 "spans": [{"start": s.start, "end": s.end, "text": s.text} for s in batch],
             },

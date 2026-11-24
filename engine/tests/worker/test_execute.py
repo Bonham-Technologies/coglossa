@@ -1580,3 +1580,38 @@ async def test_what_a_file_could_not_hold_is_said_on_every_run_of_it(services, t
         assert detail.problems == []
         unread = [n for n in detail.notices if n.code is FlagCode.UNREAD_CONTENT]
         assert [n.explanation for n in unread] == [notice]
+
+
+async def test_a_recheck_clears_a_terminology_flag_an_accepted_form_now_upholds(services, tmp_path):
+    """CGL-109: a form accepted on one passage clears the same flag on the others when the set is
+    rechecked, without rewriting their text."""
+    from coglossa.store.models import FlagRow, SpanRow
+
+    run_id, project_id = await _start_swept_run(services, tmp_path)
+    await drain(services)
+    async with services.db.session() as s, s.begin():
+        spans = list(await s.scalars(select(SpanRow).where(SpanRow.run_id == run_id)))
+        violation = {"term": "chat", "expected": "feline", "kind": "glossary", "locked": True}
+        flags = [
+            FlagRow(
+                span_id=span.id,
+                code=FlagCode.TERMINOLOGY_VIOLATION.value,
+                explanation="'chat' should be rendered as 'feline'.",
+                evidence={"violations": [violation]},
+            )
+            for span in spans
+        ]
+        s.add_all(flags)
+    before = await service.build_report(services.db, run_id)
+    # the synthetic translation keeps the source words, so "chat" is the form it uses
+    feline = GlossaryEntry(term="chat", rendering="feline", forms=["chat"], locked=True)
+    await _save_locked(services, project_id, [feline])
+    await service.rerun_sweep(services.db, services.queue, run_id)
+    await drain(services)
+    after = await service.build_report(services.db, run_id)
+    assert after.revisions == before.revisions  # nothing rewritten
+    async with services.db.session() as s:
+        ids = [f.id for f in flags]
+        statuses = [f.status for f in await s.scalars(select(FlagRow).where(FlagRow.id.in_(ids)))]
+    assert statuses == ["resolved"] * len(spans)
+    assert any("chat" in sp.text for sp in after.spans)  # the entry applied, and a form held

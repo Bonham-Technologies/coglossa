@@ -68,10 +68,10 @@ async def test_short_document_end_to_end(doc_path, make_config, fake_backend):
         "profile": 1,
         "guide": 1,
         "guide_merge": 1,
-        "reconcile": 1,
-        "sweep": 1,
-        "literal": 1,
-        "contextual": 1,
+        "reconcile": 2,
+        "sweep": 2,
+        "literal": 2,
+        "contextual": 2,
     }
     assert {c.role for c in report.llm_calls} == {
         "profiler",
@@ -147,7 +147,9 @@ async def test_approved_guide_skips_generation_and_is_used(doc_path, make_config
         json.loads(r.messages[1].content.split("INPUT_JSON:", 1)[1]) for r in fake_backend.requests
     ]
     assert any(
-        p.get("guide", {}).get("glossary") == [approved.glossary[0].model_dump()]
+        # a guide without forms reads to the agents as before (CGL-109)
+        p.get("guide", {}).get("glossary")
+        == [{"term": "chat", "rendering": "cat", "notes": "", "locked": True}]
         for p in contextual
         if p["task"] == "translate"
     )
