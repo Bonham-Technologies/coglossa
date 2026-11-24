@@ -21,6 +21,7 @@ from coglossa.schema import (
 from coglossa.scoring.numbers import NumberMismatch
 from coglossa.scoring.rules import GuideViolation, judge_penalties
 from coglossa.scoring.tiers import downgrade
+from coglossa.scoring.untranslated import Untranslated
 
 SIGNALS = ("qe", "xsim", "roundtrip", "judge", "agreement", "guide_check")
 MODEL_SIGNALS = ("qe", "xsim", "roundtrip", "judge")
@@ -42,6 +43,7 @@ class SpanEvidence:
     guide_violations: tuple[GuideViolation, ...] = ()
     length_ratio: float | None = None
     number_mismatch: NumberMismatch | None = None
+    untranslated: Untranslated | None = None
 
 
 def _clamp01(x: float) -> float:
@@ -174,6 +176,15 @@ def _flags(ev: SpanEvidence, score: SpanScore, tier: Reliability, cfg: ScoringCo
                 code=FlagCode.NUMBER_MISMATCH,
                 explanation=ev.number_mismatch.explanation(),
                 evidence=ev.number_mismatch.as_evidence(),
+            )
+        )
+
+    if ev.untranslated is not None:  # a hard trigger: it never changes the scores
+        flags.append(
+            Flag(
+                code=FlagCode.UNTRANSLATED,
+                explanation=ev.untranslated.explanation(),
+                evidence=ev.untranslated.as_evidence(),
             )
         )
 

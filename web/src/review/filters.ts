@@ -6,12 +6,14 @@ export const FLAG_CODES: FlagCode[] = [
   "agent_disagreement",
   "terminology_violation",
   "number_mismatch",
+  "untranslated",
   "possible_omission",
   "cultural_or_wordplay",
   "engine_error",
   "low_reliability_language",
   "unscored",
   "unread_content",
+  "formatting_lost",
 ];
 
 export function score(text: string | null): number | null {

@@ -29,8 +29,8 @@ from coglossa.llm.types import Backend
 from coglossa.scoring.client import Scorer, ScorerUnavailableError, build_scorer
 
 MD_HEADER = (
-    "| system | pair | MetricX ↓ | scored/units | too long src/out | chrF ↑ | tokens in "
-    "| tokens out | seconds | errors |"
+    "| system | pair | MetricX ↓ | scored/units | too long src/out | chrF ↑ | markers kept "
+    "| tokens in | tokens out | seconds | errors |"
 )
 MD_FOOTER = (
     "MetricX-24 reference mode: error 0-25, lower is better. chrF: 0-100, higher is better.\n\n"
@@ -38,7 +38,9 @@ MD_FOOTER = (
     "pair scored (matched by their sentences), weighted by sentence count; summary.json also "
     "holds each system's own mean (`metricx_mean`). scored/units is each system's own count. "
     'A unit too long for MetricX has no score: "src" counts units too long by their source '
-    'and reference, "out" those too long by the system\'s output.'
+    'and reference, "out" those too long by the system\'s output. "markers kept" counts the '
+    "passages with formatting in the source (a bold, italic or linked word) whose numbered "
+    "formatting markers came back whole, out of all of them."
 )
 
 
@@ -388,6 +390,8 @@ async def _run_one(
         errors=[*output.errors, *scorer_errors],
         metricx_by=metricx_by,
         metricx_pending=metricx_by is None and bool(units),
+        markers_kept=output.markers_kept,
+        markers_total=output.markers_total,
     )
 
 
@@ -442,13 +446,14 @@ def _markdown(cfg: BenchConfig, rows: list[SummaryRow]) -> str:
         f"# Bench: {ds.kind} {ds.split}, {ds.sentences} sentences, seed {ds.seed}",
         "",
         MD_HEADER,
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         lines.append(
             f"| {r.system} | {r.pair} | {_fmt(r.metricx_shared, 2)} | "
             f"{r.scored_units}/{r.units} | {r.long_sources}/{r.long_outputs} | "
-            f"{_fmt(r.chrf_corpus)} | {r.tokens_in} | {r.tokens_out} | "
+            f"{_fmt(r.chrf_corpus)} | {r.markers_kept}/{r.markers_total} | "
+            f"{r.tokens_in} | {r.tokens_out} | "
             f"{r.seconds:.0f} | {r.errors} |"
         )
     shared = {r.pair: r.shared_units for r in rows if r.status == "complete"}

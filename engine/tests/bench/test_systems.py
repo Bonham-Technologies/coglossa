@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -128,3 +129,37 @@ async def test_a_baseline_into_chinese_joins_its_spans_without_a_space(tmp_path,
         backends={"fake": fake_backend},
     )
     assert out.units[0].text == "[zh] One.[zh] Two."
+
+
+async def test_each_system_counts_the_passages_that_kept_their_formatting(tmp_path, fake_backend):
+    """CGL-108: the first and third sentences carry a formatted word."""
+    out = await run_pipeline_system(
+        build_config(),
+        parse_pair("en>es"),
+        SENTENCES,
+        tmp_path / "p",
+        backends={"fake": fake_backend},
+        scorer=None,
+    )
+    assert (out.markers_kept, out.markers_total) == (2, 2)
+    assert not any("<" in u.text for u in out.units)
+
+    reply = {
+        "spans": [
+            {"start": "s1", "end": "s1", "text": "No llueve hoy en <1>Lagos</1>."},
+            {"start": "s2", "end": "s2", "text": "Hable despacio."},
+            {"start": "s3", "end": "s3", "text": "Nos veremos otra vez."},  # dropped
+        ]
+    }
+    fake_backend.script("translate", json.dumps(reply))
+    cfg = build_config()
+    out = await run_baseline_system(
+        cfg,
+        cfg.roles.contextual_translator.model,
+        parse_pair("en>es"),
+        SENTENCES,
+        tmp_path / "b",
+        backends={"fake": fake_backend},
+    )
+    assert [u.text for u in out.units][0] == "No llueve hoy en Lagos."
+    assert (out.markers_kept, out.markers_total) == (1, 2)

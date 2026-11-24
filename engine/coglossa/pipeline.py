@@ -148,7 +148,9 @@ async def run_document(
         say(f"chunk {done}/{len(chunks)} done")
         return outcome
 
-    outcomes = await asyncio.gather(*(process(ci) for ci in build_chunk_inputs(chunks, segments)))
+    outcomes = await asyncio.gather(
+        *(process(ci) for ci in build_chunk_inputs(chunks, segments, doc.blocks))
+    )
     collected = _collect(list(outcomes))
     errors.extend(collected.errors)
     spans = collected.spans

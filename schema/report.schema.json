@@ -339,7 +339,9 @@
         "low_reliability_language",
         "unscored",
         "number_mismatch",
-        "unread_content"
+        "untranslated",
+        "unread_content",
+        "formatting_lost"
       ],
       "title": "FlagCode",
       "type": "string"
@@ -440,6 +442,41 @@
         "style_guide"
       ],
       "title": "Guide",
+      "type": "object"
+    },
+    "InlineMark": {
+      "description": "One kind of inline formatting over `text[start:end]` of a block or a passage.",
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "href": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Href"
+        },
+        "kind": {
+          "$ref": "#/$defs/MarkKind"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "kind"
+      ],
+      "title": "InlineMark",
       "type": "object"
     },
     "JudgeError": {
@@ -578,6 +615,19 @@
       "title": "LLMCallRecord",
       "type": "object"
     },
+    "MarkKind": {
+      "description": "Inline formatting an export can put back on the translated words (CGL-108).",
+      "enum": [
+        "bold",
+        "italic",
+        "underline",
+        "superscript",
+        "subscript",
+        "link"
+      ],
+      "title": "MarkKind",
+      "type": "string"
+    },
     "PipelineProfile": {
       "enum": [
         "short",
@@ -627,6 +677,13 @@
           ],
           "default": null,
           "title": "Locator"
+        },
+        "marks": {
+          "items": {
+            "$ref": "#/$defs/InlineMark"
+          },
+          "title": "Marks",
+          "type": "array"
         },
         "note": {
           "anyOf": [
@@ -914,6 +971,17 @@
           "title": "Flags",
           "type": "array"
         },
+        "formatting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpanFormatting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "id": {
           "title": "Id",
           "type": "string"
@@ -968,6 +1036,28 @@
         "score"
       ],
       "title": "Span",
+      "type": "object"
+    },
+    "SpanFormatting": {
+      "description": "A passage's inline formatting (CGL-108): marks over `text`, the translation they were\nfound in. They hold only while the passage's text is still that text, so an edit or a sweep\nleaves the passage plain.",
+      "properties": {
+        "marks": {
+          "items": {
+            "$ref": "#/$defs/InlineMark"
+          },
+          "title": "Marks",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "marks"
+      ],
+      "title": "SpanFormatting",
       "type": "object"
     },
     "SpanScore": {

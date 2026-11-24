@@ -217,6 +217,10 @@ Uploaded files live on the `files` volume by default, and an air-gapped site sho
 
 In `.env`: `COGLOSSA_HTTP_PORT` (default 8080) and `COGLOSSA_HTTP_BIND` (default 0.0.0.0, all interfaces). With named users, see section 6 before you leave it at 0.0.0.0.
 
+### Your own prompt templates
+
+`prompts_dir` in `config/coglossa.yaml` names a folder of your own prompt templates (`<prompt>/v<N>.j2`). For each prompt, a folder there with a template in it replaces every built-in version of that prompt, whatever their numbers. Since CGL-108, the built-in `contextual`, `literal` and `reconcile` prompts (version 2) tell the models to keep the numbered markers (`<1>…</1>`) that stand for bold, italic, underlined, superscript and subscript words and links in Word, HTML and EPUB files. If you override any of these three prompts, your templates get the same markers in the text without those instructions: expect many passages flagged "Formatting couldn't be kept" and a plain Word download for them. Add the built-in instruction line about markers (in `engine/coglossa/prompts/templates/<prompt>/v2.j2`) to your templates.
+
 ### Applying changes
 
 The services read `config/` only when they start, so a plain `docker compose up -d --wait` does not apply an edit there. After you edit `config/coglossa.yaml`, `config/tiers.yaml` or `.env`:

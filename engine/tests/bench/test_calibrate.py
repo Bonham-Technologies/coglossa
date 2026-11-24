@@ -199,9 +199,10 @@ def test_critical_errors_and_unscored_spans():
     assert any("1 span" in n and "no meaning score" in n for n in result.notes)
 
 
-def test_locked_terms_do_not_count():
+@pytest.mark.parametrize("kind", ["locked_term", "untranslated"])
+def test_kinds_only_rules_catch_do_not_count(kind):
     clean = [span("clean", 90.0) for _ in range(30)]
-    locked = [span("locked_term", 10.0) for _ in range(30)]
+    locked = [span(kind, 10.0) for _ in range(30)]
     result = calibrate(clean + locked, CURRENT)
     assert result.meaning["A"] == 70  # unchanged: no meaning positives
     assert any(n.startswith("tier A: 0 injected and 30 clean") for n in result.notes)
