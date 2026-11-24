@@ -42,6 +42,7 @@ make test            # engine, scorer, api (start Postgres via db-up) and web un
 make test-engine     # one suite; also test-scorer, test-api, test-web
 make e2e             # builds the web app, runs Playwright against a real API
 make deploy-check    # shellcheck (pinned container), install/restore tests, compose and workflow checks
+make torch-wheel-check # the scorer's locked torch has a CPU and a CUDA wheel (network)
 make airgap-test     # builds the images and installs the bundle with no network (slow)
 make schema          # regenerate schema/ and the web API types after a model or route change
 make dev-stack       # local API with synthetic models on :8080

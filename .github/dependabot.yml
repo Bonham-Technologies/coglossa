@@ -78,6 +78,12 @@ updates:
     open-pull-requests-limit: 5
     rebase-strategy: "auto"
     labels: ["dependencies", "python"]
+    # torch 2.15 has no CUDA 12.6 build, and the GPU scorer stays on CUDA 12.6 so the NVIDIA
+    # driver minimum stays 525 (CGL-76). Lift this when a CUDA 12 index carries a newer torch
+    # (make torch-wheel-check says which).
+    ignore:
+      - dependency-name: "torch"
+        versions: [">=2.15"]
     groups:
       minor-and-patch:
         update-types:

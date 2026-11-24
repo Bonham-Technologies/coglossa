@@ -204,6 +204,8 @@ jobs:
         with:
           persist-credentials: false
       - run: make deploy-check
+      # the locked torch has a wheel on every index the scorer builds use (needs network)
+      - run: make torch-wheel-check
 
   airgap:
     runs-on: ubuntu-latest
