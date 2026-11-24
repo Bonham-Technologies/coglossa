@@ -392,3 +392,16 @@ def test_marks_follow_cells_notes_and_headers(tmp_path):
     assert _marked(blocks["First line\nSecond bold"]) == [(MarkKind.BOLD, None, "bold")]
     assert _marked(blocks["Visit us"]) == [(MarkKind.LINK, "https://example.org/h", "us")]
     assert blocks["A note"].provenance.marks == []
+
+
+def test_links_to_scripts_or_local_files_are_no_links(tmp_path):
+    d = docx.Document()
+    p = d.add_paragraph("See ")
+    add_hyperlink(p, d.part, "this", "javascript:alert(1)")
+    p.add_run(" and ")
+    add_hyperlink(p, d.part, "that", "file:///C:/secret.docx")
+    path = tmp_path / "l.docx"
+    d.save(path)
+
+    blocks = DocxIngestor().ingest(path).blocks
+    assert blocks[0].text == "See this and that" and blocks[0].provenance.marks == []

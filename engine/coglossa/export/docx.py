@@ -40,7 +40,7 @@ from coglossa.export.rows import (
     translated_blocks,
 )
 from coglossa.schema import BlockKind, InlineMark, MarkKind, Region, Report, TableCellPosition
-from coglossa.segment.markup import MarkKey, char_keys
+from coglossa.segment.markup import MarkKey, char_keys, link_target
 from coglossa.text import clean_text
 
 _W_P = qn("w:p")
@@ -103,7 +103,8 @@ def _formatted_run(
         font.superscript = True
     elif MarkKind.SUBSCRIPT in kinds:
         font.subscript = True
-    href = next((h for kind, h in sorted(key, key=str) if kind is MarkKind.LINK and h), None)
+    links = (link_target(h) for kind, h in sorted(key, key=str) if kind is MarkKind.LINK)
+    href = next((h for h in links if h is not None), None)  # stored marks are checked again
     if href is not None:
         link = OxmlElement("w:hyperlink")
         link.set(qn("r:id"), part.relate_to(href, RT.HYPERLINK, is_external=True))

@@ -204,3 +204,14 @@ def test_links_in_a_header_belong_to_the_header():
     assert _formatted(_runs(data, "header")) == [
         ("One", {"underline", "link:https://example.org/1"})
     ]
+
+
+def test_a_stored_link_to_a_script_is_written_without_its_target():
+    report = make_report()
+    report.spans[0].formatting = SpanFormatting(
+        text="Chapter One",
+        marks=[InlineMark(start=8, end=11, kind=MarkKind.LINK, href="javascript:alert(1)")],
+    )
+    data = clean_docx(report)
+    assert _formatted(_runs(data)) == [("One", {"underline"})]
+    assert b"javascript" not in data

@@ -11,7 +11,7 @@ repeats exactly is read once. Table rows and cells in content controls are read.
 diagrams, embedded objects and documents, equations and comments cannot be read: the
 document's notices name them (a document notice, not a run error). Bold, italic, underlined,
 superscript and subscript runs (set on the run or by its character style) and links to web
-addresses are recorded as the block's marks (CGL-108)."""
+and mail addresses are recorded as the block's marks (CGL-108)."""
 
 import dataclasses
 import re
@@ -39,7 +39,13 @@ from coglossa.schema import (
     SourceDocument,
     TableCellPosition,
 )
-from coglossa.segment.markup import MarkKey, join_marked, marks_from_keys, strip_marked
+from coglossa.segment.markup import (
+    MarkKey,
+    join_marked,
+    link_target,
+    marks_from_keys,
+    strip_marked,
+)
 
 _NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
@@ -302,8 +308,9 @@ class _Reader:
                 keys.add((kind, None))
         rid = _xpath(r, "string(ancestor::w:hyperlink[1]/@r:id)")
         rel = self.part.rels.get(rid) if rid else None
-        if rel is not None and rel.is_external and rel.target_ref.strip():
-            keys.add((MarkKind.LINK, rel.target_ref.strip()))
+        href = link_target(rel.target_ref) if rel is not None and rel.is_external else None
+        if href is not None:
+            keys.add((MarkKind.LINK, href))
         return frozenset(keys)
 
     def _container(self, element: Any, ctx: _Context, *, cell: bool = False) -> None:

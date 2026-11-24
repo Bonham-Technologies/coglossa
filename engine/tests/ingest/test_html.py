@@ -191,6 +191,17 @@ def test_inline_formatting_is_recorded_as_marks(tmp_path):
     assert doc.blocks[3].text == "a b" and doc.blocks[3].provenance.marks == []
 
 
+def test_unsafe_or_malformed_link_targets_are_no_links(tmp_path):
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<p>A <a href='javascript:alert(1)'>x</a> <a href='http://[bad'>y</a> "
+            "<a href='file:///etc/passwd'>z</a>.</p>",
+        )
+    )
+    assert doc.blocks[0].text == "A x y z." and doc.blocks[0].provenance.marks == []
+
+
 def test_line_breaks_keep_marks_on_their_lines(tmp_path):
     doc = HtmlIngestor().ingest(_write(tmp_path, "<p>un <b>deux<br>  trois</b> quatre</p>"))
     block = doc.blocks[0]

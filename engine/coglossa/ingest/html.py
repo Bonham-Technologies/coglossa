@@ -7,14 +7,13 @@ superscript and subscript text and links to web addresses are recorded as the bl
 import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import lxml.html
 from lxml import etree
 
 from coglossa.ingest.base import file_sha256, is_scene_break, make_blocks, strip_nul
 from coglossa.schema import BlockKind, InlineMark, MarkKind, SourceDocument
-from coglossa.segment.markup import MarkKey, marks_from_keys
+from coglossa.segment.markup import MarkKey, link_target, marks_from_keys
 
 Item = tuple[BlockKind, str, str | None]
 _MARK_OF_TAG = {
@@ -26,7 +25,6 @@ _MARK_OF_TAG = {
     "sup": MarkKind.SUPERSCRIPT,
     "sub": MarkKind.SUBSCRIPT,
 }
-_LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp"})  # targets a Word file can open
 
 _SKIP = frozenset(
     {
@@ -167,10 +165,8 @@ def _mark(el: Any, tag: str) -> MarkKey | None:
     kind = _MARK_OF_TAG.get(tag)
     if kind is not None:
         return kind, None
-    href = (el.get("href") or "").strip()
-    if tag == "a" and urlparse(href).scheme.lower() in _LINK_SCHEMES:
-        return MarkKind.LINK, href
-    return None
+    href = link_target(el.get("href")) if tag == "a" else None
+    return (MarkKind.LINK, href) if href is not None else None
 
 
 class _Collector:

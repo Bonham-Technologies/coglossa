@@ -10,6 +10,7 @@ from coglossa.segment.markup import (
     clip_marks,
     formatting_flag,
     join_marked,
+    link_target,
     normalize_marks,
     strip_marked,
     unmark,
@@ -112,12 +113,41 @@ def test_a_passage_over_unformatted_segments_is_left_plain_without_a_flag():
         "The <1></1>cat sleeps.",  # around nothing
         "The <1 >cat</1> sleeps.",  # corrupted
         "The <1>cat</1> <5>sleeps</5>.",  # one that was never sent
+        "The \uff1c1\uff1ecat\uff1c/1\uff1e sleeps.",  # full-width brackets, as in CJK output
     ],
 )
 def test_a_dropped_or_broken_marker_gives_the_plain_text_and_says_so(answer):
     found = unmark(_markup(), ["s1"], answer)
     assert found.lost and found.formatting is None
     assert "<" not in found.text and found.text.replace("  ", " ").startswith("The ")
+    assert "\uff1c" not in found.text
+
+
+def test_markers_at_the_ends_leave_no_space_behind():
+    found = unmark(_markup(), ["s1"], "<1> The cat</1> sleeps.")
+    assert found.text == "The cat sleeps." and not found.lost
+    assert found.formatting is not None and found.formatting.marks[0].start == 0
+    found = unmark(_markup(), ["s1"], "The <1>cat sleeps. </1>")
+    assert found.text == "The cat sleeps."
+    assert found.formatting is not None and found.formatting.marks[0].end == len(found.text)
+
+
+@pytest.mark.parametrize(
+    ("href", "target"),
+    [
+        (" https://example.org/a ", "https://example.org/a"),
+        ("mailto:a@example.org", "mailto:a@example.org"),
+        ("javascript:alert(1)", None),
+        ("file:///C:/secret.docx", None),
+        ("chapitre2.xhtml", None),
+        ("http://[bad", None),  # urlsplit raises
+        ("https://example.org/\x01", None),  # XML refuses it
+        ("", None),
+        (None, None),
+    ],
+)
+def test_link_target_keeps_only_addresses_a_word_file_can_open(href, target):
+    assert link_target(href) == target
 
 
 def test_nested_markers_are_accepted():

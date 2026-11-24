@@ -11,15 +11,34 @@ text and is flagged. Markers stay in the prompts: everything stored, scored or s
 import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from coglossa.schema import Block, Flag, FlagCode, InlineMark, MarkKind, Segment, SpanFormatting
 
 MarkKey = tuple[MarkKind, str | None]  # a kind of formatting and, for a link, its target
 _MARKER = re.compile(r"<(/?)(\d+)>")
-_MARKER_LIKE = re.compile(r"<\s*/?\s*\d+\s*/?\s*>")  # a marker, or what a model meant as one
+# A marker, or what a model meant as one, also with full-width angle brackets (CJK output)
+_MARKER_LIKE = re.compile(r"[<\uff1c]\s*/?\s*\d+\s*/?\s*[>\uff1e]")
+_LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp"})  # targets a Word file can open
 FORMATTING_LOST = (
     "Formatting could not be kept here, so the Word download shows this passage as plain text."
 )
+
+
+def link_target(href: str | None) -> str | None:
+    """`href` trimmed, when a link in a Word file may point to it: a web, mail or FTP address
+    with no control characters (XML refuses most of them). Anything else, a script or a local
+    file for instance, or an address that cannot be parsed, is no link."""
+    href = (href or "").strip()
+    if not href or any(c < " " or c == "\x7f" or c in "\ufffe\uffff" for c in href):
+        return None
+    if any("\ud800" <= c <= "\udfff" for c in href):
+        return None
+    try:
+        scheme = urlsplit(href).scheme.lower()
+    except ValueError:  # a malformed address, such as "http://["
+        return None
+    return href if scheme in _LINK_SCHEMES else None
 
 
 def formatting_flag() -> Flag:
@@ -179,6 +198,10 @@ def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmark
             tags.append((int(strict.group(2)), strict.group(1) == "/", length))
     pieces.append(text[pos:])
     plain = "".join(pieces)
+    if text == text.strip():  # "<1>Un</1> jour </2>": no space left where a marker was at an end
+        lead = len(plain) - len(plain.lstrip())
+        plain = plain.strip()
+        tags = [(n, closes, min(max(at - lead, 0), len(plain))) for n, closes, at in tags]
     expected = {n for sid in segment_ids for n in markup.numbers.get(sid, ())}
     if not expected or not plain.strip():
         return Unmarked(plain, None, False)
