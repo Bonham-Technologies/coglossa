@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { useAddToGuide, type GuideAddition } from "../api/review";
 import { recheckFailureText, useRecheckSet } from "../api/sets";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { emptyEntity } from "../guide/entries";
+import { emptyEntity, emptyTerm } from "../guide/entries";
 import { plural } from "../lib/flags";
 import { useRunLanguages } from "./languages";
 
@@ -49,7 +49,14 @@ export function AlwaysTranslate({ runId, projectId, spanId, prefill }: Props) {
             locked: true,
           },
         }
-      : { glossary: { term: source.trim(), rendering: rendering.trim(), notes: "", locked: true } };
+      : {
+          glossary: {
+            ...emptyTerm(),
+            term: source.trim(),
+            rendering: rendering.trim(),
+            locked: true,
+          },
+        };
     try {
       await add.mutateAsync({ spanId, addition });
     } catch {

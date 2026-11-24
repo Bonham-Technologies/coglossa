@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { GlossaryImportPreview, GlossaryImportResult } from "../api/types";
 import { guide, guideView } from "../test/fixtures";
+import { emptyTerm } from "./entries";
 import { nodeFormData } from "../test/node-web";
 import { renderAt } from "../test/render";
 import { server } from "../test/server";
@@ -48,9 +49,9 @@ const imported: GlossaryImportResult = {
     guide: {
       ...guide,
       glossary: [
-        { term: "chat", rendering: "kitty", notes: "", locked: true },
-        { term: "pluie", rendering: "rain", notes: "", locked: true },
-        { term: "vent", rendering: "wind", notes: "", locked: true },
+        { ...emptyTerm(), term: "chat", rendering: "kitty", locked: true },
+        { ...emptyTerm(), term: "pluie", rendering: "rain", locked: true },
+        { ...emptyTerm(), term: "vent", rendering: "wind", locked: true },
       ],
     },
     info: { ...guideView.info, version: 2, status: "approved", author: "user" },

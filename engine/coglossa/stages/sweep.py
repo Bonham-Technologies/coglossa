@@ -4,7 +4,7 @@ reviewers proposed. Every text change is a SpanChange with a reason; nothing cha
 Scores keep describing the reviewed draft they were computed on."""
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,7 @@ from coglossa.schema import (
     Span,
     kept_formatting,
 )
+from coglossa.schema.guide import prompt_entry
 from coglossa.scoring.rules import GuideViolation, guide_check
 from coglossa.segment.markup import formatting_flag
 from coglossa.stages.context import StageContext
@@ -52,6 +53,9 @@ class SweepResult:
     spans: list[Span]  # same order as the input; text and flag status updated
     changes: list[SpanChange]
     errors: list[RunError]
+    # CGL-109: spans whose open terminology flag the guide no longer upholds, as when a form was
+    # accepted since: the flag is resolved without changing the text
+    cleared: list[str] = field(default_factory=list)
 
     @property
     def revisions(self) -> list[Revision]:
@@ -88,16 +92,22 @@ async def run_sweep(
     segments: list[Segment],
 ) -> SweepResult:
     sources = span_sources(spans, segments)
-    todo = [
-        (i, violations)
-        for i, span in enumerate(spans)
-        if span.text.strip() and (violations := _locked_violations(sources[i], span.text, guide))
-    ]
+    todo: list[tuple[int, list[GuideViolation]]] = []
+    holding: list[int] = []
+    for i, span in enumerate(spans):
+        if not span.text.strip():
+            continue
+        if violations := _locked_violations(sources[i], span.text, guide):
+            todo.append((i, violations))
+        elif _open_terminology(span):
+            holding.append(i)
     results = await asyncio.gather(
         *(_fix(ctx, profile, guide, spans[i], sources[i], v) for i, v in todo),
         return_exceptions=True,
     )
     new_spans = list(spans)
+    for i in holding:
+        new_spans[i] = spans[i].model_copy(update={"flags": _resolve_terminology(spans[i])})
     changes: list[SpanChange] = []
     errors: list[RunError] = []
     for (i, violations), result in zip(todo, results, strict=True):
@@ -116,12 +126,7 @@ async def run_sweep(
             raise result
         # validation guarantees the text changed: it now contains a rendering it lacked
         rules = "; ".join(f"'{v.term}' → '{v.expected}'" for v in violations)
-        flags = [
-            f.model_copy(update={"status": FlagStatus.RESOLVED})
-            if f.code is FlagCode.TERMINOLOGY_VIOLATION and f.status is FlagStatus.OPEN
-            else f
-            for f in span.flags
-        ]
+        flags = _resolve_terminology(span)
         # the rewrite leaves the passage plain in the Word download, so say so (CGL-108)
         raised: tuple[Flag, ...] = ()
         if kept_formatting(span) is not None and not any(
@@ -139,7 +144,37 @@ async def run_sweep(
                 raised=raised,
             )
         )
-    return SweepResult(spans=new_spans, changes=changes, errors=errors)
+    cleared = [spans[i].id for i in holding]
+    return SweepResult(spans=new_spans, changes=changes, errors=errors, cleared=cleared)
+
+
+def _open_terminology(span: Span) -> bool:
+    return any(
+        f.code is FlagCode.TERMINOLOGY_VIOLATION and f.status is FlagStatus.OPEN for f in span.flags
+    )
+
+
+def _resolve_terminology(span: Span) -> list[Flag]:
+    return [
+        f.model_copy(update={"status": FlagStatus.RESOLVED})
+        if f.code is FlagCode.TERMINOLOGY_VIOLATION and f.status is FlagStatus.OPEN
+        else f
+        for f in span.flags
+    ]
+
+
+def _requirement(v: GuideViolation) -> dict[str, object]:
+    found: dict[str, object] = {"term": v.term, "rendering": v.expected, "kind": v.kind}
+    if v.forms:
+        found["forms"] = list(v.forms)
+    return found
+
+
+def _must_contain(v: GuideViolation) -> str:
+    wanted = f"the revised text must contain '{v.expected}' exactly as written"
+    if v.forms:
+        wanted += " or one of its accepted forms: " + ", ".join(f"'{f}'" for f in v.forms)
+    return wanted
 
 
 async def _fix(
@@ -153,10 +188,7 @@ async def _fix(
 
     def check(out: SweepFix) -> list[str]:
         # every locked rendering must hold, including ones that were already right
-        problems = [
-            f"the revised text must contain '{v.expected}' exactly as written"
-            for v in _locked_violations(source, out.text, guide)
-        ]
+        problems = [_must_contain(v) for v in _locked_violations(source, out.text, guide)]
         if not out.text.strip():
             problems.append("text must not be empty")
         elif looks_cut_off(out.text):
@@ -175,10 +207,8 @@ async def _fix(
             "target_lang": profile.target_lang,
             "source": source,
             "translation": span.text,
-            "requirements": [
-                {"term": v.term, "rendering": v.expected, "kind": v.kind} for v in violations
-            ],
-            "entities": [e.model_dump() for e in guide_slice(guide, source).entities],
+            "requirements": [_requirement(v) for v in violations],
+            "entities": [prompt_entry(e) for e in guide_slice(guide, source).entities],
         },
         output_type=SweepFix,
         validate=check,
@@ -219,6 +249,8 @@ def resolve_proposals(guide: Guide, proposals: list[GlossaryEntry]) -> list[Glos
                     "rendering": chosen.rendering.strip(),
                     "notes": notes,
                     "locked": False,
+                    "forms": [],  # people list forms (CGL-109)
+                    "source_forms": [],
                 }
             )
         )

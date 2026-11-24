@@ -143,3 +143,60 @@ def test_locked_entity_violations_are_locked():
         ("Ana", "entity", True),
         ("Rio", "entity", False),
     ]
+
+
+# CGL-109: accepted forms, listed by people, for inflected languages.
+VERTRAG = GlossaryEntry(
+    term="contract", rendering="Vertrag", forms=["Vertrags", "Verträge"], locked=True
+)
+
+
+def test_a_listed_form_of_the_rendering_follows_the_entry():
+    guide = Guide(summary="", style_guide="", glossary=[VERTRAG])
+    source = "The contracts were signed. The contract holds."
+    assert guide_check(source, "Die Verträge wurden unterschrieben.", guide) == (1.0, [])
+    assert guide_check(source, "Der Inhalt des Vertrags gilt.", guide) == (1.0, [])
+    signal, violations = guide_check(source, "Die Abkommen wurden unterschrieben.", guide)
+    assert signal == 0.0
+    assert violations == [
+        GuideViolation("contract", "Vertrag", "glossary", True, ("Vertrags", "Verträge"))
+    ]
+    assert violations[0].as_evidence()["forms"] == ["Vertrags", "Verträge"]
+
+
+def test_a_listed_source_form_makes_the_entry_apply():
+    guide = Guide(
+        summary="",
+        style_guide="",
+        glossary=[GlossaryEntry(term="Vertrag", rendering="contract", source_forms=["Verträge"])],
+        entities=[Entity(name="Москва", rendering="Moscow", kind="place", source_forms=["Москвы"])],
+    )
+    source = "Die Verträge, улицы Москвы."
+    # "Vertrag" is not in "Verträge", nor "Москва" in "Москвы": without the forms, neither applied
+    assert guide_check(source, "The agreements, the city's streets.", guide) == (
+        0.0,
+        [
+            GuideViolation("Vertrag", "contract", "glossary", False),
+            GuideViolation("Москва", "Moscow", "entity", False),
+        ],
+    )
+    assert guide_check(source, "The contracts, Moscow's streets.", guide) == (1.0, [])
+    plain = Guide(
+        summary="", style_guide="", glossary=[GlossaryEntry(term="Vertrag", rendering="c")]
+    )
+    assert guide_check(source, "x", plain) == (None, [])
+
+
+def test_entries_without_forms_check_as_before():
+    entry = GlossaryEntry.model_validate({"term": "chat", "rendering": "cat"})
+    assert (entry.forms, entry.source_forms) == ([], [])
+    guide = Guide(summary="", style_guide="", glossary=[entry.model_copy(update={"locked": True})])
+    _, violations = guide_check("Le chat dort.", "The feline sleeps.", guide)
+    assert [v.as_evidence() for v in violations] == [
+        {"term": "chat", "expected": "cat", "kind": "glossary", "locked": True}
+    ]
+
+
+def test_forms_are_tidied():
+    entry = GlossaryEntry(term="t", rendering="r", forms=[" Verträge ", "", "verträge", "Vertrags"])
+    assert entry.forms == ["Verträge", "Vertrags"]

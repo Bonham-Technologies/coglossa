@@ -26,7 +26,16 @@ def test_clean_guide_cleans_every_text_field():
     dirty = Guide(
         summary="A\x00 cat\x0csleeps.",
         style_guide="Plain\x01.",
-        glossary=[GlossaryEntry(term="ch\x00at", rendering="cat\x0b", notes="n\x02", locked=True)],
+        glossary=[
+            GlossaryEntry(
+                term="ch\x00at",
+                rendering="cat\x0b",
+                notes="n\x02",
+                locked=True,
+                forms=["ca\x00ts"],
+                source_forms=["chats\x01"],
+            )
+        ],
         entities=[Entity(name="Ma\x00rie", kind="person", rendering="Marie\x0c", gender=None)],
         cultural_references=["Paris\x00"],
     )
@@ -38,6 +47,8 @@ def test_clean_guide_cleans_every_text_field():
         "rendering": "cat\n",
         "notes": "n",
         "locked": True,
+        "forms": ["cats"],
+        "source_forms": ["chats"],
     }
     assert (clean.entities[0].name, clean.entities[0].rendering) == ("Marie", "Marie\n")
     assert clean.entities[0].gender is None

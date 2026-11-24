@@ -648,13 +648,14 @@ async def _sweep_and_finish(svc: WorkerServices, run_id: uuid.UUID, passes: int 
     if needed:
         calls = svc.call_log()
         changes: list[SpanChange] = []
+        cleared: list[str] = []
         if enabled:
             errors: list[RunError]
             try:
                 result = await run_sweep(
                     svc.context(calls, target_lang), profile, guide, stored.spans, segments
                 )
-                changes, errors = result.changes, result.errors
+                changes, errors, cleared = result.changes, result.errors, result.cleared
             except DB_ERRORS:
                 raise
             except Exception as e:
@@ -667,8 +668,8 @@ async def _sweep_and_finish(svc: WorkerServices, run_id: uuid.UUID, passes: int 
         else:
             output = {"errors": [], "skipped": True}
         try:
-            row_ids = stored.row_ids if changes else {}
-            await _save_sweep(svc, run_id, calls.records, output, changes, row_ids)
+            row_ids = stored.row_ids if changes or cleared else {}
+            await _save_sweep(svc, run_id, calls.records, output, changes, row_ids, cleared)
         except DB_ERRORS:
             raise
         except Exception as e:
@@ -722,6 +723,7 @@ async def _save_sweep(
     output: dict[str, Any] | None,
     changes: list[SpanChange],
     row_ids: dict[str, uuid.UUID],
+    cleared: list[str] | None = None,
     *,
     error: str | None = None,
 ) -> None:
@@ -735,8 +737,8 @@ async def _save_sweep(
         if error is not None:
             runs.fail_stage(row, error)
             return
-        if changes:
-            await outputs.apply_sweep(s, row_ids, changes)
+        if changes or cleared:
+            await outputs.apply_sweep(s, row_ids, changes, cleared or [])
         runs.finish_stage(row, output)
 
 

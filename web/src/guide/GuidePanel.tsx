@@ -2,15 +2,14 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { ApiError, isGuideChanged } from "../api/client";
 import { useApproveGuide, useProjectGuide, useRunGuide, useSaveProjectGuide } from "../api/guide";
 import { useLoadedRun } from "../api/runs";
-import { recheckFailureText, useRecheckSet, type RecheckResult } from "../api/sets";
 import type { GlossaryImportResult, Guide, GuideView } from "../api/types";
 import { Dialog } from "../components/Dialog";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Loading } from "../components/Loading";
 import { useTabs } from "../components/useTabs";
-import { plural } from "../lib/flags";
 import { EMPTY_GUIDE, guideProblems, sameGuide } from "./entries";
 import { NameRows, StyleFields, TermRows } from "./GuideRows";
+import { RecheckPrompt } from "./RecheckPrompt";
 import type { GuideMode } from "./mode";
 import { importSummary, TermImport } from "./TermImport";
 
@@ -26,76 +25,6 @@ type Shared = {
   onDone: () => void;
   onRequestClose: () => void;
 };
-
-function recheckSummary({ started, failed }: RecheckResult): string {
-  const parts: string[] = [];
-  if (started.length > 0) parts.push(`Rechecking ${plural(started.length, "file")}…`);
-  if (failed.length > 0) parts.push(recheckFailureText(failed.length));
-  if (parts.length === 0) {
-    parts.push("Nothing to recheck yet. New translations in this set will follow the guide.");
-  }
-  return parts.join(" ");
-}
-
-function RecheckPrompt({
-  projectId,
-  targetLang,
-  onDone,
-}: {
-  projectId: string;
-  targetLang: string;
-  onDone: () => void;
-}) {
-  const recheck = useRecheckSet(projectId, targetLang);
-  // Kept across a retry, so the summary counts every file that started.
-  const [result, setResult] = useState<RecheckResult | null>(null);
-  function run(only?: string[]) {
-    recheck.mutate(only, {
-      onSuccess: (next) =>
-        setResult((prev) =>
-          only !== undefined && prev !== null
-            ? {
-                started: [...prev.started, ...next.started],
-                skipped: [...prev.skipped, ...next.skipped],
-                failed: next.failed,
-              }
-            : next,
-        ),
-    });
-  }
-  return (
-    <div className="notice">
-      <p>Saved. Update the translations to match?</p>
-      {result ? <p role="status">{recheckSummary(result)}</p> : null}
-      {recheck.isError ? <ErrorMessage error={recheck.error} /> : null}
-      <div className="row end">
-        <button type="button" onClick={onDone}>
-          {result ? "Close" : "Not now"}
-        </button>
-        {result && result.failed.length > 0 ? (
-          <button
-            type="button"
-            className="primary"
-            disabled={recheck.isPending}
-            onClick={() => run(result.failed)}
-          >
-            Try again
-          </button>
-        ) : null}
-        {!result ? (
-          <button
-            type="button"
-            className="primary"
-            disabled={recheck.isPending}
-            onClick={() => run()}
-          >
-            Update the translations
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 /** CGL-80: when the open file's guide couldn't be built, or only a shorter one was, say so. */
 function GuideNotes({ runId }: { runId: string | undefined }) {

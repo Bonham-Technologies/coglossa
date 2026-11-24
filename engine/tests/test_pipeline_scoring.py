@@ -69,7 +69,7 @@ async def test_scored_run(doc, scored_config, fake_backend):
     assert all(s.score.reliability is Reliability.A for s in report.spans)
     assert all(s.back_translation.startswith("[fr] ") for s in report.spans)
     assert "judge" in _tasks(fake_backend) and "back_translate" in _tasks(fake_backend)
-    assert report.config.prompt_versions["judge"] == 1
+    assert report.config.prompt_versions["judge"] == 2
     assert report.config.prompt_versions["back_translate"] == 1
     assert lines[-1] == "scoring: tier A, 0 of 3 spans flagged"
 

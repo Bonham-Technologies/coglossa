@@ -240,3 +240,97 @@ async def test_a_fix_that_breaks_another_locked_entry_is_rejected(make_runner, f
     assert result.spans[0].flags[0].status is FlagStatus.OPEN
     (error,) = result.errors
     assert "must contain 'Anna'" in error.message
+
+
+# CGL-109: accepted forms of a locked rendering, listed by people.
+DE_PROFILE = PROFILE.model_copy(update={"source_lang": "en", "target_lang": "de"})
+DE_SEGMENTS = make_segments("The contracts were signed.", "She read the contract.")
+VERTRAG = Guide(
+    summary="",
+    style_guide="",
+    glossary=[
+        GlossaryEntry(
+            term="contract", rendering="Vertrag", forms=["Vertrags", "Verträge"], locked=True
+        )
+    ],
+)
+
+
+async def test_a_listed_form_is_not_rewritten(make_runner, fake_backend):
+    spans = [
+        _span("p1", "s1", "Die Verträge wurden unterschrieben."),
+        _span("p2", "s2", "Sie las den Vertrag."),
+    ]
+    result = await run_sweep(_ctx(make_runner), DE_PROFILE, VERTRAG, spans, DE_SEGMENTS)
+    assert result.spans == spans
+    assert result.changes == [] and result.cleared == []
+    assert fake_backend.requests == []
+
+
+async def test_the_sweep_is_told_the_accepted_forms(make_runner, fake_backend):
+    fake_backend.script("sweep", '{"text": "Sie las die Verträge."}')
+    spans = [_span("p2", "s2", "Sie las das Abkommen.", [_violation_flag()])]
+    result = await run_sweep(_ctx(make_runner), DE_PROFILE, VERTRAG, spans, DE_SEGMENTS)
+    (payload,) = _sweep_requests(fake_backend)
+    assert payload["requirements"] == [
+        {
+            "term": "contract",
+            "rendering": "Vertrag",
+            "kind": "glossary",
+            "forms": ["Vertrags", "Verträge"],
+        }
+    ]
+    # an accepted form satisfies the check, so the fix is taken as it is
+    assert result.spans[0].text == "Sie las die Verträge."
+    assert result.spans[0].flags[0].status is FlagStatus.RESOLVED
+
+
+async def test_a_fix_with_no_form_names_the_forms(make_runner, fake_backend):
+    bad = '{"text": "Sie las das Abkommen."}'
+    fake_backend.script("sweep", bad, bad)
+    spans = [_span("p2", "s2", "Sie las das Dokument.")]
+    result = await run_sweep(_ctx(make_runner), DE_PROFILE, VERTRAG, spans, DE_SEGMENTS)
+    (error,) = result.errors
+    assert "one of its accepted forms: 'Vertrags', 'Verträge'" in error.message
+
+
+async def test_a_flag_the_guide_now_upholds_is_cleared(make_runner, fake_backend):
+    """A form accepted after the run was flagged: the recheck resolves the flag, text unchanged."""
+    dismissed = _violation_flag().model_copy(update={"status": FlagStatus.DISMISSED})
+    spans = [
+        _span("p1", "s1", "Die Verträge wurden unterschrieben.", [_violation_flag()]),
+        _span("p2", "s2", "Sie las den Vertrag.", [dismissed]),
+    ]
+    result = await run_sweep(_ctx(make_runner), DE_PROFILE, VERTRAG, spans, DE_SEGMENTS)
+    assert result.cleared == ["p1"]
+    assert result.changes == [] and fake_backend.requests == []
+    assert result.spans[0].text == spans[0].text
+    assert result.spans[0].flags[0].status is FlagStatus.RESOLVED
+    assert result.spans[1] == spans[1]  # a reviewer's decision stays
+
+
+async def test_a_listed_source_form_is_enforced(make_runner, fake_backend):
+    guide = Guide(
+        summary="",
+        style_guide="",
+        glossary=[
+            GlossaryEntry(
+                term="Vertrag", rendering="contract", source_forms=["Verträge"], locked=True
+            )
+        ],
+    )
+    profile = PROFILE.model_copy(update={"source_lang": "de", "target_lang": "en"})
+    segments = make_segments("Die Verträge wurden unterschrieben.")
+    spans = [_span("p1", "s1", "The agreements were signed.")]
+    result = await run_sweep(_ctx(make_runner), profile, guide, spans, segments)
+    (payload,) = _sweep_requests(fake_backend)
+    assert payload["requirements"] == [
+        {"term": "Vertrag", "rendering": "contract", "kind": "glossary"}
+    ]
+    assert "contract" in result.spans[0].text
+
+
+def test_proposed_terms_carry_no_forms():
+    proposed = [GlossaryEntry(term="pluie", rendering="rain", forms=["rains"])]
+    (entry,) = resolve_proposals(Guide(summary="", style_guide=""), proposed)
+    assert entry.forms == [] and entry.source_forms == []

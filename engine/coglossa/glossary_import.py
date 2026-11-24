@@ -6,14 +6,18 @@ Spreadsheets: the term in the first column and its translation in the second; fu
 are ignored. A first row that names the columns ("term, translation", "source, target", or the
 languages, as codes or English names) is a header and is skipped; the columns it names (the
 guide's languages, else "term" and "translation" or their like) are used, in whatever order,
-and a column of ids or notes never is. At most 20,000 terms, read until the limit is passed,
+and a column of ids or notes never is. A header may also name a column of other accepted forms
+of the translation ("forms", "other forms", "accepted forms"…) and one of other forms of the
+term ("source forms"), several forms to a cell separated by commas, semicolons or "|"
+(CGL-109). At most 20,000 terms, read until the limit is passed,
 and each term, translation and note at most 2,000 characters, as the guide editor saves them;
 the delimiter is guessed from the first lines. UTF-8 with or without a byte-order mark,
 or UTF-16 with one (Excel's "Unicode text"). A .tsv file is split on tabs; any other file on
 commas, semicolons or tabs, whichever the file uses.
 
 TBX: each entry (termEntry, or conceptEntry in TBX v3) gives its source-language terms the
-target-language term (the first one not marked deprecated or superseded). Language codes
+target-language term (the first one not marked deprecated or superseded); its other target
+terms not so marked become the entry's accepted forms (CGL-109). Language codes
 match case-insensitively with - and _ alike; failing an exact match, a file's bare language
 ("pt") serves a regional guide ("pt-BR"), and a regional one serves a bare guide, but sibling
 regions ("pt-PT" for "pt-BR") never do. Without a known source language, the file's one other
@@ -26,6 +30,7 @@ Every problem is a GlossaryFileError naming the line, raised before anything is 
 import codecs
 import csv
 import io
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -36,6 +41,7 @@ from lxml import etree
 from coglossa.ingest.base import IngestError, error_reason
 from coglossa.languages import LANGUAGE_NAMES, label
 from coglossa.schema import Entity, GlossaryEntry, Guide
+from coglossa.schema.guide import tidy_forms
 from coglossa.text import clean_text, entry_key
 
 MAX_GLOSSARY_MB = 20  # a termbase of a hundred thousand entries is a few MB
@@ -62,6 +68,20 @@ _TRANSLATION_WORDS = frozenset(
 )
 _HEADER_WORDS = _TERM_WORDS | _TRANSLATION_WORDS | {"id"}
 _UNUSED_WORDS = frozenset({"id", "notes", "note", "comment", "comments"})
+# CGL-109: columns of other accepted forms of the translation, and of other forms of the term.
+_FORM_WORDS = frozenset(
+    {
+        "forms",
+        "other forms",
+        "accepted forms",
+        "inflected forms",
+        "target forms",
+        "translation forms",
+        "variants",
+    }
+)
+_SOURCE_FORM_WORDS = frozenset({"source forms", "term forms", "other source forms"})
+_FORM_SEPARATORS = re.compile(r"[,;|]")
 _SNIFF_LINES = 20  # csv.Sniffer takes seconds on some text: it sees a few lines only
 _SNIFF_CHARS = 4096
 
@@ -76,6 +96,8 @@ class ImportedTerm:
     rendering: str
     line: int  # where the term is in the file
     notes: str = ""
+    forms: tuple[str, ...] = ()  # other accepted forms of the rendering (CGL-109)
+    source_forms: tuple[str, ...] = ()  # other forms of the term
 
 
 @dataclass(frozen=True)
@@ -129,7 +151,9 @@ def parse_glossary(
 
 def _check_lengths(terms: list[ImportedTerm]) -> None:
     for t in terms:
-        for value, what in ((t.term, "term"), (t.rendering, "translation"), (t.notes, "note")):
+        fields = [(t.term, "term"), (t.rendering, "translation"), (t.notes, "note")]
+        fields += [(f, "form") for f in (*t.forms, *t.source_forms)]
+        for value, what in fields:
             if len(value) > MAX_FIELD_CHARS:
                 raise GlossaryFileError(
                     f"line {t.line} has a {what} of {len(value):,} characters: keep each term, "
@@ -215,10 +239,23 @@ def _delimiter(text: str) -> str:
         return max("\t;,", key=first.count)  # ties: tab, then semicolon, then comma
 
 
-def _header_columns(
-    cells: list[str], target_lang: str, source_lang: str | None
-) -> tuple[int, int] | None:
-    """The term and translation columns when `cells` is a header row; None when it is not."""
+@dataclass(frozen=True)
+class _Columns:
+    term: int
+    translation: int
+    forms: int | None = None  # CGL-109: only a header names these
+    source_forms: int | None = None
+
+
+def _forms(cells: list[str], column: int | None) -> tuple[str, ...]:
+    if column is None or column >= len(cells):
+        return ()
+    return tuple(tidy_forms(_FORM_SEPARATORS.split(cells[column])))
+
+
+def _header_columns(cells: list[str], target_lang: str, source_lang: str | None) -> _Columns | None:
+    """The term, translation and form columns when `cells` is a header row; None when it is
+    not."""
     folded = [c.strip().casefold() for c in cells]
     first = folded[:2]
     # Every cell a label, and one a header word or the guide's language: a pair of terms that
@@ -234,6 +271,10 @@ def _header_columns(
     def column(found: Callable[[str], bool], other: int | None = None) -> int | None:
         return next((i for i, c in enumerate(folded) if i != other and found(c)), None)
 
+    forms = column(lambda c: c in _FORM_WORDS)
+    source_forms = column(lambda c: c in _SOURCE_FORM_WORDS)
+    unused = _UNUSED_WORDS | _FORM_WORDS | _SOURCE_FORM_WORDS
+
     # The translation: the guide's language, else a word for it; the term: the source
     # language, else a word for it. A column of ids or notes is neither.
     target = column(lambda c: _names_language(c, target_lang))
@@ -242,13 +283,13 @@ def _header_columns(
     source = column(lambda c: _names_language(c, source_lang), target)
     if source is None:
         source = column(lambda c: c in _TERM_WORDS, target)
-    free = [i for i, c in enumerate(folded) if c not in _UNUSED_WORDS and i not in (source, target)]
+    free = [i for i, c in enumerate(folded) if c not in unused and i not in (source, target)]
     if source is None:
         source = free.pop(0) if free else (1 if target == 0 else 0)
     if target is None:
         after = [i for i in free if i > source] or free
         target = after[0] if after else source + 1  # an unnamed column after the term
-    return source, target
+    return _Columns(source, target, forms, source_forms)
 
 
 def _parse_table(
@@ -258,7 +299,7 @@ def _parse_table(
         io.StringIO(text, newline=""), delimiter=delimiter or _delimiter(text), strict=True
     )
     terms: list[ImportedTerm] = []
-    columns: tuple[int, int] | None = None
+    columns: _Columns | None = None
     line = 1
     rows = 0
     while True:
@@ -283,8 +324,8 @@ def _parse_table(
             columns = _header_columns(cells, target_lang, source_lang)
             if columns is not None:
                 continue
-            columns = (0, 1)
-        term_col, rendering_col = columns
+            columns = _Columns(0, 1)
+        term_col, rendering_col = columns.term, columns.translation
         term = cells[term_col] if term_col < len(cells) else ""
         rendering = cells[rendering_col] if rendering_col < len(cells) else ""
         if len(cells) < 2:
@@ -296,7 +337,15 @@ def _parse_table(
             raise GlossaryFileError(f"line {start} has a translation but no term")
         if not rendering:
             raise GlossaryFileError(f"line {start} has the term “{term}” but no translation")
-        terms.append(ImportedTerm(term=term, rendering=rendering, line=start))
+        terms.append(
+            ImportedTerm(
+                term=term,
+                rendering=rendering,
+                line=start,
+                forms=_forms(cells, columns.forms),
+                source_forms=_forms(cells, columns.source_forms),
+            )
+        )
         _check_count(terms)
     return terms
 
@@ -424,13 +473,15 @@ def _parse_tbx(
         lang_sets = _lang_sets(entry)
         source_set, target_set = _pick(lang_sets, source), _pick(lang_sets, target_lang)
         renderings = _terms(target_set) if target_set is not None else []
-        rendering = next((t for t in renderings if not t.retired), None)
+        accepted = [t for t in renderings if not t.retired]
+        rendering = accepted[0] if accepted else None
         sources = _terms(source_set) if source_set is not None else []
         if rendering is None or not sources or source_set is target_set:
             skipped += 1
             continue
         notes = _definition(entry)
-        terms.extend(ImportedTerm(t.text, rendering.text, t.line, notes) for t in sources)
+        forms = tuple(tidy_forms([t.text for t in accepted[1:] if t.text != rendering.text]))
+        terms.extend(ImportedTerm(t.text, rendering.text, t.line, notes, forms) for t in sources)
         _check_count(terms)
     if not terms:
         raise GlossaryFileError(
@@ -513,7 +564,14 @@ def merge_import(
             continue
         if p.status is ImportStatus.NEW:
             glossary.append(
-                GlossaryEntry(term=t.term, rendering=t.rendering, notes=t.notes, locked=lock_all)
+                GlossaryEntry(
+                    term=t.term,
+                    rendering=t.rendering,
+                    notes=t.notes,
+                    locked=lock_all,
+                    forms=list(t.forms),
+                    source_forms=list(t.source_forms),
+                )
             )
             added += 1
             locked += lock_all
@@ -524,9 +582,13 @@ def merge_import(
                 kept += 1
                 continue
             entry.rendering = t.rendering
+            entry.forms = []  # the old translation's forms; the file's are added below
             if t.notes and isinstance(entry, GlossaryEntry):
                 entry.notes = t.notes
             updated += 1
+        # CGL-109: the file's forms join the entry's (an identical one's, or a replaced one's)
+        entry.forms = tidy_forms([*entry.forms, *t.forms])
+        entry.source_forms = tidy_forms([*entry.source_forms, *t.source_forms])
         if lock_all and not entry.locked:
             entry.locked = True
             locked += 1

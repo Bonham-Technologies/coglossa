@@ -3,6 +3,7 @@ and for the sweep's changes. A span's current text is its latest revision."""
 
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import Select, delete, func, select, update
@@ -216,8 +217,23 @@ async def load_spans(s: AsyncSession, run_id: uuid.UUID) -> StoredSpans:
 
 
 async def apply_sweep(
-    s: AsyncSession, row_ids: dict[str, uuid.UUID], changes: list[SpanChange]
+    s: AsyncSession,
+    row_ids: dict[str, uuid.UUID],
+    changes: list[SpanChange],
+    cleared: Sequence[str] = (),
 ) -> None:
+    """`cleared`: spans whose open terminology flags the guide now upholds without a change to
+    their text (CGL-109); those flags are resolved too."""
+    if cleared:
+        await s.execute(
+            update(FlagRow)
+            .where(
+                FlagRow.span_id.in_([row_ids[span_id] for span_id in cleared]),
+                FlagRow.code == FlagCode.TERMINOLOGY_VIOLATION.value,
+                FlagRow.status == FlagStatus.OPEN.value,
+            )
+            .values(status=FlagStatus.RESOLVED.value)
+        )
     for c in changes:
         span_row = row_ids[c.span_id]
         s.add(
