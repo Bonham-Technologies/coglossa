@@ -128,6 +128,12 @@ def score_span(
     return score, _flags(ev, score, tier, cfg)
 
 
+def terminology_explanation(locked: Sequence[GuideViolation]) -> str:
+    """A terminology flag's explanation: the locked entries the passage does not follow."""
+    rules = "; ".join(f"'{v.term}' should be rendered as '{v.expected}'" for v in locked)
+    return f"Locked guide entries were not followed: {rules}."
+
+
 def _flags(ev: SpanEvidence, score: SpanScore, tier: Reliability, cfg: ScoringConfig) -> list[Flag]:
     errors = ev.judge_errors or []
     accuracy = [e for e in errors if e.category in ACCURACY_CATEGORIES]
@@ -161,11 +167,10 @@ def _flags(ev: SpanEvidence, score: SpanScore, tier: Reliability, cfg: ScoringCo
 
     locked = [v for v in ev.guide_violations if v.locked]
     if locked:
-        rules = "; ".join(f"'{v.term}' should be rendered as '{v.expected}'" for v in locked)
         flags.append(
             Flag(
                 code=FlagCode.TERMINOLOGY_VIOLATION,
-                explanation=f"Locked guide entries were not followed: {rules}.",
+                explanation=terminology_explanation(locked),
                 evidence={"violations": [v.as_evidence() for v in locked]},
             )
         )

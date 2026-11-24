@@ -574,3 +574,49 @@ async def test_this_form_is_fine_refusals(db):
         await review.accept_form(db, seeded.run_id, flag, "Fin", "End")
     async with db.session() as s:
         assert (await runs.prior_guide(s, seeded.project_id, "en")).version == 2
+
+
+async def test_this_form_is_fine_keeps_a_flag_naming_another_broken_entry(db):
+    """A flag naming two locked entries: accepting a form for one leaves the flag open, naming
+    only the entry the passage still does not follow; accepting a form for that one too
+    dismisses it."""
+    from coglossa.store.models import FlagRow
+
+    seeded = await seed_run(db)
+    p3 = seeded.span_ids[2]  # "Fin." → "End."
+    await review.add_guide_entry(
+        db, seeded.run_id, p3, GlossaryEntry(term="Fin", rendering="The End", locked=True)
+    )
+    await review.add_guide_entry(
+        db,
+        seeded.run_id,
+        p3,
+        GlossaryEntry(term="Finale", rendering="Finale", source_forms=["Fin"], locked=True),
+    )
+    flag = seeded.flag_ids["p3:terminology_violation"]
+    both = [
+        {"term": "Fin", "expected": "The End", "kind": "glossary", "locked": True},
+        {"term": "Finale", "expected": "Finale", "kind": "glossary", "locked": True},
+    ]
+    async with db.session() as s, s.begin():
+        (await s.get(FlagRow, flag)).evidence = {"violations": both}
+
+    detail = await review.accept_form(db, seeded.run_id, flag, "Fin", "End")
+    (left,) = detail.flags
+    assert left.status is FlagStatus.OPEN and left.dismiss_reason is None
+    assert left.evidence["violations"] == [both[1]]
+    assert left.explanation == (
+        "Locked guide entries were not followed: 'Finale' should be rendered as 'Finale'."
+    )
+    async with db.session() as s:
+        latest = await runs.prior_guide(s, seeded.project_id, "en")
+    assert latest.version == 4
+    assert Guide.model_validate(latest.content).glossary[-2].forms == ["End"]
+    *_, (action, span, payload) = await _events(db, seeded.run_id)
+    assert (action, span) == ("add_to_guide", p3)
+    assert payload["kind"] == "form" and payload["form"]["version"] == 4
+
+    detail = await review.accept_form(db, seeded.run_id, flag, "Finale", "End")
+    assert [(f.status, f.dismiss_reason) for f in detail.flags] == [
+        (FlagStatus.DISMISSED, "This form is fine: “End”")
+    ]

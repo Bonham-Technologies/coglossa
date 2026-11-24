@@ -34,7 +34,8 @@ from coglossa.schema.views import (
     SpanDetail,
     SpanPage,
 )
-from coglossa.scoring.rules import term_in
+from coglossa.scoring.aggregate import terminology_explanation
+from coglossa.scoring.rules import guide_check, term_in
 from coglossa.store import review as review_store
 from coglossa.store import runs
 from coglossa.store.db import Database
@@ -455,7 +456,9 @@ async def accept_form(
     """CGL-109 "This form is fine": a reviewer dismisses a terminology flag because the passage
     uses an accepted form of the rendering. The form joins the entry for `term` (a term or a
     name the flag names) in a new approved version of the set guide, as "add to guide" does; the
-    same flag on other passages clears when the set is rechecked (the sweep)."""
+    same flag on other passages clears when the set is rechecked (the sweep). A flag that also
+    names another locked entry the passage still does not follow stays open, naming only the
+    entries still not followed."""
     form = clean_text(form).strip()
     if not form:
         raise service.InvalidRequestError("name the form the passage uses")
@@ -472,7 +475,8 @@ async def accept_form(
         ]
         if not named:
             raise service.InvalidRequestError(f"this flag is not about “{term}”")
-        if not term_in(form, await _current_text(s, flag.span_id)):
+        text = await _current_text(s, flag.span_id)
+        if not term_in(form, text):
             raise service.InvalidRequestError(f"the passage does not use “{form}”")
         project_id, current = await _set_guide(s, run)
         if named[0].get("kind") == "entity":
@@ -486,6 +490,23 @@ async def accept_form(
         version = None
         if guide != current:
             version = (await _add_version(s, run, project_id, guide)).version
+        accepted = {"term": term, "form": form, "version": version}
+        _, violations = guide_check(await _span_source(s, run, flag.span_id), text, guide)
+        if still := [v for v in violations if v.locked]:
+            # another locked entry is still not followed: the flag stays open, naming it alone
+            flag.evidence = {
+                **(flag.evidence or {}),
+                "violations": [v.as_evidence() for v in still],
+            }
+            flag.explanation = terminology_explanation(still)
+            await review_store.add_event(
+                s,
+                run_id,
+                flag.span_id,
+                ReviewAction.ADD_TO_GUIDE,
+                _payload(user, kind="form", flag=flag_id, form=accepted),
+            )
+            return await _detail(s, run_id, flag.span_id)
         reason = f"This form is fine: “{form}”"
         flag.status, flag.dismiss_reason = FlagStatus.DISMISSED.value, reason
         await review_store.add_event(
@@ -499,10 +520,19 @@ async def accept_form(
                 code=flag.code,
                 before=FlagStatus.OPEN.value,
                 reason=reason,
-                form={"term": term, "form": form, "version": version},
+                form=accepted,
             ),
         )
         return await _detail(s, run_id, flag.span_id)
+
+
+async def _span_source(s: AsyncSession, run: Run, span_id: uuid.UUID) -> str:
+    """The source text a span translates, its segments joined as the scorer and sweep join them."""
+    span = await s.get(SpanRow, span_id)
+    assert span is not None  # the flag's span
+    segment_ids = segment_range(span.seg_start, span.seg_end)
+    sources = await review_store.segment_texts(s, run.document_id, segment_ids)
+    return " ".join(sources[i] for i in segment_ids if i in sources)
 
 
 async def approved_texts(db: Database, run_id: uuid.UUID) -> dict[str, str]:
