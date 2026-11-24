@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from coglossa.llm.agent import AGENT_FAILURES
 from coglossa.schema import (
     DocumentProfile,
+    Flag,
     FlagCode,
     FlagStatus,
     GlossaryEntry,
@@ -28,6 +29,9 @@ from coglossa.stages.context import StageContext
 from coglossa.stages.guide import guide_slice
 from coglossa.stages.translate import CUT_OFF, looks_cut_off
 
+# The evidence of a flag the sweep raised, so that undoing the sweep removes it (CGL-129)
+SWEPT = {"raised_by": "sweep"}
+
 
 class SweepFix(BaseModel):
     text: str = Field(description="The full revised translation of the passage")
@@ -40,6 +44,7 @@ class SpanChange:
     after: str
     reason: str
     resolved: tuple[FlagCode, ...]  # flag codes the change fixed
+    raised: tuple[Flag, ...] = ()  # flags the change raised (SWEPT in their evidence)
 
 
 @dataclass
@@ -118,11 +123,12 @@ async def run_sweep(
             for f in span.flags
         ]
         # the rewrite leaves the passage plain in the Word download, so say so (CGL-108)
+        raised: tuple[Flag, ...] = ()
         if kept_formatting(span) is not None and not any(
             f.code is FlagCode.FORMATTING_LOST for f in flags
         ):
-            flags.append(formatting_flag())
-        new_spans[i] = span.model_copy(update={"text": result, "flags": flags})
+            raised = (formatting_flag().model_copy(update={"evidence": dict(SWEPT)}),)
+        new_spans[i] = span.model_copy(update={"text": result, "flags": [*flags, *raised]})
         changes.append(
             SpanChange(
                 span_id=span.id,
@@ -130,6 +136,7 @@ async def run_sweep(
                 after=result,
                 reason=f"Applied locked guide entries: {rules}.",
                 resolved=(FlagCode.TERMINOLOGY_VIOLATION,),
+                raised=raised,
             )
         )
     return SweepResult(spans=new_spans, changes=changes, errors=errors)

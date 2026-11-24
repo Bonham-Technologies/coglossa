@@ -23,7 +23,7 @@ from coglossa.schema import (
 from coglossa.scoring.rules import guide_check
 from coglossa.stages.context import StageContext
 from coglossa.stages.score import unscored
-from coglossa.stages.sweep import resolve_proposals, run_sweep, span_sources
+from coglossa.stages.sweep import SWEPT, resolve_proposals, run_sweep, span_sources
 from tests.conftest import make_segments
 
 PROFILE = DocumentProfile(
@@ -121,12 +121,16 @@ async def test_a_rewrite_of_a_formatted_passage_is_flagged(make_runner, fake_bac
         FlagCode.TERMINOLOGY_VIOLATION,
         FlagCode.FORMATTING_LOST,
     ]
+    # the worker stores the change, not the span: the change carries the flag (CGL-129)
+    (change,) = result.changes
+    assert change.raised == (swept.flags[1],) and swept.flags[1].evidence == SWEPT
 
 
 async def test_a_rewrite_of_a_plain_passage_adds_no_formatting_flag(make_runner, fake_backend):
     spans = [_span("p1", "s1", "The feline sleeps.", [_violation_flag()])]
     result = await run_sweep(_ctx(make_runner), PROFILE, LOCKED, spans, SEGMENTS)
     assert [f.code for f in result.spans[0].flags] == [FlagCode.TERMINOLOGY_VIOLATION]
+    assert result.changes[0].raised == ()
 
 
 async def test_an_imported_locked_term_is_enforced_like_a_hand_locked_one(
