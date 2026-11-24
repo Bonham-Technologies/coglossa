@@ -117,7 +117,9 @@ export const runDetail: RunDetail = {
 export const guide: Guide = {
   summary: "Une ville sous la pluie ; un chat endormi.",
   style_guide: "Plain, past tense.",
-  glossary: [{ term: "chat", rendering: "cat", notes: "", locked: false }],
+  glossary: [
+    { term: "chat", rendering: "cat", notes: "", locked: false, forms: [], source_forms: [] },
+  ],
   entities: [
     {
       name: "Marie",
@@ -127,6 +129,8 @@ export const guide: Guide = {
       forms_of_address: "vous",
       speech_style: "",
       locked: true,
+      forms: [],
+      source_forms: [],
     },
   ],
   cultural_references: ["la ville lumière"],

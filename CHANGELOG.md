@@ -5,6 +5,7 @@ All notable changes to this project are recorded here. The format follows
 
 ## Unreleased
 
+- Guide: a term or name can list other correct forms of its translation (a plural, a case ending) and of the original word, so a correct "Verträge" for "Vertrag" is no longer flagged or rewritten by the recheck; "This form is fine" on a guide flag adds the form the passage uses, the translators and the recheck are told the forms, and CSV (a "forms" column) and TBX (other accepted terms) imports read them (CGL-109).
 - New flag "This passage may not have been translated": a passage copied through from the original, or written mostly in a script the target language does not use (Latin text for an Amharic or Hindi target), is flagged in the report, the passage panel, the HTML export and the Word comments; scores are unchanged, and `coglossa bench flags` measures it with a "left untranslated" error (CGL-107).
 - Site: the public site lives at `https://coglossa.tech`; its canonical, Open Graph and structured-data URLs, sitemap, robots file, `security.txt` and the site checks use the new host, and `coglossa.com` redirects there (CGL-126).
 - Word download: the first-page and even-page headers and footers are rebuilt as Word's own variants instead of stacking on every page, and a later section's header or footer comes at the end of the document (CGL-117).

@@ -380,6 +380,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/flags/{flag_id}/accept-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Form
+         * @description CGL-109 "This form is fine": dismiss an open terminology flag because the passage uses an
+         *     accepted form of the translation. The form joins the guide entry in a new approved version of
+         *     the set guide; rechecking the set clears the same flag where the form is used elsewhere.
+         */
+        post: operations["accept_form_api_runs__run_id__flags__flag_id__accept_form_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/guide": {
         parameters: {
             query?: never;
@@ -684,6 +706,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AcceptForm
+         * @description CGL-109 "This form is fine": the passage uses `form` of the translation of `term`, one of
+         *     the terms or names its terminology flag names.
+         */
+        AcceptForm: {
+            /** Form */
+            form: string;
+            /** Term */
+            term: string;
+        };
         /** ActionResult */
         ActionResult: {
             /** Message */
@@ -953,6 +986,12 @@ export interface components {
         /** Entity */
         Entity: {
             /**
+             * Forms
+             * @description Other accepted forms of the rendering, such as its plural or case forms
+             * @default []
+             */
+            forms: string[];
+            /**
              * Forms Of Address
              * @default
              */
@@ -973,6 +1012,12 @@ export interface components {
             name: string;
             /** Rendering */
             rendering: string;
+            /**
+             * Source Forms
+             * @description Other forms of the source words, such as plural or case forms, it also covers
+             * @default []
+             */
+            source_forms: string[];
             /**
              * Speech Style
              * @default
@@ -985,6 +1030,12 @@ export interface components {
          */
         EntityEdit: {
             /**
+             * Forms
+             * @description Other accepted forms of the rendering, such as its plural or case forms
+             * @default []
+             */
+            forms: string[];
+            /**
              * Forms Of Address
              * @default
              */
@@ -1005,6 +1056,12 @@ export interface components {
             name: string;
             /** Rendering */
             rendering: string;
+            /**
+             * Source Forms
+             * @description Other forms of the source words, such as plural or case forms, it also covers
+             * @default []
+             */
+            source_forms: string[];
             /**
              * Speech Style
              * @default
@@ -1080,6 +1137,12 @@ export interface components {
         /** GlossaryEntry */
         GlossaryEntry: {
             /**
+             * Forms
+             * @description Other accepted forms of the rendering, such as its plural or case forms
+             * @default []
+             */
+            forms: string[];
+            /**
              * Locked
              * @default false
              */
@@ -1094,6 +1157,12 @@ export interface components {
              * @description Target-language rendering to use
              */
             rendering: string;
+            /**
+             * Source Forms
+             * @description Other forms of the source words, such as plural or case forms, it also covers
+             * @default []
+             */
+            source_forms: string[];
             /**
              * Term
              * @description Source-language term exactly as it appears
@@ -1106,6 +1175,12 @@ export interface components {
          */
         GlossaryEntryEdit: {
             /**
+             * Forms
+             * @description Other accepted forms of the rendering, such as its plural or case forms
+             * @default []
+             */
+            forms: string[];
+            /**
              * Locked
              * @default false
              */
@@ -1120,6 +1195,12 @@ export interface components {
              * @description Target-language rendering to use
              */
             rendering: string;
+            /**
+             * Source Forms
+             * @description Other forms of the source words, such as plural or case forms, it also covers
+             * @default []
+             */
+            source_forms: string[];
             /**
              * Term
              * @description Source-language term exactly as it appears
@@ -2694,6 +2775,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["FlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpanDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_form_api_runs__run_id__flags__flag_id__accept_form_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                flag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptForm"];
             };
         };
         responses: {

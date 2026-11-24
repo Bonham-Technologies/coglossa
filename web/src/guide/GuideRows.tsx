@@ -2,6 +2,32 @@ import { useDeferredValue, useId, useLayoutEffect, useMemo, useRef, useState } f
 import type { Entity, GlossaryEntry, Guide } from "../api/types";
 import { emptyEntity, emptyTerm, ENTITY_KINDS, KIND_WORDS } from "./entries";
 
+/** CGL-109: the other forms of a word, one per line (people list them; nothing guesses them). */
+function FormsField({
+  id,
+  label,
+  forms,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  forms: string[];
+  onChange: (forms: string[]) => void;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        id={id}
+        dir="auto"
+        rows={2}
+        value={forms.join("\n")}
+        onChange={(e) => onChange(e.target.value.split("\n"))}
+      />
+    </div>
+  );
+}
+
 // The summary is the row's edit button. Its accessible name is built from the
 // visible text plus a hidden "Edit" prefix, so the name contains what sighted
 // users see (WCAG 2.5.3 Label in Name) and voice users can say it.
@@ -116,6 +142,18 @@ function NameForm({
             onChange={(e) => onChange({ speech_style: e.target.value })}
           />
         </div>
+        <FormsField
+          id={`${id}-forms`}
+          label="Other correct forms of the translation, one per line"
+          forms={entity.forms}
+          onChange={(forms) => onChange({ forms })}
+        />
+        <FormsField
+          id={`${id}-source-forms`}
+          label="Other forms of the name in the original, one per line"
+          forms={entity.source_forms}
+          onChange={(source_forms) => onChange({ source_forms })}
+        />
       </details>
       <div className="row between">
         <button type="button" className="danger" onClick={onRemove}>
@@ -428,6 +466,18 @@ function TermForm({
             onChange={(e) => onChange({ notes: e.target.value })}
           />
         </div>
+        <FormsField
+          id={`${id}-forms`}
+          label="Other correct forms of the translation, one per line"
+          forms={term.forms}
+          onChange={(forms) => onChange({ forms })}
+        />
+        <FormsField
+          id={`${id}-source-forms`}
+          label="Other forms of the term in the original, one per line"
+          forms={term.source_forms}
+          onChange={(source_forms) => onChange({ source_forms })}
+        />
       </details>
       <div className="row between">
         <button type="button" className="danger" onClick={onRemove}>
