@@ -15,6 +15,7 @@ from coglossa.scoring.aggregate import (
 )
 from coglossa.scoring.numbers import NumberMismatch
 from coglossa.scoring.rules import GuideViolation
+from coglossa.scoring.untranslated import Untranslated
 from tests.conftest import BASE_CONFIG, PRE_CALIBRATION_THRESHOLDS
 
 CFG = ScoringConfig(thresholds=PRE_CALIBRATION_THRESHOLDS)
@@ -208,6 +209,40 @@ def test_number_mismatch_is_raised_without_any_model_signal():
     )
     score, flags = score_span(bare, tier=A, cfg=CFG, diverse=True)
     assert score.meaning is None and [f.code for f in flags] == [FlagCode.NUMBER_MISMATCH]
+
+
+def test_untranslated_is_a_hard_trigger_that_leaves_the_scores_alone():
+    copied = Untranslated(rule="copied", source="Il pleut.", translation="Il pleut.")
+    clean_score, clean_flags = score_span(_ev(), tier=A, cfg=CFG, diverse=True)
+    score, flags = score_span(_ev(untranslated=copied), tier=A, cfg=CFG, diverse=True)
+    assert score == clean_score and clean_flags == []
+    [flag] = flags
+    assert flag.code is FlagCode.UNTRANSLATED
+    assert flag.explanation == copied.explanation()
+    assert flag.evidence == {"rule": "copied", "source": "Il pleut.", "translation": "Il pleut."}
+
+
+def test_untranslated_is_raised_without_any_model_signal():
+    wrong = Untranslated(
+        rule="script",
+        source="It rains.",
+        translation="it rains all day long here",
+        script="Latn",
+        expected=("Ethi",),
+        language="am",
+    )
+    bare = _ev(
+        qe_raw=None,
+        xsim_cos=None,
+        roundtrip_qe_raw=None,
+        roundtrip_cos=None,
+        judge_errors=None,
+        agreement=None,
+        untranslated=wrong,
+    )
+    score, flags = score_span(bare, tier=A, cfg=CFG, diverse=True)
+    assert score.meaning is None and [f.code for f in flags] == [FlagCode.UNTRANSLATED]
+    assert flags[0].evidence["expected"] == ["Ethi"]
 
 
 @pytest.mark.parametrize(

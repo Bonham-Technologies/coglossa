@@ -22,10 +22,10 @@ MIN_SAMPLES = 30  # positives and negatives needed per tier before a threshold i
 MIN_KIND_SAMPLES = 10  # injected spans a kind needs to count in the recall average
 MAX_FALSE_POSITIVE_RATE = 0.10  # default share of clean spans a threshold may flag
 TIER_NAMES = ("A", "B", "C")
-# Rule-based detection does not depend on the threshold, and would inflate recall.
-_FITTED_MEANING = [
-    k.value for k in InjectionKind if k in MEANING_KINDS and k is not InjectionKind.LOCKED_TERM
-]
+# Kinds only rules are meant to catch: their detection does not depend on the threshold, and
+# would inflate recall.
+_RULE_ONLY = (InjectionKind.LOCKED_TERM, InjectionKind.UNTRANSLATED)
+_FITTED_MEANING = [k.value for k in InjectionKind if k in MEANING_KINDS and k not in _RULE_ONLY]
 _STYLE = [k.value for k in InjectionKind if k in STYLE_KINDS]
 
 HEADER = (

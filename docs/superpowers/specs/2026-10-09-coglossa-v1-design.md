@@ -256,6 +256,7 @@ Flag codes:
 - `terminology_violation`
 - `possible_omission`
 - `number_mismatch` (CGL-86)
+- `untranslated` (CGL-107)
 - `cultural_or_wordplay`
 - `engine_error`
 - `low_reliability_language`
@@ -271,6 +272,7 @@ Flag codes:
   - reviewer agreement of `major`
   - a target/source length ratio outside the band for that language pair, combined with a judge omission (`possible_omission`).
   - numbers written in digits that differ between source and target (`number_mismatch`, CGL-86): an exact multiset check that reads every digit script and separator style and never changes the scores (`coglossa/scoring/numbers.py`).
+  - a translation that is the source copied through, or is mostly in a script the target language is not written in (`untranslated`, CGL-107): two text rules with no language model, which leave out names, numbers, addresses and code and never change the scores (`coglossa/scoring/untranslated.py`).
 - The UI and the report always include the raw signals.
 
 ### 6.4 Language reliability tiers

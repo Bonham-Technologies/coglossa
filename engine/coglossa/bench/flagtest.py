@@ -22,6 +22,7 @@ from coglossa.bench.inject import (
     Injection,
     InjectionKind,
     inject_with_model,
+    leave_untranslated,
     omit,
     swap_name,
     swap_number,
@@ -67,16 +68,16 @@ from coglossa.stages.translate import ChunkInput, build_chunk_inputs
 CLEAN = "clean"
 KINDS = [k.value for k in InjectionKind]
 MEANING_FLAGS = frozenset(
-    {"low_meaning", "possible_omission", "terminology_violation", "number_mismatch"}
+    {"low_meaning", "possible_omission", "terminology_violation", "number_mismatch", "untranslated"}
 )
 STYLE_FLAGS = frozenset({"style_drift"})
 NOTHING_TO_FLAG = "the scoring config has no judge and no scorer; nothing can raise a flag"
 NO_INJECTOR = "no injector configured: negation and register are not tested"
 MODEL_KINDS = (InjectionKind.NEGATION, InjectionKind.REGISTER)
 MD_FOOTER = (
-    "Recall counts low_meaning, possible_omission, terminology_violation or number_mismatch "
-    "for meaning errors and style_drift for register; a clean span with any of them is a false "
-    "positive.\n\n"
+    "Recall counts low_meaning, possible_omission, terminology_violation, number_mismatch or "
+    "untranslated for meaning errors and style_drift for register; a clean span with any of "
+    "them is a false positive.\n\n"
     "The clean false-positive rate (flagged clean spans over clean spans) is the number that "
     "transfers to real use. This rate counts every flag; `bench calibrate` fits each threshold "
     "to the rate of its own flag, so this one is higher. "
@@ -98,7 +99,9 @@ SAMPLES_PER_KIND = 3
 # Bump when a pair's records would mean something else: saved pairs are then scored again. The
 # fingerprint sees settings, prompts and the tiers file, not code: bump it when the injections
 # (inject.py), the scoring stage or the flags it raises change, or the built-in tiers do.
-RECORDS_VERSION = 3  # 2: the numbers check (number_mismatch, CGL-86); 3: by language (CGL-114)
+# 2: the numbers check (number_mismatch, CGL-86); 3: by language (CGL-114); 4: the untranslated
+# check and its injected kind (CGL-107)
+RECORDS_VERSION = 4
 # Settings that never change a pair's records: how fast, how often and how many calls are made,
 # credentials, and where the deployment keeps its data. Raising a timeout so that a shared CPU
 # scorer keeps up must not cost the pairs already finished. The prompts and the tiers file are
@@ -484,6 +487,7 @@ async def _variants(
         add(i, swap_number(ref, rng))
         add(i, swap_name(src, ref, others, rng))
         add(i, violate_locked_term(src, ref, others, rng))
+        add(i, leave_untranslated(src))
     if injector is None:
         return variants
 

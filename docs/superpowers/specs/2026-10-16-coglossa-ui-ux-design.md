@@ -231,6 +231,7 @@ The panel opens on the right, about 380 px wide. Between 1024 and 1280 px it ove
    | `style_drift` | The style doesn't match the rest |
    | `terminology_violation` | Doesn't follow your translation guide |
    | `number_mismatch` | A number doesn't match the original |
+   | `untranslated` | This passage may not have been translated |
    | `agent_disagreement` | The translators disagreed |
    | `cultural_or_wordplay` | Wordplay or a cultural reference |
    | `low_reliability_language` | Less-practised language: check carefully |

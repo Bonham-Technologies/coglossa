@@ -95,6 +95,22 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   billion) are not seen. 12- and 24-hour times (1200 GMT against 12:00) and unit conversions
   (1,000 pounds against 450 kg) are flagged, as a person should check them anyway. The full
   rules are in `engine/coglossa/scoring/numbers.py`
+- `untranslated`: "This passage may not have been translated". Two rules, no language model:
+  the translation is the source copied through (the same letters once case, spacing,
+  punctuation, digits and accents are ignored), or most of its letters are in a script the
+  target language is not written in (Latin text for an Amharic or Hindi target). The evidence
+  holds both texts. It never changes the scores. Names (capitalised words and the guide's names
+  and kept terms), numbers, web and email addresses and code are not counted, and a passage
+  needs at least 10 other letters in two words or more (or in a script written without
+  spaces), so a passage of names, numbers, a link or code, or a single word, is not flagged. Two
+  languages written in the same script (Spanish and Portuguese) are told apart only by the first
+  rule: a passage copied through is flagged, one written in the wrong language of that script is
+  not; nor is Chinese for a Japanese target. A language whose scripts are not known is checked
+  for copies only. "Most" weighs a Chinese character or a Hangul syllable as three Latin
+  letters (kana, Ethiopic and the Indian scripts as two), so a few English terms in a correct
+  Chinese, Korean or Hindi passage do not flag it. A copy is not flagged when the source is
+  already in the target language and script (en-US to en-GB). The full rules are in
+  `engine/coglossa/scoring/untranslated.py`
 - `agent_disagreement`: the reviewer rated the translators' disagreement `major`
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)
