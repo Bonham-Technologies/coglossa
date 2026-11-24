@@ -27,6 +27,11 @@ class Unit:
     text: str
 
 
+# Bump when the document the systems translate changes, so results made before are redone.
+# 2: an HTML document with formatted words, whose markers the systems are asked to keep
+# (CGL-108). Not RENDER_VERSION: `bench flags` reads the plain document and is unchanged.
+SOURCE_VERSION = 2
+
 # Formatting a formatted bench document gives a sentence's longest word, in turn (CGL-108)
 _FORMATS = (("<b>", "</b>"), ("<i>", "</i>"), ('<a href="https://example.org/">', "</a>"))
 

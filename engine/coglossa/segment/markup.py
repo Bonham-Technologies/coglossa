@@ -19,6 +19,8 @@ MarkKey = tuple[MarkKind, str | None]  # a kind of formatting and, for a link, i
 _MARKER = re.compile(r"<(/?)(\d+)>")
 # A marker, or what a model meant as one, also with full-width angle brackets (CJK output)
 _MARKER_LIKE = re.compile(r"[<\uff1c]\s*/?\s*\d+\s*/?\s*[>\uff1e]")
+# Markers in a row and the spaces either side of them
+_AROUND_MARKERS = re.compile(rf"([ \t]*)(?:{_MARKER_LIKE.pattern})+([ \t]*)")
 _LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp"})  # targets a Word file can open
 FORMATTING_LOST = (
     "Formatting could not be kept here, so the Word download shows this passage as plain text."
@@ -39,6 +41,19 @@ def link_target(href: str | None) -> str | None:
     except ValueError:  # a malformed address, such as "http://["
         return None
     return href if scheme in _LINK_SCHEMES else None
+
+
+def strip_markers(text: str) -> str:
+    """`text` without marker-like text, for what a model wrote besides the translation (notes,
+    rationale, issues, proposed terms): "drops <1>the cat</1> here" becomes "drops the cat
+    here". Where a marker stood between two spaces, one is left."""
+    if not _MARKER_LIKE.search(text):
+        return text
+    return _AROUND_MARKERS.sub(_one_space, text).strip()
+
+
+def _one_space(m: re.Match[str]) -> str:
+    return " " if m.group(1) and m.group(2) else m.group(1) or m.group(2)
 
 
 def formatting_flag() -> Flag:

@@ -138,3 +138,64 @@ async def test_a_split_chunk_keeps_its_markers(make_runner, fake_backend):
     out = await _run(make_runner, _ci())
     assert [s.text for s in out.spans] == ["[en] Le chat dort.", "[en] Il pleut ici."]
     assert all(s.formatting is not None for s in out.spans)
+
+
+async def test_markers_come_out_of_everything_else_the_models_wrote(make_runner, fake_backend):
+    """AC4: notes, rationale, issues and proposed terms reach the review screen and the guide."""
+    translation = {
+        "spans": [
+            {
+                "start": "s1",
+                "end": "s1",
+                "text": "The <1>cat</1> sleeps.",
+                "notes": "Kept <1>cat</1> bold.",
+            },
+            {"start": "s2", "end": "s2", "text": "It rains <2>here</2>.", "notes": ""},
+        ]
+    }
+    fake_backend.script("translate", json.dumps(translation), json.dumps(translation))
+    review = {
+        "spans": [
+            {
+                "start": "s1",
+                "end": "s1",
+                "text": "The <1>cat</1> sleeps.",
+                "agreement": "minor",
+                "chosen_from": "literal",
+                "rationale": "The literal candidate keeps <1> on ＜1＞cat＜/1＞.",
+                "issues": ["the contextual candidate drops <1>", "<1>chat</1> is bold"],
+                "proposed_terms": [
+                    {"term": "<1>chat</1>", "rendering": "<1>cat</1>", "notes": "bold <1></1> word"}
+                ],
+            },
+            {
+                "start": "s2",
+                "end": "s2",
+                "text": "It rains <2>here</2>.",
+                "agreement": "agree",
+                "chosen_from": "literal",
+            },
+        ]
+    }
+    fake_backend.script("reconcile", json.dumps(review))
+    out = await _run(make_runner, _ci())
+    first = out.spans[0]
+    assert first.rationale == "The literal candidate keeps on cat."
+    assert first.issues == ["the contextual candidate drops", "chat is bold"]
+    [term] = out.proposed_terms[0]
+    assert (term.term, term.rendering, term.notes) == ("chat", "cat", "bold word")
+    assert {c.notes for c in out.candidates} == {"Kept cat bold.", ""}
+    assert first.formatting is not None and first.flags == []
+    stored = out.model_dump_json()
+    assert "<1>" not in stored and "</1>" not in stored and "＜" not in stored
+
+
+async def test_notes_are_left_as_written_when_no_markers_were_sent(make_runner, fake_backend):
+    translation = {
+        "spans": [{"start": "s1", "end": "s2", "text": "Press <1> now.", "notes": "Key <1>."}]
+    }
+    fake_backend.script("translate", json.dumps(translation), json.dumps(translation))
+    segments = _ci().segments
+    plain = build_chunk_inputs([Chunk(id="c1", segment_ids=[s.id for s in segments])], segments)[0]
+    out = await _run(make_runner, plain)
+    assert {c.notes for c in out.candidates} == {"Key <1>."}

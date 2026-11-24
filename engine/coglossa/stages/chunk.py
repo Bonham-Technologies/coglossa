@@ -28,7 +28,7 @@ from coglossa.schema import (
     Span,
 )
 from coglossa.scoring.client import Scorer
-from coglossa.segment.markup import Unmarked, formatting_flag, unmark
+from coglossa.segment.markup import Unmarked, formatting_flag, strip_markers, unmark
 from coglossa.stages.context import StageContext
 from coglossa.stages.reconcile import ReconcileResult, reconcile_chunk
 from coglossa.stages.score import (
@@ -103,7 +103,13 @@ async def _attempt(
         await on_stage("reconcile")
     candidates, _ = unmark_spans(ci, candidates)
     plain, formats = unmark_spans(ci, reconciled.spans)
-    reconciled = dataclasses.replace(reconciled, spans=plain)
+    reconciled = dataclasses.replace(
+        reconciled,
+        spans=plain,
+        engine_error=_plain(ci, reconciled.engine_error),
+        errors=_plain_errors(ci, reconciled.errors),
+    )
+    translate_errors = _plain_errors(ci, translate_errors)
     scored = await score_chunk(
         ctx, scorer, profile, guide, ci, candidates, reconciled, tier=tier, diverse=diverse
     )
@@ -119,8 +125,46 @@ def unmark_spans[S: (Candidate, ReconciledSpan)](
     found = [
         unmark(ci.markup, ids[positions[s.start] : positions[s.end] + 1], s.text) for s in spans
     ]
-    plain = [s.model_copy(update={"text": u.text}) for s, u in zip(spans, found, strict=True)]
+    plain = [
+        s.model_copy(update={"text": u.text, **_plain_fields(ci, s)})
+        for s, u in zip(spans, found, strict=True)
+    ]
     return plain, found
+
+
+def _plain(ci: ChunkInput, text: str | None) -> str | None:
+    """`text` without markers when the chunk's prompts had them."""
+    return strip_markers(text) if ci.markup.marked and text is not None else text
+
+
+def _plain_fields(ci: ChunkInput, span: Candidate | ReconciledSpan) -> dict[str, object]:
+    """The span's other text a model wrote, without markers: a translator's notes; the
+    reviewer's rationale, issues and proposed terms. The review screen shows them as written."""
+    if not ci.markup.marked:
+        return {}
+    if isinstance(span, Candidate):
+        return {"notes": strip_markers(span.notes)}
+    return {
+        "rationale": strip_markers(span.rationale),
+        "issues": [strip_markers(i) for i in span.issues],
+        "proposed_terms": [
+            t.model_copy(
+                update={
+                    "term": strip_markers(t.term),
+                    "rendering": strip_markers(t.rendering),
+                    "notes": strip_markers(t.notes),
+                }
+            )
+            for t in span.proposed_terms
+        ],
+    }
+
+
+def _plain_errors(ci: ChunkInput, errors: list[RunError]) -> list[RunError]:
+    """Errors without markers: a failure's message can quote a model's reply."""
+    if not ci.markup.marked:
+        return errors
+    return [e.model_copy(update={"message": strip_markers(e.message)}) for e in errors]
 
 
 def build_outcome(
