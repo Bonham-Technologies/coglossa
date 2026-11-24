@@ -95,7 +95,7 @@ source = { registry = "https://download.pytorch.org/whl/cpu" }
 """
 FIXTURE_LISTING = """
 <a href="/whl/{index}/torch-2.14.1%2B{index}-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=0">x</a>
-<a href="/whl/{index}/torch-2.14.1%2B{index}-cp311-cp311-manylinux_2_28_x86_64.whl#sha256=0">x</a>
+<a href="/whl/{index}/torch-2.14.0%2B{index}-cp311-cp311-manylinux_2_28_x86_64.whl#sha256=0">x</a>
 <a href="/whl/{index}/torch-2.15.0%2B{index}-cp312-cp312-win_amd64.whl#sha256=0">x</a>
 """
 
