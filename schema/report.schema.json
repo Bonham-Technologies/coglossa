@@ -339,6 +339,7 @@
         "low_reliability_language",
         "unscored",
         "number_mismatch",
+        "untranslated",
         "unread_content"
       ],
       "title": "FlagCode",

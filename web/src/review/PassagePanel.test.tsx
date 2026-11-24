@@ -137,6 +137,38 @@ it("explains a number that doesn't match the original in plain words", async () 
   expect(why).not.toHaveTextContent("number_mismatch");
 });
 
+it("says in plain words when a passage may not have been translated", async () => {
+  const explanation =
+    "This passage may not have been translated: the translation is mostly in Latin script, " +
+    "but Amharic is written in Ethiopic script. Check that it is in the right language.";
+  const flagged: SpanDetail = {
+    ...spanDetail,
+    flags: [
+      {
+        id: 23,
+        code: "untranslated",
+        status: "open",
+        explanation,
+        evidence: {
+          rule: "script",
+          source: "Il pleut.",
+          translation: "it rains all day long",
+          script: "Latn",
+          expected: ["Ethi"],
+        },
+        dismiss_reason: null,
+      },
+    ],
+  };
+  server.use(http.get("*/api/runs/r-1/spans/s-2", () => HttpResponse.json(flagged)));
+  renderPanel();
+  const why = await screen.findByRole("region", { name: "Why it's flagged" });
+  expect(why).toHaveTextContent("This passage may not have been translated");
+  expect(why).toHaveTextContent(explanation);
+  expect(why).not.toHaveTextContent("untranslated");
+  expect(why).not.toHaveTextContent("Latn");
+});
+
 it("uses a better version and marks the passage checked", async () => {
   let chosen: unknown;
   server.use(

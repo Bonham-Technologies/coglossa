@@ -7,11 +7,19 @@ from coglossa.bench.inject import (
     STYLE_KINDS,
     InjectionKind,
     inject_with_model,
+    leave_untranslated,
     omit,
     swap_name,
     swap_number,
     violate_locked_term,
 )
+
+
+def test_leave_untranslated_copies_the_source_through():
+    inj = leave_untranslated("Please speak slowly.")
+    assert inj.kind is InjectionKind.UNTRANSLATED and inj.kind in MEANING_KINDS
+    assert inj.text == "Please speak slowly." and inj.detail == "left untranslated"
+    assert leave_untranslated("  ") is None
 
 
 def test_omit_drops_the_longest_clause():
