@@ -60,6 +60,10 @@ class SystemPairResult(BaseModel):
     # Outputs but no scoring (metricx_by is None): the scorer failed, had no QE model or was not
     # set; the next run with a working scorer scores the stored outputs.
     metricx_pending: bool = False
+    # Marker retention (CGL-108): passages whose source has formatting, and how many of them
+    # came back with their markers whole. 0 and 0 in results written before.
+    markers_kept: int = 0
+    markers_total: int = 0
 
     @field_validator("fingerprint", mode="before")
     @classmethod
@@ -98,6 +102,8 @@ class SummaryRow(BaseModel):
     tokens_out: int
     seconds: float
     errors: int
+    markers_kept: int = 0  # passages that kept their formatting markers (CGL-108)
+    markers_total: int = 0  # passages whose source has formatting
 
 
 async def score_units(
@@ -172,6 +178,8 @@ def summarise(
         long_sources=sum(u.too_long == "source" for u in units),
         long_outputs=sum(u.too_long == "output" for u in units),
         metricx_pending=result.metricx_pending,
+        markers_kept=result.markers_kept,
+        markers_total=result.markers_total,
     )
 
 

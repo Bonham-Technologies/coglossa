@@ -202,3 +202,18 @@ def test_oversized_archives_are_refused_before_reading(tmp_path, monkeypatch):
 def test_registry_reads_epub(tmp_path):
     path = make_epub(tmp_path / "book.epub", {"a.xhtml": "<p>Bonjour.</p>"})
     assert ingest_file(path).format == "epub"
+
+
+def test_inline_formatting_is_recorded_in_each_chapter(tmp_path):
+    """CGL-108."""
+    path = make_epub(
+        tmp_path / "book.epub",
+        {"a.xhtml": "<p>Un <em>beau</em> jour.</p>", "b.xhtml": "<p>Le <b>soir</b>.</p>"},
+    )
+    blocks = EpubIngestor().ingest(path).blocks
+    assert [
+        (b.text[m.start : m.end], m.kind.value) for b in blocks for m in b.provenance.marks
+    ] == [
+        ("beau", "italic"),
+        ("soir", "bold"),
+    ]

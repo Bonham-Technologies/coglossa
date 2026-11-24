@@ -62,7 +62,9 @@ def test_flag_codes_match_spec():
         "low_reliability_language",
         "unscored",
         "number_mismatch",
+        "untranslated",
         "unread_content",
+        "formatting_lost",
     }
 
 

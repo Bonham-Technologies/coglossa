@@ -71,3 +71,25 @@ def test_fill_missing_adds_empty_units_for_uncovered_sentences():
         Unit(4, 4, ""),
     ]
     assert fill_missing([Unit(0, 0, "a")], 1) == [Unit(0, 0, "a")]
+
+
+def test_a_formatted_bench_document_marks_every_other_sentence(tmp_path):
+    """CGL-108: the longest word of every other sentence of three words or more, in bold, in
+    italics or linked in turn; the text read back is the sentences unchanged."""
+    sentences = ["One two three.", "Four five six.", "Seven <eight> & nine.", "a b", "x yy z", "x"]
+    path = write_source_document(sentences, tmp_path, formatting=True)
+    assert path.suffix == ".html"
+    doc = ingest_file(path)
+    assert [b.text for b in doc.blocks] == sentences
+    marked = [
+        [(m.kind.value, m.href, b.text[m.start : m.end]) for m in b.provenance.marks]
+        for b in doc.blocks
+    ]
+    assert marked == [
+        [("bold", None, "three.")],
+        [],
+        [("italic", None, "<eight>")],
+        [],
+        [("link", "https://example.org/", "yy")],
+        [],
+    ]

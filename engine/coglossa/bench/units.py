@@ -4,6 +4,7 @@ spans. Most units are one sentence."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 
 from coglossa.schema import Block, Segment
@@ -26,12 +27,41 @@ class Unit:
     text: str
 
 
-def write_source_document(sentences: list[str], directory: Path) -> Path:
+# Bump when the document the systems translate changes, so results made before are redone.
+# 2: an HTML document with formatted words, whose markers the systems are asked to keep
+# (CGL-108). Not RENDER_VERSION: `bench flags` reads the plain document and is unchanged.
+SOURCE_VERSION = 2
+
+# Formatting a formatted bench document gives a sentence's longest word, in turn (CGL-108)
+_FORMATS = (("<b>", "</b>"), ("<i>", "</i>"), ('<a href="https://example.org/">', "</a>"))
+
+
+def write_source_document(
+    sentences: list[str], directory: Path, *, formatting: bool = False
+) -> Path:
+    """A plain text file with one sentence per paragraph; with `formatting`, an HTML file in
+    which every other sentence of three words or more has its longest word in bold, in italics
+    or linked, so the bench counts how often translations keep the formatting markers."""
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / "source.txt"
     paragraphs = [" ".join(s.split()) for s in sentences]
-    path.write_text("\n\n".join(paragraphs) + "\n", encoding="utf-8")
+    if not formatting:
+        path = directory / "source.txt"
+        path.write_text("\n\n".join(paragraphs) + "\n", encoding="utf-8")
+        return path
+    path = directory / "source.html"
+    body = "".join(f"<p>{_formatted(p, k)}</p>\n" for k, p in enumerate(paragraphs))
+    path.write_text(f"<!doctype html>\n<html><body>\n{body}</body></html>\n", encoding="utf-8")
     return path
+
+
+def _formatted(sentence: str, k: int) -> str:
+    words = sentence.split(" ")
+    if k % 2 or len(words) < 3:
+        return escape(sentence)
+    w = max(range(len(words)), key=lambda i: len(words[i]))
+    opening, closing = _FORMATS[(k // 2) % len(_FORMATS)]
+    words[w] = f"{opening}{escape(words[w])}{closing}"
+    return " ".join(escape(word) if i != w else word for i, word in enumerate(words))
 
 
 def group_units(

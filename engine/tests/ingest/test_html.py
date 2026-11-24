@@ -3,7 +3,7 @@ import pytest
 from coglossa.ingest.base import IngestError
 from coglossa.ingest.html import HtmlIngestor, collect_blocks, parse_html
 from coglossa.ingest.registry import check_supported, ingest_file
-from coglossa.schema import BlockKind
+from coglossa.schema import BlockKind, MarkKind
 
 H, P, LI, TD, FN, BR = (
     BlockKind.HEADING,
@@ -160,3 +160,50 @@ def test_nested_blocks_keep_the_outer_kind(tmp_path):
         )
     )
     assert _kinds(doc) == [(TD, "x"), (FN, "note"), (LI, "titre")]
+
+
+def test_inline_formatting_is_recorded_as_marks(tmp_path):
+    """CGL-108: <b>, <em>, <a href> and <sup> in one paragraph, across collapsed whitespace."""
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<p>  Le <b>chat</b>\n   <em>dort <a href='https://example.org/x'>ici</a></em>"
+            "<sup>2</sup>, H<sub>2</sub>O, <u>souligné</u> <strong> fort </strong>"
+            "<i>et</i> <a href='#note'>renvoi</a> <a href='chapitre2.xhtml'>suite</a>.</p>"
+            "<p>Sans rien.</p><p><b>* * *</b></p><pre><b>a</b>  b</pre>",
+        )
+    )
+    first = doc.blocks[0]
+    assert first.text == "Le chat dort ici2, H2O, souligné fort et renvoi suite."
+    marked = [(m.kind, m.href, first.text[m.start : m.end]) for m in first.provenance.marks]
+    assert marked == [
+        (MarkKind.BOLD, None, "chat"),
+        (MarkKind.ITALIC, None, "dort ici"),
+        (MarkKind.LINK, "https://example.org/x", "ici"),
+        (MarkKind.SUPERSCRIPT, None, "2"),
+        (MarkKind.SUBSCRIPT, None, "2"),
+        (MarkKind.UNDERLINE, None, "souligné"),
+        (MarkKind.BOLD, None, "fort"),
+        (MarkKind.ITALIC, None, "et"),
+    ]  # links within the book or page have no address a Word file could open
+    assert doc.blocks[1].provenance.marks == []
+    assert doc.blocks[2].kind is BR and doc.blocks[2].provenance.marks == []
+    assert doc.blocks[3].text == "a b" and doc.blocks[3].provenance.marks == []
+
+
+def test_unsafe_or_malformed_link_targets_are_no_links(tmp_path):
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<p>A <a href='javascript:alert(1)'>x</a> <a href='http://[bad'>y</a> "
+            "<a href='file:///etc/passwd'>z</a>.</p>",
+        )
+    )
+    assert doc.blocks[0].text == "A x y z." and doc.blocks[0].provenance.marks == []
+
+
+def test_line_breaks_keep_marks_on_their_lines(tmp_path):
+    doc = HtmlIngestor().ingest(_write(tmp_path, "<p>un <b>deux<br>  trois</b> quatre</p>"))
+    block = doc.blocks[0]
+    assert block.text == "un deux\ntrois quatre"
+    assert [block.text[m.start : m.end] for m in block.provenance.marks] == ["deux", "trois"]

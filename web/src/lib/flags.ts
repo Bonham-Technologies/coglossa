@@ -7,12 +7,14 @@ export const FLAG_TITLES: Record<FlagCode, string> = {
   style_drift: "The style doesn't match the rest",
   terminology_violation: "Doesn't follow your translation guide",
   number_mismatch: "A number doesn't match the original",
+  untranslated: "This passage may not have been translated",
   agent_disagreement: "The translators disagreed",
   cultural_or_wordplay: "Wordplay or a cultural reference",
   low_reliability_language: "Less-practised language: check carefully",
   unscored: "Couldn't be checked",
   engine_error: "Some checking didn't finish",
   unread_content: "Not everything was translated",
+  formatting_lost: "Formatting couldn't be kept",
 };
 
 /** A code a newer engine added falls back to a neutral title, never breaking the panel. */

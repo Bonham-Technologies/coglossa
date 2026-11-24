@@ -18,6 +18,7 @@ class InjectionKind(StrEnum):
     NEGATION = "negation"
     REGISTER = "register"
     LOCKED_TERM = "locked_term"
+    UNTRANSLATED = "untranslated"
 
 
 MEANING_KINDS = {
@@ -26,6 +27,7 @@ MEANING_KINDS = {
     InjectionKind.NAME,
     InjectionKind.NEGATION,
     InjectionKind.LOCKED_TERM,
+    InjectionKind.UNTRANSLATED,
 }
 STYLE_KINDS = {InjectionKind.REGISTER}
 
@@ -151,6 +153,13 @@ def violate_locked_term(
         f"{name} → {other}",
         locked_term=GlossaryEntry(term=name, rendering=name, locked=True),
     )
+
+
+def leave_untranslated(source: str) -> Injection | None:
+    """The passage left untranslated: the source copied through, as a local model may do."""
+    if not source.strip():
+        return None
+    return Injection(InjectionKind.UNTRANSLATED, source, "left untranslated")
 
 
 async def inject_with_model(

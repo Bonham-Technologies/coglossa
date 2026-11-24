@@ -23,6 +23,26 @@ class Region(StrEnum):
     ENDNOTE = "endnote"
 
 
+class MarkKind(StrEnum):
+    """Inline formatting an export can put back on the translated words (CGL-108)."""
+
+    BOLD = "bold"
+    ITALIC = "italic"
+    UNDERLINE = "underline"
+    SUPERSCRIPT = "superscript"
+    SUBSCRIPT = "subscript"
+    LINK = "link"
+
+
+class InlineMark(BaseModel):
+    """One kind of inline formatting over `text[start:end]` of a block or a passage."""
+
+    start: int
+    end: int
+    kind: MarkKind
+    href: str | None = None  # a link's target
+
+
 class TableCellPosition(BaseModel):
     """Where a table cell sits, so an export can rebuild the table (CGL-87). Rows and columns
     count the table's grid from 1; a merged cell is placed at its top-left corner."""
@@ -49,6 +69,8 @@ class Provenance(BaseModel):
     cell: TableCellPosition | None = None  # a table cell's position
     note: str | None = None  # the mark of the footnote or endnote this block is part of
     note_refs: list[str] = Field(default_factory=list)  # marks of the notes this block cites
+    # Inline formatting of the block's text (CGL-108: DOCX, HTML and EPUB); none in older blocks
+    marks: list[InlineMark] = Field(default_factory=list)
 
 
 class Block(BaseModel):

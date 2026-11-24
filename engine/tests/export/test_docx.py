@@ -23,6 +23,7 @@ from coglossa.schema import (
     Segment,
     TableCellPosition,
 )
+from coglossa.scoring.untranslated import untranslated_check
 from tests.export.conftest import make_report, make_span
 from tests.ingest.docx_parts import full_document
 
@@ -65,6 +66,23 @@ def test_an_empty_translation_still_carries_its_flags():
     document = _open(bilingual_docx(report))
     assert document.tables[0].rows[2].cells[2].text == ""
     assert [c.text for c in document.comments] == ["engine_error: No translation was produced."]
+
+
+def test_a_passage_left_untranslated_is_a_comment():
+    found = untranslated_check("Le chat dort. Il pleut.", "Le chat dort. Il pleut.", "en")
+    flag = Flag(
+        code=FlagCode.UNTRANSLATED, explanation=found.explanation(), evidence=found.as_evidence()
+    )
+    report = make_report(
+        spans=[
+            make_span("p1", "s1", "s1", "Chapter One"),
+            make_span("p2", "s2", "s3", "Le chat dort. Il pleut.", flags=[flag]),
+            make_span("p3", "s4", "s4", "The end."),
+        ]
+    )
+    [comment] = _open(bilingual_docx(report)).comments
+    assert comment.text == f"untranslated: {found.explanation()}"
+    assert "may not have been translated" in comment.text
 
 
 def test_clean_document_keeps_structure(report):
