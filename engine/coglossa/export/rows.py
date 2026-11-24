@@ -2,10 +2,20 @@
 and the translated text of each source block. Exports read the Report, whose span text is
 always the latest revision, so they reflect every sweep and reviewer change."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
-from coglossa.schema import Block, BlockKind, Flag, FlagStatus, Report, Span
+from coglossa.schema import (
+    Block,
+    BlockKind,
+    Flag,
+    FlagStatus,
+    InlineMark,
+    Report,
+    Span,
+    kept_formatting,
+)
+from coglossa.segment.markup import join_marked
 from coglossa.stages.sweep import span_sources
 
 BREAK_MARKER = "* * *"
@@ -38,23 +48,28 @@ def export_rows(report: Report) -> list[ExportRow]:
 class TranslatedBlock:
     block: Block
     text: str
+    marks: list[InlineMark] = field(default_factory=list)  # the passages' formatting (CGL-108)
 
 
 def translated_blocks(report: Report) -> list[TranslatedBlock]:
     """Each source block with the translation of the spans that start in it (a span merged
-    across blocks belongs to the block it starts in). Breaks keep a marker; blocks left
-    without text (their sentences went to an earlier block's span) are left out."""
+    across blocks belongs to the block it starts in), and the inline formatting the spans
+    kept. Breaks keep a marker; blocks left without text (their sentences went to an earlier
+    block's span) are left out."""
     block_of = {seg.id: seg.block_id for seg in report.segments}
-    texts: dict[str, list[str]] = {}
+    texts: dict[str, list[tuple[str, list[InlineMark]]]] = {}
     for span in report.spans:
         if span.text.strip():
-            texts.setdefault(block_of[span.start], []).append(span.text)
+            formatting = kept_formatting(span)
+            marks = formatting.marks if formatting is not None else []
+            texts.setdefault(block_of[span.start], []).append((span.text, marks))
     out: list[TranslatedBlock] = []
     for block in report.blocks:
         if block.kind is BlockKind.BREAK:
             out.append(TranslatedBlock(block=block, text=BREAK_MARKER))
         elif block.id in texts:
-            out.append(TranslatedBlock(block=block, text=" ".join(texts[block.id])))
+            text, marks = join_marked(texts[block.id], " ")
+            out.append(TranslatedBlock(block=block, text=text, marks=marks))
     return out
 
 

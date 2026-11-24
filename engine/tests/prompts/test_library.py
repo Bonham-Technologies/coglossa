@@ -13,8 +13,9 @@ ALL_VARS = {
 }
 
 
-# CGL-109 added accepted forms to the prompts that read the guide's renderings.
-VERSIONS = {"literal": 2, "contextual": 2, "reconcile": 2}
+# CGL-108 added formatting markers (v2) to the translators and the reviewer; CGL-109 then
+# explained accepted forms to them (v3), and to the judge and the sweep (v2).
+VERSIONS = {"literal": 3, "contextual": 3, "reconcile": 3, "judge": 2, "sweep": 2}
 
 
 @pytest.mark.parametrize("prompt_id", sorted(ALL_VARS))
@@ -24,6 +25,17 @@ def test_builtin_templates_render(prompt_id):
     assert rendered.version == VERSIONS.get(prompt_id, 1)
     assert "JSON" in rendered.text
     assert "{{" not in rendered.text and "{%" not in rendered.text
+
+
+# CGL-108: the prompts that see formatting markers are at version 2 and ask for them back.
+MARKER_PROMPTS = {"literal": 2, "contextual": 2, "reconcile": 2}
+
+
+@pytest.mark.parametrize("prompt_id", sorted(MARKER_PROMPTS))
+def test_translator_and_reviewer_prompts_ask_for_the_formatting_markers_back(prompt_id):
+    text = PromptLibrary().render(prompt_id, **ALL_VARS[prompt_id]).text
+    assert "<1>…</1>" in text
+    assert "exactly once" in text and "never drop, add or renumber them" in text
 
 
 # A model that types a plain " inside a JSON string under constrained decoding ends the string
@@ -67,7 +79,7 @@ def test_guide_depth_variants_differ(depth):
 def test_guide_prompts_explain_accepted_forms(prompt_id, variables):
     """CGL-109: a listed form of a locked rendering counts as the rendering."""
     rendered = PromptLibrary().render(prompt_id, **variables)
-    assert rendered.version == 2
+    assert rendered.version == VERSIONS[prompt_id]
     assert '"forms"' in rendered.text
     assert "accepted forms" in rendered.text
 
@@ -92,7 +104,7 @@ def test_override_dir_wins_and_picks_highest_version(tmp_path):
     rendered = lib.render("literal", target_lang="de")
     assert (rendered.version, rendered.text) == (7, "custom into German (de) JSON")
     # prompts not overridden still come from the built-in templates
-    assert lib.resolve("contextual")[0] == 2
+    assert lib.resolve("contextual")[0] == 3
     assert lib.versions(["literal", "profile"]) == {"literal": 7, "profile": 1}
 
 

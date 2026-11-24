@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 
 import docx
@@ -8,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 
 from coglossa import catalog, service
 from coglossa.config import config_hash
+from coglossa.export.docx import clean_docx
 from coglossa.ingest.base import UNREAD_PREFIX
 from coglossa.llm.types import OutputTruncatedError
 from coglossa.problems import GUIDE_CHANGED_AGAIN
@@ -781,6 +783,24 @@ async def test_a_duplicate_finish_job_applies_the_sweep_once(services, tmp_path,
 
 
 # ---------------------------------------------------------------- failures while saving
+
+
+async def test_a_formatted_file_keeps_its_formatting_through_the_worker(services, tmp_path):
+    """CGL-108: marks are stored with the blocks, markers reach the models, and the passages'
+    formatting is stored and comes back in the report and the clean Word download."""
+    html = "<p>Le <b>chat</b> dort. Il <a href='https://example.org/'>pleut</a>.</p>"
+    run_id = await submit(services, tmp_path, text=html, name="page.html")
+    await drain(services)
+    assert await _state(services, run_id) is RunState.COMPLETE
+    report = await service.build_report(services.db, run_id)
+    assert [m.kind.value for m in report.blocks[0].provenance.marks] == ["bold", "link"]
+    assert [s.text for s in report.spans] == ["[en] Le chat dort.", "[en] Il pleut."]
+    first, second = report.spans
+    assert first.formatting is not None and second.formatting is not None
+    assert [first.text[m.start : m.end] for m in first.formatting.marks] == ["chat"]
+    document = docx.Document(io.BytesIO(clean_docx(report)))
+    bold = [r.text for p in document.paragraphs for r in p.runs if r.bold]
+    assert bold == ["chat"]
 
 
 async def test_a_document_with_nul_characters_completes(services, tmp_path):

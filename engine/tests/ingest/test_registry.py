@@ -102,3 +102,32 @@ def test_nul_characters_are_removed_from_plugin_ingestor_blocks(tmp_path, monkey
     path = tmp_path / "x.odt"
     path.write_bytes(b"")
     assert [b.text for b in registry.ingest_file(path).blocks] == ["Bonjour\n."]
+
+
+def test_cleaning_a_blocks_text_keeps_its_marks_on_their_words(tmp_path, monkeypatch):
+    """CGL-108: characters the registry removes shift the marks after them."""
+    from coglossa.ingest.base import make_blocks
+    from coglossa.schema import BlockKind, InlineMark, MarkKind
+
+    class OdtIngestor:
+        format = "odt"
+        extensions = (".odt",)
+
+        def ingest(self, path):
+            text = "Bon\x00jour \x01chat."
+            mark = InlineMark(start=10, end=14, kind=MarkKind.BOLD)
+            blocks = make_blocks(str(path), [(BlockKind.PARAGRAPH, text, None)], [[mark]])
+            return SourceDocument(source_path=str(path), format="odt", sha256="0", blocks=blocks)
+
+    class EP:
+        name = "odt"
+
+        def load(self):
+            return OdtIngestor
+
+    monkeypatch.setattr(registry, "entry_points", lambda group: [EP()])
+    path = tmp_path / "x.odt"
+    path.write_bytes(b"")
+    block = registry.ingest_file(path).blocks[0]
+    assert block.text == "Bonjour chat."
+    assert [block.text[m.start : m.end] for m in block.provenance.marks] == ["chat"]

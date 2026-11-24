@@ -2,13 +2,14 @@
 
 import asyncio
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from coglossa.config import TranslatorConfig
 from coglossa.llm.agent import AGENT_FAILURES
 from coglossa.llm.types import OVERSIZE_ERRORS
 from coglossa.schema import (
+    Block,
     Candidate,
     Chunk,
     DocumentProfile,
@@ -17,6 +18,7 @@ from coglossa.schema import (
     Segment,
     TranslationOutput,
 )
+from coglossa.segment.markup import ChunkMarkup, chunk_markup
 from coglossa.stages.context import StageContext
 from coglossa.stages.guide import guide_slice
 
@@ -93,20 +95,29 @@ class ChunkInput:
     segments: list[Segment]
     context_before: str
     context_after: str
+    markup: ChunkMarkup = field(default_factory=ChunkMarkup)  # inline formatting (CGL-108)
 
 
-def build_chunk_inputs(chunks: list[Chunk], segments: list[Segment]) -> list[ChunkInput]:
+def build_chunk_inputs(
+    chunks: list[Chunk], segments: list[Segment], blocks: Sequence[Block] = ()
+) -> list[ChunkInput]:
+    """`blocks` give the segments their inline formatting; without them prompts are plain."""
     by_id = {s.id: s for s in segments}
+    by_block = {b.id: b for b in blocks}
     texts = ["\n".join(by_id[i].text for i in c.segment_ids) for c in chunks]
-    return [
-        ChunkInput(
-            chunk=chunk,
-            segments=[by_id[i] for i in chunk.segment_ids],
-            context_before=texts[k - 1][-CONTEXT_CHARS:] if k > 0 else "",
-            context_after=texts[k + 1][:CONTEXT_CHARS] if k + 1 < len(texts) else "",
+    inputs = []
+    for k, chunk in enumerate(chunks):
+        own = [by_id[i] for i in chunk.segment_ids]
+        inputs.append(
+            ChunkInput(
+                chunk=chunk,
+                segments=own,
+                context_before=texts[k - 1][-CONTEXT_CHARS:] if k > 0 else "",
+                context_after=texts[k + 1][:CONTEXT_CHARS] if k + 1 < len(texts) else "",
+                markup=chunk_markup(own, by_block) if by_block else ChunkMarkup(),
+            )
         )
-        for k, chunk in enumerate(chunks)
-    ]
+    return inputs
 
 
 async def translate_with(
@@ -116,7 +127,8 @@ async def translate_with(
     ci: ChunkInput,
     t: TranslatorConfig,
 ) -> list[Candidate]:
-    """One translator renders one chunk (spec §4.3)."""
+    """One translator renders one chunk (spec §4.3). The candidates' text keeps the markers
+    the model wrote (CGL-108): the reviewer reads them, and `unmark_spans` takes them out."""
     segment_ids = [s.id for s in ci.segments]
     sliced = guide_slice(guide, "\n".join(s.text for s in ci.segments))
     literal = t.prompt == "literal"
@@ -132,7 +144,7 @@ async def translate_with(
         ),
         "context_before": "" if literal else ci.context_before,
         "context_after": "" if literal else ci.context_after,
-        "segments": [{"id": s.id, "text": s.text} for s in ci.segments],
+        "segments": [{"id": s.id, "text": ci.markup.text(s)} for s in ci.segments],
     }
     out = await ctx.runner.run(
         role=f"translator:{t.name}",

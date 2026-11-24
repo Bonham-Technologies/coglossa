@@ -434,7 +434,7 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
         finished = done is not None and done.status in _DONE
         if state is RunState.TRANSLATING and not finished:
             chunks = await runs.load_chunks(s, run_id)
-            _, segments = await runs.load_source(s, run.document_id)
+            blocks, segments = await runs.load_source(s, run.document_id)
             guide = await runs.load_guide(s, run.guide_version_id)
             profile = DocumentProfile.model_validate(run.profile)
             tier = Reliability(run.language_tier)
@@ -474,7 +474,7 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
     ordinal = -1
     try:
         ordinal = [c.id for c in chunks].index(chunk_id)
-        ci = build_chunk_inputs(chunks, segments)[ordinal]
+        ci = build_chunk_inputs(chunks, segments, blocks)[ordinal]
         outcome = await process_chunk(
             svc.context(calls, target_lang),
             svc.scorer,

@@ -21,6 +21,7 @@ from coglossa.schema import (
     Revision,
     RevisionSource,
     Span,
+    SpanFormatting,
     SpanScore,
 )
 from coglossa.stages.chunk import ChunkOutcome
@@ -66,6 +67,9 @@ async def save_chunk_outcome(
             ),
             back_translation=span.back_translation,
             proposed_terms=[t.model_dump(mode="json") for t in terms],
+            formatting=(
+                span.formatting.model_dump(mode="json") if span.formatting is not None else None
+            ),
         )
         rows.append(row)
         s.add(row)
@@ -201,6 +205,11 @@ async def load_spans(s: AsyncSession, run_id: uuid.UUID) -> StoredSpans:
                     else None
                 ),
                 back_translation=row.back_translation,
+                formatting=(
+                    SpanFormatting.model_validate(row.formatting)
+                    if row.formatting is not None
+                    else None
+                ),
             )
         )
         proposed.extend(GlossaryEntry.model_validate(t) for t in row.proposed_terms)

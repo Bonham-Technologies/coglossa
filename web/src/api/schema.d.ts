@@ -1113,7 +1113,7 @@ export interface components {
          * FlagCode
          * @enum {string}
          */
-        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content";
+        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content" | "formatting_lost";
         /**
          * FlagStatus
          * @enum {string}
@@ -1374,6 +1374,19 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InlineMark
+         * @description One kind of inline formatting over `text[start:end]` of a block or a passage.
+         */
+        InlineMark: {
+            /** End */
+            end: number;
+            /** Href */
+            href?: string | null;
+            kind: components["schemas"]["MarkKind"];
+            /** Start */
+            start: number;
+        };
         /** JudgeError */
         JudgeError: {
             category: components["schemas"]["ErrorCategory"];
@@ -1421,6 +1434,12 @@ export interface components {
             /** Tokens Out */
             tokens_out?: number | null;
         };
+        /**
+         * MarkKind
+         * @description Inline formatting an export can put back on the translated words (CGL-108).
+         * @enum {string}
+         */
+        MarkKind: "bold" | "italic" | "underline" | "superscript" | "subscript" | "link";
         /** Me */
         Me: {
             /** Admin */
@@ -1490,6 +1509,8 @@ export interface components {
             level?: number | null;
             /** Locator */
             locator?: string | null;
+            /** Marks */
+            marks?: components["schemas"]["InlineMark"][];
             /** Note */
             note?: string | null;
             /** Note Refs */
@@ -1824,6 +1845,7 @@ export interface components {
             end: string;
             /** Flags */
             flags?: components["schemas"]["Flag"][];
+            formatting?: components["schemas"]["SpanFormatting"] | null;
             /** Id */
             id: string;
             /** Issues */
@@ -1875,6 +1897,18 @@ export interface components {
             source: string;
             /** Start */
             start: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SpanFormatting
+         * @description A passage's inline formatting (CGL-108): marks over `text`, the translation they were
+         *     found in. They hold only while the passage's text is still that text, so an edit or a sweep
+         *     leaves the passage plain.
+         */
+        SpanFormatting: {
+            /** Marks */
+            marks: components["schemas"]["InlineMark"][];
             /** Text */
             text: string;
         };

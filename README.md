@@ -114,6 +114,9 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
 - `agent_disagreement`: the reviewer rated the translators' disagreement `major`
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)
+- `formatting_lost`: "Formatting couldn't be kept". The source's bold, italic, underlined,
+  superscript, subscript or linked words (Word, HTML and EPUB files) did not come back whole
+  from the models, so the passage is plain in the clean Word download (CGL-108)
 
 Document-level notices: `low_reliability_language` (tier C pairs) and `unscored`. Thresholds
 are set with `scoring.thresholds` (`meaning: 70` for every tier, or `meaning: {A: 70, C: 75}`).

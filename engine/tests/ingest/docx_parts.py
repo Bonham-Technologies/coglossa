@@ -201,3 +201,13 @@ def full_document(path: Any) -> Any:
     d.add_paragraph("Second section.")
     d.save(path)
     return path
+
+
+def add_hyperlink(paragraph: Any, part: Any, text: str, url: str) -> None:
+    """A link to `url` around one run; the target is in `part`'s relationships."""
+    rid = part.relate_to(url, RT.HYPERLINK, is_external=True)
+    paragraph._p.append(
+        parse_xml(
+            f'<w:hyperlink {_NAMESPACES} r:id="{rid}"><w:r><w:t>{text}</w:t></w:r></w:hyperlink>'
+        )
+    )
