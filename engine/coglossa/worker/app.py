@@ -12,9 +12,8 @@ from typing import Any, Protocol
 
 import procrastinate
 from procrastinate import JobContext, RetryStrategy, signals
-from procrastinate.exceptions import AlreadyEnqueued, UniqueViolation
+from procrastinate.exceptions import AlreadyEnqueued
 from procrastinate.jobs import Status
-from procrastinate.manager import QUEUEING_LOCK_CONSTRAINT
 from sqlalchemy.exc import InterfaceError, OperationalError
 
 from coglossa.config import CoglossaConfig, config_hash
@@ -127,16 +126,13 @@ async def needs_worker(url: str, stalled_after_s: float) -> bool:
 
 async def requeue_stalled(manager: Any, seconds: float) -> int:
     """Re-queue the jobs of workers silent for `seconds`; returns how many were re-queued.
-    A stalled job whose copy is already waiting (same queueing lock) can't be re-queued: it
-    is closed as failed instead, and the waiting copy does the work (jobs are idempotent)."""
+    A stalled job whose copy is already waiting (same queueing lock) can't be re-queued:
+    procrastinate closes it as failed instead (since 3.12; it used to raise), and the waiting
+    copy does the work (jobs are idempotent)."""
     requeued = 0
     for job in await manager.get_stalled_jobs(seconds_since_heartbeat=seconds):
-        try:
-            await manager.retry_job(job)
-        except UniqueViolation as e:
-            if e.constraint_name != QUEUEING_LOCK_CONSTRAINT:
-                raise
-            await manager.finish_job_by_id_async(job.id, Status.FAILED, delete_job=False)
+        await manager.retry_job(job)
+        if job.queueing_lock is not None and await _closed(manager, job.id):
             log.warning(
                 "closed job %s (%s) from a worker that stopped responding: a copy is waiting",
                 job.id,
@@ -147,6 +143,10 @@ async def requeue_stalled(manager: Any, seconds: float) -> int:
     if requeued:
         log.warning("re-queued %d job(s) from a worker that stopped responding", requeued)
     return requeued
+
+
+async def _closed(manager: Any, job_id: int) -> bool:
+    return bool(list(await manager.list_jobs_async(id=job_id, status=Status.FAILED.value)))
 
 
 @app.periodic(cron="* * * * *", periodic_id="requeue-stalled")
