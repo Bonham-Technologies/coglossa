@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://coglossa.com/sitemap.xml
+Sitemap: https://coglossa.tech/sitemap.xml

@@ -1,4 +1,4 @@
-// Checks coglossa.com before it ships. Run from site/: `pnpm install` once, then `node check.mjs`
+// Checks coglossa.tech before it ships. Run from site/: `pnpm install` once, then `node check.mjs`
 // (`--launch` also fails on the owner placeholders, for the launch itself).
 //
 // Static: every internal link, fragment and asset resolves; each page has its metadata; the
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 const SITE = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = join(SITE, "public");
-const ORIGIN = "https://coglossa.com";
+const ORIGIN = "https://coglossa.tech";
 const REPO_URL = "https://github.com/Bonham-Technologies/coglossa";
 const BUDGET_BYTES = 3 * 1024 * 1024;
 const LAUNCH = process.argv.includes("--launch");
@@ -303,8 +303,8 @@ if (!/git diff --quiet HEAD\^ HEAD -- \./.test(config.ignoreCommand ?? ""))
   fail("vercel.json: ignoreCommand does not skip deploys without a change under site/");
 
 const exportHtml = await html("sample/export.html");
-if ((exportHtml.match(/<link rel="canonical"[^>]*>/g) ?? []).join() !== '<link rel="canonical" href="https://coglossa.com/sample/export">')
-  fail("sample/export.html: needs exactly one canonical tag for https://coglossa.com/sample/export");
+if ((exportHtml.match(/<link rel="canonical"[^>]*>/g) ?? []).join() !== '<link rel="canonical" href="https://coglossa.tech/sample/export">')
+  fail("sample/export.html: needs exactly one canonical tag for https://coglossa.tech/sample/export");
 const styleHashes = [...exportHtml.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(
   (m) => `'sha256-${createHash("sha256").update(m[1], "utf-8").digest("base64")}'`,
 );
@@ -435,7 +435,7 @@ try {
 
 // ---------------------------------------------------------------- report
 
-console.log(`coglossa.com check (${LAUNCH ? "launch" : "pre-launch"})`);
+console.log(`coglossa.tech check (${LAUNCH ? "launch" : "pre-launch"})`);
 console.log(`  public/: ${files.length} files, ${(total / 1048576).toFixed(2)} MB (budget 3 MB)`);
 console.log(`  axe-core ${axeVersion} in Chromium ${browserVersion}:`);
 for (const r of results) {
