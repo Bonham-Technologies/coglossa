@@ -12,9 +12,13 @@ from coglossa.schema import (
     Genre,
     GlossaryEntry,
     Guide,
+    InlineMark,
+    MarkKind,
     PipelineProfile,
     RevisionSource,
     Span,
+    SpanFormatting,
+    kept_formatting,
 )
 from coglossa.scoring.rules import guide_check
 from coglossa.stages.context import StageContext
@@ -102,6 +106,27 @@ async def test_locked_term_is_enforced_and_its_flag_resolved(make_runner, fake_b
     (payload,) = _sweep_requests(fake_backend)
     assert payload["requirements"] == [{"term": "chat", "rendering": "cat", "kind": "glossary"}]
     assert payload["source"] == "Le chat dort."
+
+
+async def test_a_rewrite_of_a_formatted_passage_is_flagged(make_runner, fake_backend):
+    text = "The feline sleeps."
+    formatting = SpanFormatting(text=text, marks=[InlineMark(start=4, end=10, kind=MarkKind.BOLD)])
+    span = _span("p1", "s1", text, [_violation_flag()]).model_copy(
+        update={"formatting": formatting}
+    )
+    result = await run_sweep(_ctx(make_runner), PROFILE, LOCKED, [span], SEGMENTS)
+    (swept,) = result.spans
+    assert kept_formatting(swept) is None  # plain in the Word download
+    assert [f.code for f in swept.flags] == [
+        FlagCode.TERMINOLOGY_VIOLATION,
+        FlagCode.FORMATTING_LOST,
+    ]
+
+
+async def test_a_rewrite_of_a_plain_passage_adds_no_formatting_flag(make_runner, fake_backend):
+    spans = [_span("p1", "s1", "The feline sleeps.", [_violation_flag()])]
+    result = await run_sweep(_ctx(make_runner), PROFILE, LOCKED, spans, SEGMENTS)
+    assert [f.code for f in result.spans[0].flags] == [FlagCode.TERMINOLOGY_VIOLATION]
 
 
 async def test_an_imported_locked_term_is_enforced_like_a_hand_locked_one(

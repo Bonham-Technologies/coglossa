@@ -203,15 +203,16 @@ def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmark
     broken = False
     length = pos = 0
     for m in _MARKER_LIKE.finditer(text):
-        pieces.append(text[pos : m.start()])
-        length += m.start() - pos
+        piece = _after_marker(pieces, text[pos : m.start()])
+        pieces.append(piece)
+        length += len(piece)
         pos = m.end()
         strict = _MARKER.fullmatch(m.group())
         if strict is None:
             broken = True
         else:
             tags.append((int(strict.group(2)), strict.group(1) == "/", length))
-    pieces.append(text[pos:])
+    pieces.append(_after_marker(pieces, text[pos:]))
     plain = "".join(pieces)
     if text == text.strip():  # "<1>Un</1> jour </2>": no space left where a marker was at an end
         lead = len(plain) - len(plain.lstrip())
@@ -229,6 +230,13 @@ def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmark
         for kind, href in markup.formats[n]
     ]
     return Unmarked(plain, SpanFormatting(text=plain, marks=normalize_marks(plain, marks)), False)
+
+
+def _after_marker(pieces: list[str], piece: str) -> str:
+    """`piece` without its first space when a marker stood between it and a space: "Un <1>
+    beau </1> jour" reads "Un beau jour", not "Un beau  jour"."""
+    last = next((p[-1] for p in reversed(pieces) if p), "")
+    return piece[1:] if last in (" ", "\t") and piece[:1] in (" ", "\t") else piece
 
 
 def _ranges(tags: list[tuple[int, bool, int]], expected: set[int]) -> dict[int, tuple[int, int]]:

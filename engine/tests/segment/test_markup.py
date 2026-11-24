@@ -175,3 +175,12 @@ def test_mark_helpers():
     assert strip_marked(" x ", []) == ("x", [])
     overlapping = [InlineMark(start=0, end=3, kind=B), InlineMark(start=2, end=6, kind=B)]
     assert normalize_marks("abc de ", overlapping) == [InlineMark(start=0, end=6, kind=B)]
+
+
+def test_a_marker_between_two_spaces_leaves_one():
+    found = unmark(_markup(), ["s1"], "The <1> cat </1> sleeps.")
+    assert found.text == "The cat sleeps." and not found.lost
+    assert found.formatting is not None
+    assert [(m.start, m.end) for m in found.formatting.marks] == [(4, 7)]
+    found = unmark(_markup(), ["s1"], "The <1></1> cat sleeps.")
+    assert found.lost and found.text == "The cat sleeps."

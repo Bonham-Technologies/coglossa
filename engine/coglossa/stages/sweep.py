@@ -20,8 +20,10 @@ from coglossa.schema import (
     RunError,
     Segment,
     Span,
+    kept_formatting,
 )
 from coglossa.scoring.rules import GuideViolation, guide_check
+from coglossa.segment.markup import formatting_flag
 from coglossa.stages.context import StageContext
 from coglossa.stages.guide import guide_slice
 from coglossa.stages.translate import CUT_OFF, looks_cut_off
@@ -115,6 +117,11 @@ async def run_sweep(
             else f
             for f in span.flags
         ]
+        # the rewrite leaves the passage plain in the Word download, so say so (CGL-108)
+        if kept_formatting(span) is not None and not any(
+            f.code is FlagCode.FORMATTING_LOST for f in flags
+        ):
+            flags.append(formatting_flag())
         new_spans[i] = span.model_copy(update={"text": result, "flags": flags})
         changes.append(
             SpanChange(
