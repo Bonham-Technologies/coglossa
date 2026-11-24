@@ -6,7 +6,11 @@ reviewer see a chunk's segments with numbered paired markers around the formatte
 meaning. Each marker stands for one set of formatting; the numbers run through the chunk, so a
 passage that merges segments keeps them apart. A passage whose markers come back whole gets its
 formatting as marks over its plain text; one whose markers are missing or broken keeps its plain
-text and is flagged. Markers stay in the prompts: everything stored, scored or shown is plain."""
+text and is flagged. Markers stay in the prompts: everything stored, scored or shown is plain.
+
+A segment whose own text looks like a marker ("Press <1>") gets no markers (CGL-129): the rest
+of its chunk is numbered past the numbers it shows, and in a passage over it those numbers are
+its text, never markers. A passage over such a segment that had formatting is flagged."""
 
 import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -153,28 +157,48 @@ class ChunkMarkup:
     marked: dict[str, str] = field(default_factory=dict)  # segment id -> text with markers
     numbers: dict[str, tuple[int, ...]] = field(default_factory=dict)  # segment id -> markers
     formats: dict[int, frozenset[MarkKey]] = field(default_factory=dict)  # marker -> formatting
+    # segment id -> the numbers its own marker-like text shows; it is sent without markers
+    literal: dict[str, frozenset[int]] = field(default_factory=dict)
+    unsent: frozenset[str] = frozenset()  # of those, the segments with formatting
 
     def text(self, segment: Segment) -> str:
         """What a prompt shows of `segment`."""
         return self.marked.get(segment.id, segment.text)
 
 
+def _number(marker: str) -> int:
+    return int(re.search(r"\d+", marker).group())
+
+
 def chunk_markup(segments: Sequence[Segment], blocks: Mapping[str, Block]) -> ChunkMarkup:
-    if any(_MARKER_LIKE.search(s.text) for s in segments):
-        return ChunkMarkup()  # text that looks like a marker would be read as one: none here
+    literal = {
+        s.id: frozenset(_number(m.group()) for m in _MARKER_LIKE.finditer(s.text))
+        for s in segments
+        if _MARKER_LIKE.search(s.text)
+    }
+    taken = frozenset().union(*literal.values())  # never a marker's number in this chunk
     marked: dict[str, str] = {}
     numbers: dict[str, tuple[int, ...]] = {}
     formats: dict[int, frozenset[MarkKey]] = {}
+    unsent: set[str] = set()
+    n = 0
     for segment in segments:
         block = blocks.get(segment.block_id)
         if block is None or not block.provenance.marks:
             continue
         marks = clip_marks(block.provenance.marks, segment.start, segment.end)
+        runs = list(_runs(segment.text, char_keys(len(segment.text), marks)))
+        if segment.id in literal:
+            if runs:
+                unsent.add(segment.id)  # its text would be read as markers: it goes plain
+            continue
         pieces: list[str] = []
         own: list[int] = []
         pos = 0
-        for a, b, key in _runs(segment.text, char_keys(len(segment.text), marks)):
-            n = len(formats) + 1
+        for a, b, key in runs:
+            n += 1
+            while n in taken:
+                n += 1
             formats[n] = key
             own.append(n)
             pieces += [segment.text[pos:a], f"<{n}>", segment.text[a:b], f"</{n}>"]
@@ -182,7 +206,9 @@ def chunk_markup(segments: Sequence[Segment], blocks: Mapping[str, Block]) -> Ch
         if own:
             marked[segment.id] = "".join(pieces) + segment.text[pos:]
             numbers[segment.id] = tuple(own)
-    return ChunkMarkup(marked=marked, numbers=numbers, formats=formats)
+    return ChunkMarkup(
+        marked=marked, numbers=numbers, formats=formats, literal=literal, unsent=frozenset(unsent)
+    )
 
 
 @dataclass(frozen=True)
@@ -195,14 +221,20 @@ class Unmarked:
 def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmarked:
     """A passage over `segment_ids` as a model wrote it: its text without markers and the
     formatting the markers carried. Every marker of its segments must come back once as an
-    opening and once as a closing marker around some text; nothing else counts."""
-    if not markup.marked:
-        return Unmarked(text, None, False)  # no markers were sent: the text is left as it is
+    opening and once as a closing marker around some text; nothing else counts. Marker-like
+    text with a number its segments' source shows is that text, not a marker; a passage over a
+    segment whose formatting was not sent is plain and flagged."""
+    unsent = any(sid in markup.unsent for sid in segment_ids)
+    if not markup.marked:  # no markers were sent: the text is left as it is
+        return Unmarked(text, None, unsent and bool(text.strip()))
+    own = {n for sid in segment_ids for n in markup.literal.get(sid, ())}
     pieces: list[str] = []
     tags: list[tuple[int, bool, int]] = []  # (number, closing, where in the plain text)
     broken = False
     length = pos = 0
     for m in _MARKER_LIKE.finditer(text):
+        if _number(m.group()) in own:
+            continue  # the source's own text: it stays in the next piece
         piece = _after_marker(pieces, text[pos : m.start()])
         pieces.append(piece)
         length += len(piece)
@@ -219,8 +251,10 @@ def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmark
         plain = plain.strip()
         tags = [(n, closes, min(max(at - lead, 0), len(plain))) for n, closes, at in tags]
     expected = {n for sid in segment_ids for n in markup.numbers.get(sid, ())}
-    if not expected or not plain.strip():
+    if not plain.strip():
         return Unmarked(plain, None, False)
+    if unsent or not expected:
+        return Unmarked(plain, None, unsent)
     ranges = None if broken else _ranges(tags, expected)
     if ranges is None or any(not plain[a:b].strip() for a, b in ranges.values()):
         return Unmarked(plain, None, True)
