@@ -3,15 +3,16 @@ index (CGL-50). For an air-gapped client the bundle is the supply chain, so the 
 CUDA image (bundle) and the hosted scorer install only what the lock names, at the sha256 it
 records, from the one index it names for each package. Offline; it builds nothing.
 
-- The installs (deploy/docker/scorer.Dockerfile's RUN steps and the Modal app's
-  `_SCORER_INSTALL`) use `uv sync --frozen` or a pylock.toml exported from the lock, never
-  `--no-hashes`, an index flag or a constraints file; `uv pip install` only adds the project
-  itself (`--no-deps .`).
+- The installs (deploy/docker/scorer.Dockerfile's RUN, ENV and ARG instructions and the Modal
+  app's `_SCORER_INSTALL`) use `uv sync --frozen` or a pylock.toml from `uv export --frozen`,
+  never `--no-hashes`, an index flag or variable, a constraints file, `uv pip compile` or pip
+  itself; `uv pip install` only adds the project itself (`--no-deps .`).
 - scorer/pyproject.toml: every extra index is explicit (it supplies only the packages pinned to
   it); torch comes from download.pytorch.org/whl/cpu in the `cpu` group (a default group) and
   from whl/<CUDA_INDEX> in the extra of that name (the Makefile's CUDA_INDEX); the two conflict,
   list the same requirements, and torch is not a base dependency.
-- scorer/uv.lock: every registry package has a sha256 on each wheel and sdist; only torch comes
+- scorer/uv.lock: every package but the project comes from an index (no git, URL or path
+  source) with a sha256 on each wheel and sdist; only torch comes
   from download.pytorch.org; no other package comes from two indexes; it holds a hashed cp312
   Linux x86_64 torch wheel for both builds, and PyPI's torch only for macOS.
 
@@ -28,18 +29,28 @@ ROOT = Path(__file__).resolve().parents[2]
 PYTORCH = "https://download.pytorch.org/whl/"
 CUDA_INDEX = re.compile(r"^CUDA_INDEX \?= (\S+)$", re.M)
 INDEX_FLAG = re.compile(r"--(?:default-index|index|index-url|extra-index-url|find-links)\b")
+# uv settings that open another source or skip the hashes, as flags or environment variables
+UNCHECKED = re.compile(
+    r"--no-verify-hashes\b"
+    r"|\bUV_(?:DEFAULT_INDEX|INDEX|INDEX_URL|EXTRA_INDEX_URL|FIND_LINKS|NO_VERIFY_HASHES)\b"
+)
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
 LINUX_WHEEL = re.compile(r"-cp312-cp312-manylinux[\w.]*_x86_64\.whl$")
 
 
 def dockerfile_installs(text: str) -> list[str]:
-    """The Dockerfile's RUN instructions, each joined into one line, comments left out."""
+    """The Dockerfile's RUN, ENV and ARG instructions, each joined into one line, comments left
+    out (an ENV or ARG can point uv at another index)."""
     joined = re.sub(
         r"\\\n",
         " ",
         "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#")),
     )
-    return [line.strip()[4:] for line in joined.splitlines() if line.strip().startswith("RUN ")]
+    return [
+        line.strip().split(" ", 1)[1]
+        for line in joined.splitlines()
+        if line.strip().startswith(("RUN ", "ENV ", "ARG "))
+    ]
 
 
 def modal_installs(text: str) -> list[str]:
@@ -66,23 +77,30 @@ def install_problems(name: str, commands: list[str]) -> list[str]:
     found = []
     if not any("uv sync" in c or "pylock" in c for c in commands):
         found.append(f"{name}: installs nothing from scorer/uv.lock (uv sync or a pylock.toml)")
-    for command in commands:
-        for step in re.split(r"&&|;", command):
-            step = " ".join(step.split())
-            if "--no-hashes" in step:
-                found.append(f"{name}: --no-hashes skips the lock's hashes: {step}")
-            if INDEX_FLAG.search(step):
-                found.append(f"{name}: an index flag opens a second source: {step}")
-            if "uv sync" in step and not re.search(r"--(frozen|locked)\b", step):
-                found.append(f"{name}: uv sync without --frozen or --locked: {step}")
-            if "uv pip install" in step:
-                pylock = re.search(r"-r \S*pylock\.toml\b", step)
-                project = step.endswith("--no-deps .")
-                if not (pylock or project) or re.search(r"\s-c\s|--constraint", step):
-                    found.append(
-                        f"{name}: uv pip install may take only a pylock.toml or the project "
-                        f"(--no-deps .): {step}"
-                    )
+    steps = [" ".join(step.split()) for c in commands for step in re.split(r"&&|;", c)]
+    exported = any("uv export" in step and "pylock.toml" in step for step in steps)
+    for step in steps:
+        if "--no-hashes" in step:
+            found.append(f"{name}: --no-hashes skips the lock's hashes: {step}")
+        if INDEX_FLAG.search(step):
+            found.append(f"{name}: an index flag opens a second source: {step}")
+        if UNCHECKED.search(step):
+            found.append(f"{name}: a uv setting opens a second source or skips hashes: {step}")
+        if re.search(r"(?<!uv )\bpip3? install\b", step):
+            found.append(f"{name}: pip installs without the lock's hashes: {step}")
+        if "uv pip compile" in step:
+            found.append(f"{name}: uv pip compile resolves afresh, not from the lock: {step}")
+        for command in ("uv sync", "uv export"):
+            if command in step and not re.search(r"--(frozen|locked)\b", step):
+                found.append(f"{name}: {command} without --frozen or --locked: {step}")
+        if "uv pip install" in step:
+            pylock = exported and re.search(r"-r \S*pylock\.toml\b", step)
+            project = step.endswith("--no-deps .")
+            if not (pylock or project) or re.search(r"\s-c\s|--constraint", step):
+                found.append(
+                    f"{name}: uv pip install may take only a pylock.toml or the project "
+                    f"(--no-deps .): {step}"
+                )
     return found
 
 
@@ -133,7 +151,13 @@ def lock_problems(text: str, cuda: str) -> list[str]:
     for package in lock.get("package", []):
         name, registry = package["name"], package["source"].get("registry")
         if not registry:
-            continue  # the project itself
+            if package["source"] in ({"editable": "."}, {"virtual": "."}):
+                continue  # the project itself
+            found.append(
+                f"scorer/uv.lock: {name} comes from {package['source']}, not an index, so the "
+                "image would install it without one index and a sha256 to check"
+            )
+            continue
         registries.setdefault(name, set()).add(registry)
         artifacts = [
             *package.get("wheels", []),
@@ -271,6 +295,15 @@ BREAKS = [
     ("a second index", "Dockerfile", "--no-deps .", "--no-deps . --index https://x"),
     ("uv pip install of torch", "Dockerfile", "--no-deps .", "torch==2.14.1"),
     ("uv sync without --frozen", "Dockerfile", "uv sync --frozen", "uv sync"),
+    ("pip itself", "Dockerfile", "RUN uv pip install", "RUN pip install"),
+    (
+        "an index in the environment",
+        "Dockerfile",
+        "COPY scorer/coglossa_scorer",
+        "ENV UV_EXTRA_INDEX_URL=https://x\nCOPY scorer/coglossa_scorer",
+    ),
+    ("an export without --frozen", "app.py", "uv export --frozen", "uv export"),
+    ("a fresh resolve", "app.py", "uv export --frozen", "uv pip compile pyproject.toml"),
     ("no lock install", "Dockerfile", "uv sync --frozen", "uv pip compile"),
     ("a constraints file", "app.py", "-r /tmp/pylock.toml", "-c c.txt -r /tmp/pylock.toml"),
     ("an export without hashes", "app.py", "--format pylock.toml", "--no-hashes"),
@@ -308,6 +341,12 @@ BREAKS = [
         "uv.lock",
         'cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:ae"',
         'cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:ae"',
+    ),
+    (
+        "a git source",
+        "uv.lock",
+        'version = "2.0"\nsource = { registry = "https://pypi.org/simple" }',
+        'version = "2.0"\nsource = { git = "https://x/numpy?rev=v2.0#abc" }',
     ),
     ("no lock conflict", "uv.lock", '{ package = "coglossa-scorer", group = "cpu" },', ""),
     ("another CUDA index", "Makefile", "cu126", "cu128"),
