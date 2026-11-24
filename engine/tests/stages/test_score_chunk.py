@@ -230,6 +230,78 @@ async def test_changed_number_is_flagged_and_a_reordered_date_is_not(make_config
     assert all(s.meaning is None for s in result.scores)  # no scorer or judge: still checked
 
 
+async def test_a_passage_left_untranslated_is_flagged_and_scores_are_unchanged(
+    make_config, make_runner
+):
+    segs = make_segments("Il pleut.", "Le chat dort sur le canapé.", "Demain.")
+    ci = build_chunk_inputs([Chunk(id="c1", segment_ids=["s1", "s2", "s3"])], segs)[0]
+    copied = "Il pleut. Le chat dort sur le canapé."
+
+    async def scored(texts):
+        return await score_chunk(
+            _ctx(make_runner(make_config())),
+            None,
+            PROFILE,
+            GUIDE,
+            ci,
+            _cands(),
+            _reconciled(texts),
+            tier=Reliability.A,
+            diverse=False,
+        )
+
+    result = await scored((copied, "Tomorrow."))
+    [flag] = result.flags[0]
+    assert flag.code is FlagCode.UNTRANSLATED
+    assert flag.evidence == {"rule": "copied", "source": copied, "translation": copied}
+    assert result.flags[1] == []
+    clean = await scored(("It rains. The cat sleeps on the sofa.", "Tomorrow."))
+    assert clean.flags[0] == [] and clean.scores == result.scores
+
+
+async def test_a_copy_within_one_language_is_not_untranslated(make_config, make_runner):
+    # en-US to en-GB: the profile's source language is the target's, so a copy is expected
+    segs = make_segments("It rains.", "The cat sleeps on the sofa.", "Tomorrow.")
+    ci = build_chunk_inputs([Chunk(id="c1", segment_ids=["s1", "s2", "s3"])], segs)[0]
+    copied = "It rains. The cat sleeps on the sofa."
+    result = await score_chunk(
+        _ctx(make_runner(make_config())),
+        None,
+        PROFILE.model_copy(update={"source_lang": "en-US"}),
+        GUIDE,
+        ci,
+        _cands(),
+        _reconciled((copied, "Tomorrow.")),
+        tier=Reliability.A,
+        diverse=False,
+    )
+    assert result.flags == [[], []]
+
+
+async def test_terms_the_guide_keeps_as_they_are_are_not_untranslated(make_config, make_runner):
+    term = "mise en place de la cuisine"
+    segs = make_segments("Il pleut.", "Le chat dort.", term)
+    ci = build_chunk_inputs([Chunk(id="c1", segment_ids=["s1", "s2", "s3"])], segs)[0]
+    kept = Guide(summary="s", style_guide="g", glossary=[GlossaryEntry(term=term, rendering=term)])
+
+    async def flags(guide):
+        result = await score_chunk(
+            _ctx(make_runner(make_config())),
+            None,
+            PROFILE,
+            guide,
+            ci,
+            _cands(),
+            _reconciled(("It rains. The cat sleeps.", term)),
+            tier=Reliability.A,
+            diverse=False,
+        )
+        return [[f.code for f in span] for span in result.flags]
+
+    assert await flags(GUIDE) == [[], [FlagCode.UNTRANSLATED]]
+    assert await flags(kept) == [[], []]
+
+
 async def test_the_numbers_check_reads_each_side_in_its_language(make_config, make_runner):
     # French writes 1.500 for fifteen hundred; the English 1.5 is a thousandfold change (CGL-114)
     segs = make_segments("Il pleut.", "Il coûte 1.500 euros.", "Demain 1.500.")

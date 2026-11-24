@@ -1056,7 +1056,7 @@ export interface components {
          * FlagCode
          * @enum {string}
          */
-        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "unread_content" | "formatting_lost";
+        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content" | "formatting_lost";
         /**
          * FlagStatus
          * @enum {string}

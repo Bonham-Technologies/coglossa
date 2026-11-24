@@ -38,6 +38,7 @@ TABLE_ROWS = [
     "negation",
     "register",
     "locked_term",
+    "untranslated",
     "clean (false positives)",
 ]
 
@@ -135,8 +136,8 @@ async def test_every_kind_is_scored_by_the_real_scoring_stage(tmp_path, mini_flo
     summary, out, backend = await run(tmp_path, mini_flores, scorer=scorer)
     records = read_records(out)
     kinds = Counter(r.kind for r in records)
-    # the mini data: every sentence can lose a clause, 3 have numbers, and 2 have a name
-    # (Paris, Lagos) that another reference can stand in for
+    # the mini data: every sentence can lose a clause or be left untranslated, 3 have numbers,
+    # and 2 have a name (Paris, Lagos) that another reference can stand in for
     assert kinds == {
         "clean": 8,
         "omission": 8,
@@ -145,6 +146,7 @@ async def test_every_kind_is_scored_by_the_real_scoring_stage(tmp_path, mini_flo
         "locked_term": 2,
         "negation": 8,
         "register": 8,
+        "untranslated": 8,
     }
     assert {r.tier for r in records} == {"A"}
     assert {r.pair for r in records} == {"en>es"}
@@ -177,8 +179,8 @@ async def test_every_judge_call_scores_every_sentence_with_kinds_mixed(tmp_path,
     _, out, backend = await run(tmp_path, mini_flores)
     payloads = [parse_input([m.model_dump() for m in r.messages]) for r in backend.requests]
     judged = [p for p in payloads if p["task"] == "judge"]
-    # one chunk and seven slots (clean + six kinds): seven rounds, each covering all 8 sentences
-    assert [len(p["spans"]) for p in judged] == [8] * 7
+    # one chunk and eight slots (clean + seven kinds): eight rounds, each covering all 8 sentences
+    assert [len(p["spans"]) for p in judged] == [8] * 8
     for p in judged:
         marked = [MISTRANSLATED in s["text"] for s in p["spans"]]
         assert any(marked) and not all(marked)  # model-injected spans beside other kinds
@@ -252,6 +254,24 @@ async def test_changed_numbers_are_caught_by_the_numbers_check(tmp_path, mini_fl
     assert "number_mismatch" in (out / "flag-summary.md").read_text(encoding="utf-8")
 
 
+async def test_passages_left_untranslated_are_caught_by_the_untranslated_check(
+    tmp_path, mini_flores
+):
+    summary, out, _ = await run(tmp_path, mini_flores)
+    records = read_records(out)
+    left = {r.unit: r for r in records if r.kind == "untranslated"}
+    assert len(left) == 8 and all(r.detail == "left untranslated" for r in left.values())
+    assert all("untranslated" in r.flags for r in left.values())
+    assert not any("untranslated" in r.flags for r in records if r.kind != "untranslated")
+    [tier] = summary.tiers
+    assert tier.kinds["untranslated"].recall == 1.0 and tier.kinds["untranslated"].total == 8
+    assert tier.false_positive_rate == 0.0
+    md = (out / "flag-summary.md").read_text(encoding="utf-8")
+    assert "| untranslated | 8 | 8 | 1.00 |" in md
+    assert "number_mismatch or untranslated for meaning errors" in md
+    assert "   - injected: Marie arrived in Paris on 14 July 1998." in md
+
+
 def record(kind, flags=(), tier="A"):
     return SpanRecord(
         pair="en>es",
@@ -323,7 +343,7 @@ async def test_flag_summary_markdown(tmp_path, mini_flores):
     assert f"   - injected: {MISTRANSLATED} negation [spa_Latn]" in samples
     saved = json.loads((out / "flag-summary.json").read_text(encoding="utf-8"))
     assert list(saved["samples"]) == [
-        "omission", "number", "name", "negation", "register", "locked_term",
+        "omission", "number", "name", "negation", "register", "locked_term", "untranslated",
     ]  # fmt: skip
 
 
@@ -467,7 +487,7 @@ async def test_a_sentence_split_across_chunks_is_scored_whole(tmp_path):
 async def test_a_round_with_nothing_to_record_is_not_scored(tmp_path):
     first, second = " ".join(["alpha"] * 150) + ".", " ".join(["bravo"] * 150) + "."
     (tmp_path / "s.txt").write_text(f"{first}\n{second}\n", encoding="utf-8")
-    # the second reference is too short to lose anything: it has no variant at all
+    # the second reference is too short to lose anything: it can only be left untranslated
     (tmp_path / "r.txt").write_text("uno, dos y tres.\nseis.\n", encoding="utf-8")
     scoring = write_scoring_config(
         tmp_path, chunking={"target_words": 100, "max_words": 200, "reserve_tokens": 3000}
@@ -495,15 +515,21 @@ async def test_a_round_with_nothing_to_record_is_not_scored(tmp_path):
         log=lambda m: None,
     )
     records = read_records(tmp_path / "out")
-    assert [(r.kind, r.unit) for r in records] == [("clean", 0), ("clean", 1), ("omission", 0)]
-    # two rounds (clean, omission) in each of the two chunks, but the second sentence has no
-    # omission to carry, so its chunk is judged once
+    assert [(r.kind, r.unit) for r in records] == [
+        ("clean", 0),
+        ("clean", 1),
+        ("omission", 0),
+        ("untranslated", 0),
+        ("untranslated", 1),
+    ]
+    # three rounds (clean, omission, untranslated) in each of the two chunks, but the second
+    # sentence has no omission to carry, so its chunk is judged twice
     judged = [
         p
         for p in (parse_input([m.model_dump() for m in r.messages]) for r in backend.requests)
         if p["task"] == "judge"
     ]
-    assert [len(p["spans"]) for p in judged] == [1, 1, 1]
+    assert [len(p["spans"]) for p in judged] == [1] * 5
 
 
 async def test_an_empty_sentence_is_one_error_line(tmp_path):

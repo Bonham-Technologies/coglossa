@@ -68,6 +68,7 @@ class FlagCode(StrEnum):
     LOW_RELIABILITY_LANGUAGE = "low_reliability_language"
     UNSCORED = "unscored"
     NUMBER_MISMATCH = "number_mismatch"
+    UNTRANSLATED = "untranslated"  # copied through or in the wrong script (CGL-107)
     UNREAD_CONTENT = "unread_content"  # a document notice: parts of the file left out (CGL-87)
     FORMATTING_LOST = "formatting_lost"  # inline formatting did not come back (CGL-108)
 

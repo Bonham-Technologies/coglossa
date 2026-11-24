@@ -979,6 +979,7 @@
           "low_reliability_language",
           "unscored",
           "number_mismatch",
+          "untranslated",
           "unread_content",
           "formatting_lost"
         ],
