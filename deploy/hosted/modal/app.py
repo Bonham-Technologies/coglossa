@@ -1,7 +1,6 @@
 """Coglossa hosted preview on Modal (spec §6): the API, a burst worker, the GPU scorer and a
 cron, all scaling to zero. Deploy: modal deploy deploy/hosted/modal/app.py"""
 
-import shlex
 import subprocess
 from pathlib import Path
 
@@ -118,25 +117,14 @@ def doctor():
 
 
 # Mirrors deploy/docker/scorer.Dockerfile (the source of truth) with the venv replaced by the
-# system Python. Every locked package but torch is installed from PyPI first; then torch, at the
-# version scorer/uv.lock pins for Linux (the entry from the PyTorch index), comes from
-# download.pytorch.org/whl/<TORCH_INDEX> with the rest held at their locked versions. --index
-# outranks --default-index in uv, so the PyTorch index wins for torch. One install of both
-# fails: uv takes each package from the first index that has it, and the PyTorch index carries
-# other packages (certifi) without the locked versions.
-_TORCH_VERSION = (
-    "import sys, tomllib; lock = tomllib.load(open('uv.lock', 'rb')); "
-    "v = [p['version'] for p in lock['package'] if p['name'] == 'torch' "
-    "and 'download.pytorch.org' in p['source'].get('registry', '')]; "
-    "sys.exit('error: uv.lock has no Linux torch entry from download.pytorch.org') "
-    "if not v else print(v[0].split('+')[0])"
-)
+# system Python. uv exports the CUDA build (the TORCH_INDEX extra) from scorer/uv.lock as a
+# pylock.toml, which names every wheel's URL and sha256, and installs exactly those files,
+# checking each hash, so each package comes from the one index the lock names for it (CGL-50).
 _SCORER_INSTALL = (
-    f"cd /src/scorer && version=$(python3 -c {shlex.quote(_TORCH_VERSION)})"
-    " && uv export --frozen --no-dev --no-hashes --no-emit-project | grep -v '^torch==' > /tmp/req.txt"
-    " && uv pip install --system -r /tmp/req.txt"
-    f' && uv pip install --system -c /tmp/req.txt "torch==${{version}}+{TORCH_INDEX}"'
-    f" --default-index https://pypi.org/simple --index https://download.pytorch.org/whl/{TORCH_INDEX}"
+    "cd /src/scorer"
+    f" && uv export --quiet --frozen --no-default-groups --extra {TORCH_INDEX} --no-emit-project"
+    " --format pylock.toml -o /tmp/pylock.toml"
+    " && uv pip install --system -r /tmp/pylock.toml"
     " && uv pip install --system --no-deps ."
 )
 

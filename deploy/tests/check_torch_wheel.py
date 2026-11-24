@@ -1,9 +1,10 @@
 """Checks the scorer's locked torch can be installed for every build the repo makes (CGL-76):
 the CPU image (download.pytorch.org/whl/cpu) and the CUDA image, bundle and hosted preview
-(download.pytorch.org/whl/<CUDA_INDEX>). The scorer Dockerfile installs
-`torch==<version in scorer/uv.lock>+<index>`, so a torch release that has no wheel on the CUDA
-index fails only when someone builds the GPU image, which CI does not. This check needs network:
-it reads the index pages, not the wheels, and builds nothing.
+(download.pytorch.org/whl/<CUDA_INDEX>). scorer/uv.lock holds a torch entry from each of those
+indexes (CGL-50), both at the same version, and the index must still serve that entry's cp312
+Linux x86_64 wheel with the sha256 the lock records: the images install only that file, and CI
+builds only the CPU one. This check needs network: it reads the index pages, not the wheels, and
+builds nothing.
 
 It also checks the three places that name the CUDA index agree: the Makefile's `CUDA_INDEX`,
 deploy/bundle.sh's default and the Modal app's `TORCH_INDEX`. A self-test runs first on fixtures,
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 INDEX_URL = "https://download.pytorch.org/whl/{index}/torch/"
 # The scorer image's Python and platform (deploy/docker/scorer.Dockerfile, linux/amd64).
 WHEEL = r"torch-{version}(?:\+|%2B){index}-cp312-cp312-manylinux[\w.]*_x86_64\.whl"
+LINK = WHEEL + r"#sha256={sha256}"
 CUDA_INDEX_SOURCES = {
     "Makefile": re.compile(r"^CUDA_INDEX \?= (\S+)$", re.M),
     "deploy/bundle.sh": re.compile(r"^CUDA_INDEX=\$\{CUDA_INDEX:-([^}]+)\}", re.M),
@@ -27,19 +29,26 @@ CUDA_INDEX_SOURCES = {
 }
 
 
-def locked_torch(lock_text: str) -> str:
-    """The torch version scorer/uv.lock pins for Linux (its entry from download.pytorch.org),
-    without the local `+cpu` part, as the scorer Dockerfile reads it."""
+def locked_builds(lock_text: str) -> dict[str, tuple[str, str | None]]:
+    """Each torch scorer/uv.lock takes from download.pytorch.org, by index (cpu, cu126, ...): its
+    version without the local `+<index>` part, and the sha256 the lock records for its cp312
+    Linux x86_64 wheel (None when it has no such wheel)."""
     lock = tomllib.loads(lock_text)
-    versions = [
-        package["version"].split("+")[0]
-        for package in lock["package"]
-        if package["name"] == "torch"
-        and "download.pytorch.org" in package["source"].get("registry", "")
-    ]
-    if not versions:
-        raise ValueError("scorer/uv.lock has no Linux torch entry from download.pytorch.org")
-    return versions[0]
+    builds = {}
+    for package in lock["package"]:
+        registry = package["source"].get("registry", "")
+        if package["name"] != "torch" or "download.pytorch.org" not in registry:
+            continue
+        index = registry.rstrip("/").rsplit("/", 1)[-1]
+        version = package["version"].split("+")[0]
+        pattern = re.compile(WHEEL.format(version=re.escape(version), index=re.escape(index)))
+        hashes = [
+            wheel.get("hash", "").removeprefix("sha256:")
+            for wheel in package.get("wheels", [])
+            if pattern.search(wheel["url"])
+        ]
+        builds[index] = (version, hashes[0] if hashes and hashes[0] else None)
+    return builds
 
 
 def cuda_indexes(texts: dict[str, str]) -> dict[str, str | None]:
@@ -51,8 +60,8 @@ def cuda_indexes(texts: dict[str, str]) -> dict[str, str | None]:
     return found
 
 
-def has_wheel(listing: str, version: str, index: str) -> bool:
-    pattern = WHEEL.format(version=re.escape(version), index=re.escape(index))
+def has_wheel(listing: str, version: str, index: str, sha256: str) -> bool:
+    pattern = LINK.format(version=re.escape(version), index=re.escape(index), sha256=sha256)
     return re.search(pattern, listing) is not None
 
 
@@ -63,17 +72,27 @@ def problems(lock_text: str, texts: dict[str, str], fetch) -> list[str]:
     indexes = {index for index in named.values() if index}
     if len(indexes) > 1:
         found.append(f"the CUDA index differs between files: {named}")
-    try:
-        version = locked_torch(lock_text)
-    except ValueError as error:
-        return [*found, str(error)]
+    builds = locked_builds(lock_text)
     for index in ["cpu", *sorted(indexes)]:
-        if not has_wheel(fetch(index), version, index):
+        if index not in builds:
             found.append(
-                f"torch {version} (scorer/uv.lock) has no cp312 Linux x86_64 wheel on "
-                f"{INDEX_URL.format(index=index)}: hold torch below it in scorer/pyproject.toml "
-                "or move the CUDA index"
+                f"scorer/uv.lock has no torch from download.pytorch.org/whl/{index}: the "
+                f"scorer/pyproject.toml group or extra `{index}` and its torch source must "
+                "match the CUDA index, then run uv lock"
             )
+            continue
+        version, sha256 = builds[index]
+        if sha256 is None:
+            found.append(f"scorer/uv.lock has no hashed cp312 Linux x86_64 torch wheel for {index}")
+        elif not has_wheel(fetch(index), version, index, sha256):
+            found.append(
+                f"torch {version}+{index} (scorer/uv.lock) has no cp312 Linux x86_64 wheel with "
+                f"the locked sha256 on {INDEX_URL.format(index=index)}: hold torch below it in "
+                "scorer/pyproject.toml or move the CUDA index, then run uv lock"
+            )
+    versions = {version for version, _ in builds.values()}
+    if len(versions) > 1:
+        found.append(f"scorer/uv.lock locks different torch versions per index: {builds}")
     return found
 
 
@@ -82,22 +101,38 @@ def fetch_listing(index: str) -> str:
         return response.read().decode("utf-8")
 
 
-FIXTURE_LOCK = """
+FIXTURE_HASH = "ab" * 32
+FIXTURE_ENTRY = """
+[[package]]
+name = "torch"
+version = "{version}+{index}"
+source = { registry = "https://download.pytorch.org/whl/{index}" }
+wheels = [
+    { url = "https://download-r2.pytorch.org/whl/{index}/torch-{version}%2B{index}-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:{hash}" },
+]
+"""
+FIXTURE_PYPI = """
 [[package]]
 name = "torch"
 version = "2.15.0"
 source = { registry = "https://pypi.org/simple" }
+"""
+FIXTURE_LISTING = f"""
+<a href="/whl/{{index}}/torch-2.14.1%2B{{index}}-cp312-cp312-manylinux_2_28_x86_64.whl#sha256={FIXTURE_HASH}">x</a>
+<a href="/whl/{{index}}/torch-2.14.0%2B{{index}}-cp311-cp311-manylinux_2_28_x86_64.whl#sha256={FIXTURE_HASH}">x</a>
+<a href="/whl/{{index}}/torch-2.15.0%2B{{index}}-cp312-cp312-win_amd64.whl#sha256={FIXTURE_HASH}">x</a>
+"""
 
-[[package]]
-name = "torch"
-version = "{version}+cpu"
-source = { registry = "https://download.pytorch.org/whl/cpu" }
-"""
-FIXTURE_LISTING = """
-<a href="/whl/{index}/torch-2.14.1%2B{index}-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=0">x</a>
-<a href="/whl/{index}/torch-2.14.1%2B{index}-cp311-cp311-manylinux_2_28_x86_64.whl#sha256=0">x</a>
-<a href="/whl/{index}/torch-2.15.0%2B{index}-cp312-cp312-win_amd64.whl#sha256=0">x</a>
-"""
+
+def fixture_lock(*builds: tuple[str, str, str]) -> str:
+    """A lock with PyPI's torch and one entry per (index, version, wheel sha256)."""
+    entries = [
+        FIXTURE_ENTRY.replace("{index}", index)
+        .replace("{version}", version)
+        .replace("{hash}", sha256)
+        for index, version, sha256 in builds
+    ]
+    return FIXTURE_PYPI + "".join(entries)
 
 
 def fixture_texts(make: str, bundle: str, modal: str) -> dict[str, str]:
@@ -113,27 +148,46 @@ def self_test() -> list[str]:
         return FIXTURE_LISTING.replace("{index}", index)
 
     same = fixture_texts("cu126", "cu126", "cu126")
+    good = fixture_lock(("cpu", "2.14.1", FIXTURE_HASH), ("cu126", "2.14.1", FIXTURE_HASH))
+    other = "cd" * 32
     cases = [
-        # (what, lock version, texts, expect a problem)
-        ("a version with a wheel", "2.14.1", same, False),
-        ("a version with no cp312 Linux wheel", "2.15.0", same, True),
-        ("a version with wheels for another Python only", "2.14.0", same, True),
+        # (what, lock, texts, expect a problem)
+        ("both builds with their wheel", good, same, False),
+        (
+            "a version with no cp312 Linux wheel",
+            fixture_lock(("cpu", "2.15.0", FIXTURE_HASH), ("cu126", "2.15.0", FIXTURE_HASH)),
+            same,
+            True,
+        ),
+        (
+            "a version with wheels for another Python only",
+            fixture_lock(("cpu", "2.14.0", FIXTURE_HASH), ("cu126", "2.14.0", FIXTURE_HASH)),
+            same,
+            True,
+        ),
+        (
+            "a locked hash the index does not serve",
+            fixture_lock(("cpu", "2.14.1", FIXTURE_HASH), ("cu126", "2.14.1", other)),
+            same,
+            True,
+        ),
+        (
+            "a lock without the CUDA build",
+            fixture_lock(("cpu", "2.14.1", FIXTURE_HASH)),
+            same,
+            True,
+        ),
+        ("a CUDA index the lock has no build for", good, fixture_texts(*["cu128"] * 3), True),
         (
             "files naming different CUDA indexes",
-            "2.14.1",
+            good,
             fixture_texts("cu126", "cu126", "cu132"),
             True,
         ),
-        (
-            "a file with no CUDA index line",
-            "2.14.1",
-            {**same, "Makefile": "CUDA_INDEX = x\n"},
-            True,
-        ),
+        ("a file with no CUDA index line", good, {**same, "Makefile": "CUDA_INDEX = x\n"}, True),
     ]
     found = []
-    for what, version, texts, expected in cases:
-        lock = FIXTURE_LOCK.replace("{version}", version)
+    for what, lock, texts, expected in cases:
         if bool(problems(lock, texts, fetch)) != expected:
             found.append(f"self-test: {what} {'not ' if expected else ''}reported")
     if not problems("[[package]]\nname = 'numpy'\nversion = '1'\nsource = {}\n", same, fetch):
@@ -150,7 +204,7 @@ def main() -> int:
     for problem in found:
         print(f"FAIL: {problem}", file=sys.stderr)
     if not found:
-        print("ok: the locked torch has a wheel on every index the scorer builds use")
+        print("ok: every locked torch build is served by its index with the locked hash")
     return 1 if found else 0
 
 

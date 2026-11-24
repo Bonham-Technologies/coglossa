@@ -5,6 +5,7 @@ All notable changes to this project are recorded here. The format follows
 
 ## Unreleased
 
+- Scorer image: every Python package in the CPU and CUDA images and the hosted scorer, PyTorch and its CUDA libraries included, is installed from `scorer/uv.lock`, checked against the hash recorded there and taken from a single index, so an offline bundle carries only the packages the lock names (CGL-50).
 - Scorer: torch is held below 2.15 so the GPU image, the offline bundle and the hosted scorer build again on CUDA 12.6 (NVIDIA driver 525 or newer, unchanged), and `make torch-wheel-check`, run in CI, fails when the locked torch has no wheel for the CPU or CUDA build (CGL-76).
 - Site: the public site lives at `https://coglossa.tech`; its canonical, Open Graph and structured-data URLs, sitemap, robots file, `security.txt` and the site checks use the new host, and `coglossa.com` redirects there (CGL-126).
 - Word download: the first-page and even-page headers and footers are rebuilt as Word's own variants instead of stacking on every page, and a later section's header or footer comes at the end of the document (CGL-117).
