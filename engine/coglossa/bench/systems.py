@@ -1,5 +1,7 @@
 """The two kinds of system a bench run translates with: the full pipeline, and a single-model
-one-pass baseline (one model, one call per chunk, no guide, no reconciliation, no scoring)."""
+one-pass baseline (one model, one call per chunk, no guide, no reconciliation, no scoring).
+The bench document carries inline formatting, and each system counts the passages whose
+formatting markers came back whole (CGL-108)."""
 
 import asyncio
 from dataclasses import dataclass
@@ -19,10 +21,19 @@ from coglossa.llm.agent import AGENT_FAILURES, AgentRunner, CallLog
 from coglossa.llm.types import OVERSIZE_ERRORS, Backend
 from coglossa.pipeline import GuideCheckpoint, RunOptions, run_document
 from coglossa.prompts.library import PromptLibrary
-from coglossa.schema import Candidate, DocumentProfile, Genre, Guide, PipelineProfile
+from coglossa.schema import (
+    Candidate,
+    DocumentProfile,
+    FlagCode,
+    Genre,
+    Guide,
+    PipelineProfile,
+    kept_formatting,
+)
 from coglossa.scoring.client import Scorer
 from coglossa.segment.chunking import chunk_segments, compute_budget
 from coglossa.segment.segmenter import segment_document
+from coglossa.stages.chunk import unmark_spans
 from coglossa.stages.context import StageContext
 from coglossa.stages.translate import build_chunk_inputs, translate_with
 
@@ -34,6 +45,8 @@ class SystemOutput:
     tokens_out: int
     calls: int
     errors: list[str]
+    markers_kept: int = 0  # passages whose formatting came back whole
+    markers_total: int = 0  # passages whose source has formatting
 
 
 async def run_pipeline_system(
@@ -46,7 +59,7 @@ async def run_pipeline_system(
     scorer: Scorer | None,
     prompts: PromptLibrary | None = None,
 ) -> SystemOutput:
-    path = write_source_document(sentences, workdir)
+    path = write_source_document(sentences, workdir, formatting=True)
     opts = RunOptions(target_lang=pair.tgt, source_lang=pair.src, checkpoint=False)
     report = await run_document(path, cfg, backends, opts, prompts=prompts, scorer=scorer)
     assert not isinstance(report, GuideCheckpoint)  # checkpoint=False never stops at the guide
@@ -57,12 +70,19 @@ async def run_pipeline_system(
         len(sentences),
         joiner(pair.tgt),
     )
+    formatted = [
+        s
+        for s in report.spans
+        if s.formatting is not None or any(f.code is FlagCode.FORMATTING_LOST for f in s.flags)
+    ]
     return SystemOutput(
         units=fill_missing(units, len(sentences)),
         tokens_in=report.usage.tokens_in,
         tokens_out=report.usage.tokens_out,
         calls=report.usage.calls,
         errors=[f"{e.stage}: {e.message}" for e in report.errors],
+        markers_kept=sum(kept_formatting(s) is not None for s in formatted),
+        markers_total=len(formatted),
     )
 
 
@@ -78,7 +98,7 @@ async def run_baseline_system(
 ) -> SystemOutput:
     if model_key not in cfg.models:
         raise ConfigError(f"model '{model_key}' is not defined in this config")
-    path = write_source_document(sentences, workdir)
+    path = write_source_document(sentences, workdir, formatting=True)
     doc = ingest_file(path)
     segments = segment_document(doc)
     chunks = chunk_segments(doc, segments, compute_budget(cfg))
@@ -96,7 +116,7 @@ async def run_baseline_system(
     runner = AgentRunner(cfg, backends, prompts or PromptLibrary(cfg.prompts_dir), log)
     ctx = StageContext(cfg=cfg, runner=runner, target_lang=pair.tgt)
     translator = TranslatorConfig(name="baseline", prompt="contextual", model=model_key)
-    inputs = build_chunk_inputs(chunks, segments)
+    inputs = build_chunk_inputs(chunks, segments, doc.blocks)
     # chunks in parallel, as the pipeline translates them, so wall times compare
     results = await asyncio.gather(
         *(translate_with(ctx, profile, guide, ci, translator) for ci in inputs),
@@ -104,13 +124,17 @@ async def run_baseline_system(
     )
     candidates: list[Candidate] = []
     errors: list[str] = []
+    kept = total = 0
     for ci, result in zip(inputs, results, strict=True):
         if isinstance(result, (*AGENT_FAILURES, *OVERSIZE_ERRORS)):
             errors.append(f"translate: {ci.chunk.id}: {result}")
         elif isinstance(result, BaseException):
             raise result
         else:
-            candidates.extend(result)
+            plain, found = unmark_spans(ci, result)
+            candidates.extend(plain)
+            kept += sum(u.formatting is not None for u in found)
+            total += sum(u.formatting is not None or u.lost for u in found)
     units = group_units(
         [(c.start, c.end, c.text) for c in candidates],
         segments,
@@ -125,4 +149,6 @@ async def run_baseline_system(
         tokens_out=usage.tokens_out,
         calls=usage.calls,
         errors=errors,
+        markers_kept=kept,
+        markers_total=total,
     )

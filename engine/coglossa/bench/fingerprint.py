@@ -6,6 +6,7 @@ import hashlib
 import json
 
 from coglossa.bench.config import SystemConfig
+from coglossa.bench.units import SOURCE_VERSION
 from coglossa.config import CoglossaConfig, ConfigError
 from coglossa.prompts.library import (
     BUILTIN_DIR,
@@ -62,5 +63,6 @@ def output_hash(cfg: CoglossaConfig, spec: SystemConfig) -> str:
             "prompts": prompt_hashes(cfg),
         }
     shaping["render_version"] = RENDER_VERSION
+    shaping["source_version"] = SOURCE_VERSION
     blob = json.dumps(shaping, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]

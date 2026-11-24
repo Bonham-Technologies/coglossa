@@ -114,6 +114,8 @@ async def test_run_writes_results_and_a_summary(tmp_path, mini_flores, fake_back
         assert row["kind"] == row["system"]  # the fixture names each system after its kind
         assert row["metricx_shared"] == 10.0 and row["shared_units"] == 8
         assert row["long_sources"] == row["long_outputs"] == 0
+        # every other sentence has a formatted word; the synthetic models keep its markers
+        assert row["markers_total"] == 4 and row["markers_kept"] == 4
     meta = json.loads((out / "bench-meta.json").read_text(encoding="utf-8"))
     assert meta["tier_cuts"] == {"a_max": 5.0, "b_max": 10.0}
     assert meta["dataset"]["seed"] == 7 and meta["dataset"]["pairs"] == ["en>es", "en>yo"]
@@ -123,13 +125,14 @@ async def test_run_writes_results_and_a_summary(tmp_path, mini_flores, fake_back
     ]  # the bench config's order
     md = (out / "summary.md").read_text(encoding="utf-8")
     header = (
-        "| system | pair | MetricX ↓ | scored/units | too long src/out | chrF ↑ | tokens in "
-        "| tokens out | seconds | errors |"
+        "| system | pair | MetricX ↓ | scored/units | too long src/out | chrF ↑ | markers kept "
+        "| tokens in | tokens out | seconds | errors |"
     )
     assert header in md
-    assert any(
-        line.startswith("| baseline | en>es | 10.00 | 8/8 | 0/0 | ") for line in md.splitlines()
-    )
+    lines = md.splitlines()
+    assert any(line.startswith("| baseline | en>es | 10.00 | 8/8 | 0/0 | ") for line in lines)
+    assert all(" | 4/4 | " in line for line in lines if line.startswith("| baseline "))
+    assert '"markers kept" counts the passages with formatting in the source' in md
     assert "devtest" in md and "seed 7" in md and "lower is better" in md
     assert "every system of the pair scored" in md and "weighted by sentence count" in md
     assert "Units every system scored: en>es 8, en>yo 8." in md

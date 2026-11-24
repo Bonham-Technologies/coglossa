@@ -64,6 +64,7 @@ def test_flag_codes_match_spec():
         "number_mismatch",
         "untranslated",
         "unread_content",
+        "formatting_lost",
     }
 
 

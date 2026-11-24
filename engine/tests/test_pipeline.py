@@ -68,10 +68,10 @@ async def test_short_document_end_to_end(doc_path, make_config, fake_backend):
         "profile": 1,
         "guide": 1,
         "guide_merge": 1,
-        "reconcile": 1,
+        "reconcile": 2,
         "sweep": 1,
-        "literal": 1,
-        "contextual": 1,
+        "literal": 2,
+        "contextual": 2,
     }
     assert {c.role for c in report.llm_calls} == {
         "profiler",

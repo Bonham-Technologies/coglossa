@@ -70,7 +70,7 @@ def test_upgrade_creates_our_tables_and_the_job_queue(pg_url):
 
 def test_migration_state_is_current(pg_url):
     state = migration_state(pg_url)
-    assert state.current == state.head == "0006"
+    assert state.current == state.head == "0007"
     assert state.up_to_date
 
 
