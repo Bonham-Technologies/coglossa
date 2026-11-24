@@ -10,8 +10,9 @@ i, ii, … in the order they are first cited, a block that cites one records its
 repeats exactly is read once. Table rows and cells in content controls are read. Charts,
 diagrams, embedded objects and documents, equations and comments cannot be read: the
 document's notices name them (a document notice, not a run error). Bold, italic, underlined,
-superscript and subscript runs (set on the run or by its character style) and links to web
-and mail addresses are recorded as the block's marks (CGL-108)."""
+superscript and subscript runs (set on the run or by its character style and the styles that
+one is based on) and links to web and mail addresses (hyperlinks, and HYPERLINK fields since
+CGL-129) are recorded as the block's marks (CGL-108)."""
 
 import dataclasses
 import re
@@ -59,6 +60,9 @@ _P, _TBL, _SDT, _SDT_CONTENT = qn("w:p"), qn("w:tbl"), qn("w:sdt"), qn("w:sdtCon
 _CUSTOM_XML, _ALT_CHUNK = qn("w:customXml"), qn("w:altChunk")
 _TR, _TC = qn("w:tr"), qn("w:tc")
 _HEADING_RE = re.compile(r"heading\s*(\d+)")
+# A HYPERLINK field's instruction and its address: `HYPERLINK "https://…" \o "tip"`
+_HYPERLINK_FIELD = re.compile(r'\s*HYPERLINK\s+(?:"([^"]*)"|([^\s"\\]\S*))', re.IGNORECASE)
+_FLD_CHAR, _INSTR_TEXT = qn("w:fldChar"), qn("w:instrText")
 _RUN_MARKS = (
     ("bold", MarkKind.BOLD),
     ("italic", MarkKind.ITALIC),
@@ -127,6 +131,34 @@ def _heading_level(style_name: str) -> int | None:
         return 0
     match = _HEADING_RE.match(style)
     return int(match.group(1)) if match else None
+
+
+def _field_target(instruction: str) -> str | None:
+    """The address a HYPERLINK field's instruction links to, when a Word file may link to it."""
+    match = _HYPERLINK_FIELD.match(instruction)
+    return None if match is None else link_target(match.group(1) or match.group(2))
+
+
+def _field_links(runs: list[Any]) -> list[str | None]:
+    """For each run, the address of the HYPERLINK complex field it shows the result of (begin,
+    instruction, separate, result, end), the innermost one when fields are nested."""
+    fields: list[list[Any]] = []  # [instruction so far, showing its result] for each open field
+    out: list[str | None] = []
+    for r in runs:
+        for child in r:
+            if child.tag == _INSTR_TEXT and fields and not fields[-1][1]:
+                fields[-1][0] += child.text or ""
+            elif child.tag == _FLD_CHAR:
+                kind = child.get(qn("w:fldCharType"))
+                if kind == "begin":
+                    fields.append(["", False])
+                elif kind == "separate" and fields:
+                    fields[-1][1] = True
+                elif kind == "end" and fields:
+                    fields.pop()
+        targets = (_field_target(i) for i, shown in reversed(fields) if shown)
+        out.append(next((t for t in targets if t is not None), None))
+    return out
 
 
 def _join(*parts: str | None) -> str | None:
@@ -275,7 +307,12 @@ class _Reader:
 
         runs = find("w:r[not(ancestor::w:del) and not(ancestor::w:moveFrom)]")
         texts = [r.text for r in runs]
-        keys = [k for r, t in zip(runs, texts, strict=True) for k in [self._format(r)] * len(t)]
+        fields = _field_links(runs)
+        keys = [
+            k
+            for r, t, field in zip(runs, texts, fields, strict=True)
+            for k in [self._format(r, field)] * len(t)
+        ]
         text = "".join(texts)
         refs = [
             self._mark(ref.tag.rsplit("}", 1)[1].removesuffix("Reference"), ref.get(qn("w:id")))
@@ -291,13 +328,17 @@ class _Reader:
             marks=marks_from_keys(text, keys) if any(keys) else [],
         )
 
-    def _format(self, r: Any) -> frozenset[MarkKey]:
-        """A run's formatting: its own, over its character style's, and the web address of the
-        link it is in."""
+    def _format(self, r: Any, field: str | None = None) -> frozenset[MarkKey]:
+        """A run's formatting: its own, over its character style's, over those of the styles
+        that one is based on; and the web address of the link it is in, a hyperlink or a
+        HYPERLINK field (`field`, from `_field_links`)."""
         fonts = [Run(r, None).font]
         style = self.char_styles.get(r.style)
-        if style is not None:
+        seen: set[str] = set()  # styles based on each other end the chain
+        while style is not None and style.style_id not in seen:
+            seen.add(style.style_id)
             fonts.insert(0, style.font)
+            style = style.base_style
         keys: set[MarkKey] = set()
         for attr, kind in _RUN_MARKS:
             value = None
@@ -309,6 +350,9 @@ class _Reader:
         rid = _xpath(r, "string(ancestor::w:hyperlink[1]/@r:id)")
         rel = self.part.rels.get(rid) if rid else None
         href = link_target(rel.target_ref) if rel is not None and rel.is_external else None
+        simple = _xpath(r, "ancestor::w:fldSimple/@w:instr")
+        targets = (_field_target(i) for i in reversed(simple))  # the innermost first
+        href = href or next((t for t in targets if t is not None), None) or field
         if href is not None:
             keys.add((MarkKind.LINK, href))
         return frozenset(keys)
