@@ -8,7 +8,7 @@ import functools
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -39,6 +39,7 @@ from coglossa.scoring.aggregate import model_diversity
 from coglossa.scoring.client import Scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.segment.chunking import chunk_segments, compute_budget
+from coglossa.segment.markup import chunk_markup
 from coglossa.segment.segmenter import segment_document
 from coglossa.service import (
     TASK_FINISH_RUN,
@@ -474,7 +475,10 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
     ordinal = -1
     try:
         ordinal = [c.id for c in chunks].index(chunk_id)
-        ci = build_chunk_inputs(chunks, segments, blocks)[ordinal]
+        ci = build_chunk_inputs(chunks, segments)[ordinal]
+        # this chunk's markers only: building every chunk's for each job is quadratic
+        if blocks:
+            ci = replace(ci, markup=chunk_markup(ci.segments, {b.id: b for b in blocks}))
         outcome = await process_chunk(
             svc.context(calls, target_lang),
             svc.scorer,

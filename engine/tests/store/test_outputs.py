@@ -19,7 +19,7 @@ from coglossa.schema import (
     SpanScore,
 )
 from coglossa.stages.chunk import ChunkOutcome
-from coglossa.stages.sweep import SpanChange
+from coglossa.stages.sweep import SWEPT, SpanChange
 from coglossa.store import outputs, runs
 
 
@@ -174,6 +174,33 @@ async def test_sweep_apply_and_undo(db):
         assert span.text == "old"
         assert [f.status for f in span.flags] == [FlagStatus.OPEN, FlagStatus.OPEN]
         assert await outputs.load_revisions(s, run_id, {}) == []
+
+
+async def test_a_flag_the_sweep_raised_is_stored_and_undone_with_it(db):
+    """CGL-129: the worker saves the sweep's changes, so a formatting flag a rewrite raised
+    goes with its change; undoing the sweep removes it and leaves a translation's own."""
+    run_id = await _run_id(db)
+    own = Flag(code=FlagCode.FORMATTING_LOST, explanation="lost in translation")
+    async with db.session() as s, s.begin():
+        await outputs.save_chunk_outcome(s, run_id, 0, _outcome("c1", ["a", "b"]))
+        await outputs.save_chunk_outcome(s, run_id, 1, _outcome("c2", ["c"], flags=[own]))
+    raised = Flag(code=FlagCode.FORMATTING_LOST, explanation="plain now", evidence=SWEPT)
+    async with db.session() as s, s.begin():
+        stored = await outputs.load_spans(s, run_id)
+        changes = [
+            SpanChange("p1", "a", "A", "r", (), (raised,)),
+            SpanChange("p3", "c", "C", "r", ()),
+        ]
+        await outputs.apply_sweep(s, stored.row_ids, changes)
+    async with db.session() as s:
+        spans = (await outputs.load_spans(s, run_id)).spans
+    assert [sp.flags for sp in spans] == [[raised], [], [own]]
+    async with db.session() as s, s.begin():
+        await outputs.undo_sweep(s, run_id)
+    async with db.session() as s:
+        spans = (await outputs.load_spans(s, run_id)).spans
+    assert [sp.text for sp in spans] == ["a", "b", "c"]
+    assert [sp.flags for sp in spans] == [[], [], [own]]
 
 
 async def test_delete_chunk_outputs(db):

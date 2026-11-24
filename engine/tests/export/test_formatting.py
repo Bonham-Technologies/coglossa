@@ -16,7 +16,12 @@ from coglossa.export.tmx import tmx_bytes
 from coglossa.pipeline import RunOptions, run_document
 from coglossa.schema import FlagCode, InlineMark, MarkKind, Region, Report, SpanFormatting
 from tests.export.conftest import make_report, make_span
-from tests.ingest.docx_parts import add_hyperlink
+from tests.ingest.docx_parts import (
+    add_character_style,
+    add_complex_field_link,
+    add_field_link,
+    add_hyperlink,
+)
 
 MARKER = re.compile(r"<\s*/?\s*\d+\s*/?\s*>")
 
@@ -96,6 +101,30 @@ async def test_a_word_files_formatting_comes_back_on_the_translated_words(
     ]
 
 
+async def test_inherited_styles_and_hyperlink_fields_come_back(tmp_path, make_config, fake_backend):
+    """CGL-129: bold from a style based on a bold style, and links made with a simple and a
+    complex HYPERLINK field, are in the clean Word download."""
+    d = docx.Document()
+    add_character_style(d, "Loud", "Strong", bold=None)
+    p = d.add_paragraph("Le ")
+    p.add_run("chat").style = "Loud"
+    p.add_run(" voit ")
+    add_field_link(p, "ici", 'HYPERLINK "https://example.org/ici"')
+    p.add_run(" et ")
+    add_complex_field_link(p, ["là"], 'HYPERLINK "https://example.org/la"')
+    p.add_run(".")
+    path = tmp_path / "fields.docx"
+    d.save(path)
+    report = await _translate(path, make_config(), fake_backend)
+    assert report.spans[0].text == "[en] Le chat voit ici et là."
+    assert report.spans[0].flags == []
+    assert _formatted(_runs(clean_docx(report))) == [
+        ("chat", {"bold"}),
+        ("ici", {"underline", "link:https://example.org/ici"}),
+        ("là", {"underline", "link:https://example.org/la"}),
+    ]
+
+
 async def test_an_html_files_formatting_comes_back_on_the_reordered_words(
     tmp_path, make_config, fake_backend
 ):
@@ -149,6 +178,25 @@ async def test_a_dropped_marker_leaves_the_passage_plain_and_flagged(
     assert [f.code for f in first.flags] == [FlagCode.FORMATTING_LOST]
     assert second.flags == []
     assert _formatted(_runs(clean_docx(report))) == [("rains", {"italic"})]
+
+
+async def test_marker_like_source_text_costs_only_its_own_passages_formatting(
+    tmp_path, make_config, fake_backend
+):
+    """CGL-129: a passage whose source reads "<1>" keeps that text, is plain and flagged; the
+    rest of its chunk keeps its formatting."""
+    path = tmp_path / "page.html"
+    path.write_text(
+        "<p>Le <b>chat</b> dort.</p><p>Tapez &lt;1&gt; puis <i>Entrée</i>.</p><p>Fin.</p>",
+        encoding="utf-8",
+    )
+    report = await _translate(path, make_config(), fake_backend)
+    assert len({s.chunk_id for s in report.spans}) == 1  # one chunk
+    first, second, third = report.spans
+    assert first.flags == [] and third.flags == []
+    assert second.text == "[en] Tapez <1> puis Entrée."
+    assert [f.code for f in second.flags] == [FlagCode.FORMATTING_LOST]
+    assert _formatted(_runs(clean_docx(report))) == [("chat", {"bold"})]
 
 
 async def test_no_marker_reaches_an_export_or_a_stored_text(tmp_path, make_config, fake_backend):
