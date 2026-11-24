@@ -5,7 +5,7 @@ All notable changes to this project are recorded here. The format follows
 
 ## Unreleased
 
-- Job queue: moves to procrastinate 3.11, whose job fetch skips the lock check for jobs that have no lock. The upgrade includes a database migration that runs before the new worker starts (CGL-106).
+- Job queue: moves to procrastinate 3.12. Fetching the next job skips the lock check for jobs that have no lock and looks locks up through a new index, so it stays quick with a long backlog, and a stalled job whose copy is already waiting is closed by the queue itself. The upgrade runs four database migrations; the last removes what older versions call to queue a job, so stop the old version before the new one starts, as step 4 of the operator guide's upgrade section does (CGL-106).
 - Site: the public site lives at `https://coglossa.tech`; its canonical, Open Graph and structured-data URLs, sitemap, robots file, `security.txt` and the site checks use the new host, and `coglossa.com` redirects there (CGL-126).
 - Word download: the first-page and even-page headers and footers are rebuilt as Word's own variants instead of stacking on every page, and a later section's header or footer comes at the end of the document (CGL-117).
 - Guide: the Terms and Names tabs have a search box and show a hundred rows at a time, with Add and Import above the list, so a guide of thousands of terms stays quick to open and find in (CGL-116).

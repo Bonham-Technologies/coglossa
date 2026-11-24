@@ -548,7 +548,9 @@ If you lost `.env`, keep the one `install.sh` created: the database dump holds n
 
    The `migrate` service upgrades the database before the API and worker start.
 
-   The upgrade to procrastinate 3.11 (CGL-106) includes such a migration: revision 0007 changes how the job queue picks the next job. It runs in the `migrate` service before the new worker starts and needs nothing from you.
+   The upgrade of the job queue to procrastinate 3.12 (CGL-106) includes four such migrations, revisions 0007 to 0010. The last one removes the database functions that older versions call to queue a job, so **the old API and worker must be stopped before `migrate` runs**: step 4 does that. Do not skip it, and do not start the new version while the old one still runs; an old worker that is still running when the migration ends cannot queue the next step of a translation, and that translation stops.
+
+   Revision 0009 builds an index on the job queue without blocking it; with a long job history this can take a few minutes. If `migrate` stops while it runs (for example the host restarts), run `docker compose up -d --wait` again: the migration drops the unfinished index and builds it again.
 
 The data lives in Docker volumes that belong to the project name `coglossa`, not to the directory, so the new directory finds it.
 
