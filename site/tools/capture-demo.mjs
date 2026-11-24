@@ -1,4 +1,4 @@
-// Records the demo on coglossa.com from a running local Coglossa: screenshots, a short video
+// Records the demo on coglossa.tech from a running local Coglossa: screenshots, a short video
 // and the exports of the run. See site/README.md, "Regenerating the demo".
 //
 //   node tools/capture-demo.mjs --base http://127.0.0.1:8781

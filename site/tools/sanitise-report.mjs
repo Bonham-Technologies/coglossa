@@ -62,7 +62,7 @@ refuseLeaks("report.json", json);
 // and check.mjs fails when the hash no longer matches.
 // The export is the app's own page; the site adds only a canonical tag so search engines index
 // it at its public address (bonham-ops seo-check SEO-9).
-const CANONICAL = '<link rel="canonical" href="https://coglossa.com/sample/export">';
+const CANONICAL = '<link rel="canonical" href="https://coglossa.tech/sample/export">';
 const raw = await readFile(join(IN, "export.html"), "utf-8");
 const html = raw.includes('rel="canonical"') ? raw : raw.replace("</title>", `</title>\n${CANONICAL}`);
 refuseLeaks("export.html", html);
