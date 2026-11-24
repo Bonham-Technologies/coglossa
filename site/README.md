@@ -1,4 +1,4 @@
-# coglossa.com
+# coglossa.tech
 
 The public site for Coglossa: one static page (plain HTML and CSS, no JavaScript) with the
 writeup, a recorded walkthrough and sample output from a real run. Its own Vercel project
@@ -78,8 +78,9 @@ Playwright's own (`pnpm exec playwright-core install chromium`).
      other exit (a change, or no `HEAD^` to compare with) builds it. If the first production
      deployment is cancelled because its commit didn't touch `site/`, redeploy it from
      Deployments ▸ ⋯ ▸ Redeploy with **Use project's Ignore Build Step** unchecked.
-2. **Domains.** Settings ▸ Domains: add `coglossa.com` and `www.coglossa.com`, and set `www`
-   to redirect (308) to `coglossa.com`, the canonical URL.
+2. **Domains.** Settings ▸ Domains: add `coglossa.tech` (the canonical URL), `www.coglossa.tech`,
+   `coglossa.com` and `www.coglossa.com`, and set the last three to redirect (308) to
+   `coglossa.tech`.
 3. **DNS at Porkbun.** Enter the records Vercel shows for each domain (usually an `A` record
    for the apex and a `CNAME` for `www`), and delete Porkbun's default parking records. If the
    domain has CAA records, allow the certificate authority Vercel names.
