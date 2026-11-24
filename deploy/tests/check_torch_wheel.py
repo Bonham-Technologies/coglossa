@@ -13,6 +13,7 @@ Usage: python3 deploy/tests/check_torch_wheel.py"""
 import re
 import sys
 import tomllib
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -35,7 +36,8 @@ def locked_torch(lock_text: str) -> str:
         package["version"].split("+")[0]
         for package in lock["package"]
         if package["name"] == "torch"
-        and "download.pytorch.org" in package["source"].get("registry", "")
+        and urllib.parse.urlparse(package["source"].get("registry", "")).hostname
+        == "download.pytorch.org"
     ]
     if not versions:
         raise ValueError("scorer/uv.lock has no Linux torch entry from download.pytorch.org")
