@@ -143,9 +143,9 @@ Redeploy the Vercel project after changing either variable.
 - `modal run deploy/hosted/modal/app.py::migrate` applies database migrations (forward only).
 - The deploy migrates first, while the previous deployment's API and any running worker still
   run the old code. Revision 0010 (the procrastinate 3.12 upgrade, CGL-106) removes the
-  functions older code calls to queue a job, so deploy it while no translation is running (no
-  running `worker` call in the Modal dashboard) before you approve the `hosted` run. Until the
-  new deployment answers, starting a translation can fail; start it again after the deploy.
+  functions older code calls to queue a job, so approve that `hosted` run only while no
+  translation is running (no running `worker` call in the Modal dashboard). Until the new
+  deployment answers, starting a translation can fail; start it again after the deploy.
 - Rollback: deploy an earlier commit.
 - Logs: Modal keeps function logs for one day on Starter; Vercel keeps its own.
 - CI imports the Modal app without an account: `deploy/hosted/modal/check_app.py`.
