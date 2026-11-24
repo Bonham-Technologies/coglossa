@@ -7,12 +7,15 @@ from coglossa.ingest.base import IngestError
 from coglossa.ingest.docx import DocxIngestor
 from coglossa.schema import BlockKind, MarkKind, Region, TableCellPosition
 from tests.ingest.docx_parts import (
+    add_character_style,
     add_chart,
+    add_complex_field_link,
     add_content_control,
     add_custom_xml,
     add_diagram,
     add_embedded_object,
     add_equation,
+    add_field_link,
     add_hyperlink,
     add_imported_chunk,
     add_note_reference,
@@ -405,3 +408,56 @@ def test_links_to_scripts_or_local_files_are_no_links(tmp_path):
 
     blocks = DocxIngestor().ingest(path).blocks
     assert blocks[0].text == "See this and that" and blocks[0].provenance.marks == []
+
+
+def test_a_character_style_inherits_bold_through_based_on(tmp_path):
+    """CGL-129: a style based on a bold style is bold unless it says otherwise; a cycle of
+    styles based on each other is read, not followed for ever."""
+    d = docx.Document()
+    add_character_style(d, "Loud", "Strong", bold=None)
+    add_character_style(d, "Louder", "Loud", bold=None)
+    add_character_style(d, "Hushed", "Loud", bold=False)
+    ping = add_character_style(d, "Ping", "Strong", bold=None)
+    add_character_style(d, "Pong", "Ping", bold=None)
+    ping.base_style = d.styles["Pong"]  # Ping and Pong are based on each other
+    p = d.add_paragraph("A ")
+    p.add_run("loud").style = "Louder"
+    p.add_run(" and ")
+    p.add_run("hushed").style = "Hushed"
+    p.add_run(" and ")
+    p.add_run("looped").style = "Pong"
+    path = tmp_path / "s.docx"
+    d.save(path)
+
+    blocks = DocxIngestor().ingest(path).blocks
+    assert blocks[0].text == "A loud and hushed and looped"
+    assert _marked(blocks[0]) == [(MarkKind.BOLD, None, "loud")]
+
+
+def test_links_made_with_hyperlink_fields_are_recorded(tmp_path):
+    """CGL-129: a simple field and a complex field, with Word's switches; only addresses a
+    Word file may open are links, and the field's instruction is not text."""
+    d = docx.Document()
+    p = d.add_paragraph("See ")
+    add_field_link(p, "this", 'HYPERLINK "https://example.org/simple"')
+    p.add_run(" and ")
+    add_complex_field_link(p, ["that ", "page"], ' HYPERLINK "https://example.org/x" \\o "Tip" ')
+    p.add_run(" or ")
+    add_field_link(p, "mail", "hyperlink mailto:a@example.org")
+    p.add_run(" not ")
+    add_complex_field_link(p, ["this"], 'HYPERLINK "javascript:alert(1)"')
+    p.add_run(" nor ")
+    add_field_link(p, "there", 'HYPERLINK \\l "_Toc1"')  # a place in the same file
+    p.add_run(" nor ")
+    add_complex_field_link(p, ["3"], "PAGE")
+    p.add_run(".")
+    path = tmp_path / "f.docx"
+    d.save(path)
+
+    blocks = DocxIngestor().ingest(path).blocks
+    assert blocks[0].text == "See this and that page or mail not this nor there nor 3."
+    assert _marked(blocks[0]) == [
+        (MarkKind.LINK, "https://example.org/simple", "this"),
+        (MarkKind.LINK, "https://example.org/x", "that page"),
+        (MarkKind.LINK, "mailto:a@example.org", "mail"),
+    ]
