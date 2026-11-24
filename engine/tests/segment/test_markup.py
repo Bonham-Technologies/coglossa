@@ -131,6 +131,19 @@ def test_a_formatted_segment_with_marker_like_text_is_plain_and_flagged():
     assert (found.text, found.formatting, found.lost) == ("Appuyez <1> maintenant", None, True)
 
 
+def test_a_marker_like_number_too_long_for_int_is_never_a_marker():
+    """CGL-129: Python's `int` refuses more than 4300 digits; such text is read, not raised."""
+    long = "<" + "9" * 5000 + ">"
+    literal, block = _literal(f"x {long} y")
+    markup = chunk_markup([*SEGMENTS, literal], {"b1": BLOCK, "b2": block})
+    assert markup.marked == _markup().marked and markup.text(literal) == f"x {long} y"
+    kept = unmark(markup, ["s3"], f"x {long} y")
+    assert (kept.text, kept.formatting, kept.lost) == (f"x {long} y", None, False)
+    # in a model's answer over a formatted segment it is a marker that was never sent
+    stray = unmark(_markup(), ["s1"], f"The <1>cat</1> sleeps {long}.")
+    assert stray.lost and stray.text == "The cat sleeps ."
+
+
 def test_markers_given_back_become_marks_over_the_plain_translation():
     found = unmark(
         _markup(), ["s1", "s2"], "The <1>cat</1> sleeps. <3>Here</3> <2>see</2> note <4>2</4>."

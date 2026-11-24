@@ -167,7 +167,10 @@ class ChunkMarkup:
 
 
 def _number(marker: str) -> int:
-    return int(re.search(r"\d+", marker).group())
+    """The number in marker-like text; -1, never a marker's, when it is too long to be one
+    (`int` refuses more than 4300 digits)."""
+    digits = re.search(r"\d+", marker).group()
+    return int(digits) if len(digits) <= 18 else -1
 
 
 def chunk_markup(segments: Sequence[Segment], blocks: Mapping[str, Block]) -> ChunkMarkup:
@@ -243,7 +246,7 @@ def unmark(markup: ChunkMarkup, segment_ids: Sequence[str], text: str) -> Unmark
         if strict is None:
             broken = True
         else:
-            tags.append((int(strict.group(2)), strict.group(1) == "/", length))
+            tags.append((_number(m.group()), strict.group(1) == "/", length))
     pieces.append(_after_marker(pieces, text[pos:]))
     plain = "".join(pieces)
     if text == text.strip():  # "<1>Un</1> jour </2>": no space left where a marker was at an end
