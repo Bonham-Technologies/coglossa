@@ -14,6 +14,7 @@ Usage: python3 deploy/tests/check_torch_wheel.py"""
 import re
 import sys
 import tomllib
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -37,7 +38,10 @@ def locked_builds(lock_text: str) -> dict[str, tuple[str, str | None]]:
     builds = {}
     for package in lock["package"]:
         registry = package["source"].get("registry", "")
-        if package["name"] != "torch" or "download.pytorch.org" not in registry:
+        if (
+            package["name"] != "torch"
+            or urllib.parse.urlparse(registry).hostname != "download.pytorch.org"
+        ):
             continue
         index = registry.rstrip("/").rsplit("/", 1)[-1]
         version = package["version"].split("+")[0]
