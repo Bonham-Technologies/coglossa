@@ -25,6 +25,7 @@ from coglossa.scoring.aggregate import SpanEvidence, normalize_sim, score_span
 from coglossa.scoring.client import Scorer, ScorerUnavailableError
 from coglossa.scoring.numbers import number_check
 from coglossa.scoring.rules import agreement_signal, guide_check, length_ratio
+from coglossa.scoring.untranslated import kept_names, untranslated_check
 from coglossa.stages.context import StageContext
 from coglossa.stages.judge import judge_chunk
 from coglossa.stages.reconcile import ReconcileResult
@@ -218,6 +219,7 @@ async def score_chunk(
 
     scores: list[SpanScore] = []
     flags: list[list[Flag]] = []
+    keep = kept_names(guide)  # names the guide keeps as they are are never "untranslated"
     for i, rs in enumerate(spans):
         cand = [
             v
@@ -242,6 +244,7 @@ async def score_chunk(
             guide_violations=tuple(violations),
             length_ratio=length_ratio(sources[i], rs.text),
             number_mismatch=number_check(sources[i], rs.text, profile.source_lang, ctx.target_lang),
+            untranslated=untranslated_check(sources[i], rs.text, ctx.target_lang, keep),
         )
         score, span_flags = score_span(evidence, tier=tier, cfg=cfg, diverse=diverse)
         scores.append(score)
