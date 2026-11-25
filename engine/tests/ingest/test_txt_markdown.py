@@ -106,6 +106,14 @@ def test_a_bare_tilde_line_is_still_a_scene_break_and_an_unclosed_fence_is_text(
     ]
 
 
+def test_many_unclosed_fences_are_read_in_linear_time(tmp_path):
+    """Each unclosed fence used to scan the rest of the file for its closing line."""
+    lines = [f"~~~py {i}" for i in range(50_000)]
+    doc = _md(tmp_path, "\n".join(lines) + "\n\n```\nx\n```\n")
+    assert doc.blocks[0].text.split("\n") == lines
+    assert [(b.text, b.provenance.keep) for b in doc.blocks[1:]] == [("x", KeepReason.CODE)]
+
+
 def test_code_spans_stay_in_the_sentence_and_are_recorded(tmp_path):
     doc = _md(tmp_path, "Run `make test` and ``a`b`` now.\n\n`npm install`\n\n- use `x`\n")
     assert [(b.text, b.provenance.keep, b.provenance.literals) for b in doc.blocks] == [

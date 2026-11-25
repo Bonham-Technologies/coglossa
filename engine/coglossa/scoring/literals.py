@@ -79,16 +79,25 @@ class Missing:
     source: str
 
 
-def _unopened(text: str, close: str, open_: str) -> bool:
-    return text.endswith(close) and text.count(close) > text.count(open_)
+_OPENER = {")": "(", "]": "["}
 
 
 def _trim_url(text: str) -> str:
-    while text and (
-        text[-1] in _TRAILING or _unopened(text, ")", "(") or _unopened(text, "]", "[")
-    ):
-        text = text[:-1]
-    return text
+    """`text` without the sentence punctuation and the closing brackets it did not open at
+    its end. Linear: the brackets are counted once (trimming never removes an opening one)."""
+    opened = {c: text.count(o) for c, o in _OPENER.items()}
+    closed = {c: text.count(c) for c in _OPENER}
+    end = len(text)
+    while end:
+        last = text[end - 1]
+        if last in _TRAILING:
+            end -= 1
+        elif last in _OPENER and closed[last] > opened[last]:
+            closed[last] -= 1
+            end -= 1
+        else:
+            break
+    return text[:end]
 
 
 def find_literals(text: str) -> list[Literal]:

@@ -232,7 +232,7 @@ def test_code_blocks_are_left_as_written(tmp_path):
         ("Install it:", None, []),
         ("npm  install\n  --save x", KeepReason.CODE, []),
         ("make test", KeepReason.CODE, []),
-        ("Ctrl C", KeepReason.CODE, []),
+        ("Ctrl C", None, []),  # key names are localised: <kbd> is translated
         ("* * *", None, []),
         ("* * *", KeepReason.CODE, []),
     ]
@@ -276,6 +276,11 @@ def test_code_and_translate_no_inside_a_sentence_stay_in_it_as_literals(tmp_path
     assert _protected(doc) == [
         ("Run make test, then open ACME Box and x.", None, ["make test", "ACME Box", "x"])
     ]
+
+
+def test_a_key_name_inside_a_sentence_may_be_localised(tmp_path):
+    doc = HtmlIngestor().ingest(_write(tmp_path, "<p>Appuyez sur <kbd>Entrée</kbd>.</p>"))
+    assert _protected(doc) == [("Appuyez sur Entrée.", None, [])]
 
 
 def test_a_file_that_is_all_code_is_refused(tmp_path):

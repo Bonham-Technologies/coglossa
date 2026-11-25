@@ -4,7 +4,7 @@ footnotes and breaks. Inline markup is flattened to its text, and bold, italic, 
 superscript and subscript text and links to web addresses are recorded as the block's marks
 (CGL-108); the head, scripts, styles, comments and note-reference markers are skipped.
 
-CGL-111: a <pre> block, a block whose text is all code (<code>, <kbd>, <samp>), and a block
+CGL-111: a <pre> block, a block whose text is all code (<code>, <samp>), and a block
 whose text is all marked translate="no" (or class="notranslate", inherited until a
 translate="yes") are left as written: never sent to a model, carried through unchanged. Code or
 no-translate text inside a sentence stays part of the sentence, which would not read whole
@@ -55,7 +55,8 @@ _SKIP = frozenset(
         "button",
     }
 )
-_CODE_TAGS = frozenset({"code", "kbd", "samp"})
+# <kbd> is not code: key names are localised ("Ctrl" is "Strg" in German), so it is translated
+_CODE_TAGS = frozenset({"code", "samp"})
 _HEADINGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _KIND_OF_TAG = {
     **{h: BlockKind.HEADING for h in _HEADINGS},

@@ -279,3 +279,25 @@ def test_coverage_refuses_a_span_across_kept_text():
     ]
     apart = [SpanText(start="s1", end="s1", text="x"), SpanText(start="s4", end="s4", text="y")]
     assert check_coverage(apart, ["s1", "s4"], ci.gaps) == []
+
+
+def test_kept_text_is_never_a_neighbours_context():
+    """The context around a chunk is source text sent to the models: kept text is not in it,
+    whether the blocks are given (the CLI) or only the kept segment ids (the worker)."""
+    ci = _kept_ci()
+    blocks = [
+        Block(
+            id=s.block_id,
+            kind=BlockKind.PARAGRAPH,
+            text=s.text,
+            provenance=Provenance(source_path="x", index=0, keep=ci.keep.kept.get(s.id)),
+        )
+        for s in ci.segments
+    ]
+    chunks = [Chunk(id=f"c{k + 1}", segment_ids=[s.id]) for k, s in enumerate(ci.segments)]
+    for inputs in (
+        build_chunk_inputs(chunks, ci.segments, blocks),
+        build_chunk_inputs(chunks, ci.segments, kept={"s2", "s3"}),
+    ):
+        contexts = [(c.context_before, c.context_after) for c in inputs]
+        assert contexts == [("", ""), ("Il pleut.", ""), ("", "Fin."), ("", "")]

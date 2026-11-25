@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field, replace
 from typing import Protocol
 
@@ -18,7 +19,7 @@ from coglossa.schema import (
     Segment,
     TranslationOutput,
 )
-from coglossa.segment.keep import ChunkKeep, chunk_keep
+from coglossa.segment.keep import ChunkKeep, chunk_keep, kept_segment_ids
 from coglossa.segment.markup import ChunkMarkup, chunk_markup
 from coglossa.stages.context import StageContext
 from coglossa.stages.guide import guide_slice
@@ -120,13 +121,19 @@ def with_blocks(ci: ChunkInput, blocks: Mapping[str, Block]) -> ChunkInput:
 
 
 def build_chunk_inputs(
-    chunks: list[Chunk], segments: list[Segment], blocks: Sequence[Block] = ()
+    chunks: list[Chunk],
+    segments: list[Segment],
+    blocks: Sequence[Block] = (),
+    *,
+    kept: AbstractSet[str] = frozenset(),
 ) -> list[ChunkInput]:
     """`blocks` give the segments their inline formatting and the text they keep as written;
-    without them prompts are plain and every segment is translated."""
+    without them prompts are plain and every segment is translated. Text left as written (in
+    `blocks`, or the segment ids in `kept`) is never a neighbour's context (CGL-111)."""
     by_id = {s.id: s for s in segments}
     by_block = {b.id: b for b in blocks}
-    texts = ["\n".join(by_id[i].text for i in c.segment_ids) for c in chunks]
+    hidden = kept | kept_segment_ids(segments, blocks) if blocks else kept
+    texts = ["\n".join(by_id[i].text for i in c.segment_ids if i not in hidden) for c in chunks]
     inputs = []
     for k, chunk in enumerate(chunks):
         own = [by_id[i] for i in chunk.segment_ids]

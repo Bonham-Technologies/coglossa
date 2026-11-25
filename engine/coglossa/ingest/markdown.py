@@ -80,14 +80,20 @@ def _sections(text: str) -> Iterator[tuple[bool, str]]:
     A fence that is never closed opens no block: its text is translated as before."""
     lines = text.split("\n")
     prose: list[str] = []
+    # per fence character, the shortest fence known to have no closing line further down: a
+    # longer one opened later has none either, so it is not looked for again (linear time)
+    unclosed: dict[str, int] = {}
     i = 0
     while i < len(lines):
         opening = _opens_fence(lines[i])
         end = -1
         if opening is not None:
             fence = opening.group(2)
-            closing = re.compile(rf"^ {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}\s*$")
-            end = next((j for j in range(i + 1, len(lines)) if closing.match(lines[j])), -1)
+            if len(fence) < unclosed.get(fence[0], len(fence) + 1):
+                closing = re.compile(rf"^ {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}\s*$")
+                end = next((j for j in range(i + 1, len(lines)) if closing.match(lines[j])), -1)
+                if end < 0:
+                    unclosed[fence[0]] = len(fence)
         if opening is None or end < 0:
             prose.append(lines[i])
             i += 1

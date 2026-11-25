@@ -70,6 +70,12 @@ def test_addresses_next_to_punctuation_or_other_scripts_are_read_the_same(source
     assert literal_check(source, translation) is None
 
 
+def test_a_long_run_of_closing_brackets_is_trimmed_in_linear_time():
+    """Trimming recounted the brackets for every character it took off the end."""
+    text = "https://example.com/a(b)" + ")" * 200_000 + "]" * 200_000
+    assert [lit.text for lit in find_literals(text)] == ["https://example.com/a(b)"]
+
+
 # --- email addresses --------------------------------------------------------------------------
 
 

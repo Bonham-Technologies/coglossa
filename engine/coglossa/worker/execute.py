@@ -39,7 +39,7 @@ from coglossa.scoring.aggregate import model_diversity
 from coglossa.scoring.client import Scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.segment.chunking import chunk_segments, compute_budget
-from coglossa.segment.keep import translatable
+from coglossa.segment.keep import kept_segment_ids, translatable
 from coglossa.segment.segmenter import segment_document
 from coglossa.service import (
     TASK_FINISH_RUN,
@@ -477,7 +477,8 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
     ordinal = -1
     try:
         ordinal = [c.id for c in chunks].index(chunk_id)
-        ci = build_chunk_inputs(chunks, segments)[ordinal]
+        kept = kept_segment_ids(segments, blocks)  # never a neighbour's context (CGL-111)
+        ci = build_chunk_inputs(chunks, segments, kept=kept)[ordinal]
         # this chunk's markers and kept text only: building every chunk's for each job is
         # quadratic
         if blocks:
