@@ -1115,7 +1115,7 @@ export interface components {
          * FlagCode
          * @enum {string}
          */
-        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content" | "formatting_lost";
+        FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content" | "formatting_lost" | "literal_mismatch";
         /**
          * FlagStatus
          * @enum {string}
@@ -1402,6 +1402,12 @@ export interface components {
             explanation: string;
             severity: components["schemas"]["ErrorSeverity"];
         };
+        /**
+         * KeepReason
+         * @description Why a block is left as written, never sent to a model (CGL-111).
+         * @enum {string}
+         */
+        KeepReason: "code" | "no_translate";
         /** LLMCallRecord */
         LLMCallRecord: {
             /** Attempt */
@@ -1507,8 +1513,11 @@ export interface components {
             cell?: components["schemas"]["TableCellPosition"] | null;
             /** Index */
             index: number;
+            keep?: components["schemas"]["KeepReason"] | null;
             /** Level */
             level?: number | null;
+            /** Literals */
+            literals?: string[];
             /** Locator */
             locator?: string | null;
             /** Marks */
@@ -1608,6 +1617,7 @@ export interface components {
             flags: components["schemas"]["ReviewFlag"][];
             /** Id */
             id: string;
+            kept?: components["schemas"]["KeepReason"] | null;
             /** Number */
             number: number;
             score: components["schemas"]["SpanScore"];
@@ -1854,6 +1864,7 @@ export interface components {
             issues?: string[];
             /** Judge Errors */
             judge_errors?: components["schemas"]["JudgeError"][] | null;
+            kept?: components["schemas"]["KeepReason"] | null;
             /**
              * Rationale
              * @default
@@ -1888,6 +1899,7 @@ export interface components {
             issues: string[];
             /** Judge Errors */
             judge_errors: components["schemas"]["JudgeError"][] | null;
+            kept?: components["schemas"]["KeepReason"] | null;
             /** Number */
             number: number;
             /** Rationale */

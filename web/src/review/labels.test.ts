@@ -1,6 +1,7 @@
 import {
   agreementLabel,
   categoryLabel,
+  keptLabel,
   reliabilityLabel,
   revisionSourceLabel,
   severityLabel,
@@ -8,6 +9,17 @@ import {
 } from "./labels";
 
 const cases: [string, (k: string) => string, [string, string][]][] = [
+  [
+    "keptLabel",
+    keptLabel,
+    [
+      ["code", "This is code, so it was left as written and not translated."],
+      [
+        "no_translate",
+        "The original marks this text not to be translated, so it was left as written.",
+      ],
+    ],
+  ],
   [
     "signalLabel",
     signalLabel,

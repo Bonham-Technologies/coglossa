@@ -38,6 +38,7 @@ from coglossa.scoring.aggregate import any_scored, document_notices, model_diver
 from coglossa.scoring.client import Scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.segment.chunking import chunk_segments, compute_budget
+from coglossa.segment.keep import translatable
 from coglossa.segment.segmenter import segment_document
 from coglossa.stages.chunk import ChunkOutcome, process_chunk
 from coglossa.stages.context import StageContext
@@ -100,6 +101,8 @@ async def run_document(
     doc = ingest_file(path)
     segments = segment_document(doc)
     chunks = chunk_segments(doc, segments, budget)
+    # the profile and the guide never see text left as written (CGL-111)
+    readable, readable_chunks = translatable(segments, chunks, doc.blocks)
     log = CallLog(store_io=cfg.audit.store_llm_io)
     runner = AgentRunner(cfg, backends, prompts, log, sleep=sleep)
     ctx = StageContext(cfg=cfg, runner=runner, target_lang=opts.target_lang)
@@ -114,7 +117,7 @@ async def run_document(
         say("profile: using supplied profile")
     else:
         profile = await run_profile(
-            ctx, segments, source_lang=opts.source_lang, pipeline_profile=opts.pipeline_profile
+            ctx, readable, source_lang=opts.source_lang, pipeline_profile=opts.pipeline_profile
         )
         say(
             f"profile: {profile.source_lang} -> {profile.target_lang}, {profile.genre.value}, "
@@ -127,7 +130,9 @@ async def run_document(
         guide = opts.guide
         say("guide: using approved guide")
     else:
-        guide, guide_errors = await run_guide(ctx, profile, segments, chunks, prior=opts.guide)
+        guide, guide_errors = await run_guide(
+            ctx, profile, readable, readable_chunks, prior=opts.guide
+        )
         errors.extend(guide_errors)
         checkpoint = guide_was_built(guide_errors) and (
             opts.checkpoint

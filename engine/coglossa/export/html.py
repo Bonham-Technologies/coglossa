@@ -22,6 +22,7 @@ th:nth-child(1), th:nth-child(4), th:nth-child(5) { width: 3.5rem; }
 th:nth-child(6) { width: 22%; }
 tr.flagged td:first-child { border-left: 4px solid #c0392b; }
 td ul { margin: 0; padding-inline-start: 1.1rem; }
+td.kept { white-space: pre-wrap; }
 """.strip()
 
 
@@ -72,10 +73,12 @@ def render_html(report: Report) -> str:
         )
         flags = f"<ul>{items}</ul>" if items else ""
         score = row.span.score
+        # text left as written keeps its spacing: code is indented (CGL-111)
+        kept = ' class="kept"' if row.span.kept is not None else ""
         parts.append(
             f'<tr id="p{row.number}"{flagged}><td>{row.number}</td>'
-            f'<td dir="auto" lang="{src}">{_text(row.source)}</td>'
-            f'<td dir="auto" lang="{tgt}">{_text(row.span.text)}</td>'
+            f'<td dir="auto" lang="{src}"{kept}>{_text(row.source)}</td>'
+            f'<td dir="auto" lang="{tgt}"{kept}>{_text(row.span.text)}</td>'
             f"<td>{_score(score.meaning)}</td><td>{_score(score.style)}</td><td>{flags}</td></tr>"
         )
     parts += ["</tbody></table>", "</body>", "</html>"]

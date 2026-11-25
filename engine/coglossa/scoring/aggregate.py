@@ -18,6 +18,7 @@ from coglossa.schema import (
     Span,
     SpanScore,
 )
+from coglossa.scoring.literals import LiteralMismatch
 from coglossa.scoring.numbers import NumberMismatch
 from coglossa.scoring.rules import GuideViolation, judge_penalties
 from coglossa.scoring.tiers import downgrade
@@ -44,6 +45,7 @@ class SpanEvidence:
     length_ratio: float | None = None
     number_mismatch: NumberMismatch | None = None
     untranslated: Untranslated | None = None
+    literal_mismatch: LiteralMismatch | None = None
 
 
 def _clamp01(x: float) -> float:
@@ -190,6 +192,15 @@ def _flags(ev: SpanEvidence, score: SpanScore, tier: Reliability, cfg: ScoringCo
                 code=FlagCode.UNTRANSLATED,
                 explanation=ev.untranslated.explanation(),
                 evidence=ev.untranslated.as_evidence(),
+            )
+        )
+
+    if ev.literal_mismatch is not None:  # a hard trigger: it never changes the scores
+        flags.append(
+            Flag(
+                code=FlagCode.LITERAL_MISMATCH,
+                explanation=ev.literal_mismatch.explanation(),
+                evidence=ev.literal_mismatch.as_evidence(),
             )
         )
 

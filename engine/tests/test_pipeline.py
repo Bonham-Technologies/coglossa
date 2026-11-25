@@ -252,9 +252,10 @@ async def test_failures_before_translation_propagate(tmp_path, doc_path, make_co
 async def test_markdown_with_code_fence_survives_translation(tmp_path, make_config, fake_backend):
     path = tmp_path / "doc.md"
     path.write_text("Voici la commande :\n\n```bash\nls -la\n```\n\nFin.", encoding="utf-8")
+    # the fenced block is left as written (CGL-111); a reply that writes a fence still survives
     fenced = "Run it:\n```bash\nls -la\n```"
     translate = json.dumps(
-        {"spans": [{"start": f"s{i}", "end": f"s{i}", "text": fenced} for i in (1, 2, 3)]}
+        {"spans": [{"start": f"s{i}", "end": f"s{i}", "text": fenced} for i in (1, 3)]}
     )
     reconcile = json.dumps(
         {
@@ -266,7 +267,7 @@ async def test_markdown_with_code_fence_survives_translation(tmp_path, make_conf
                     "agreement": "agree",
                     "chosen_from": "literal",
                 }
-                for i in (1, 2, 3)
+                for i in (1, 3)
             ]
         }
     )
@@ -275,7 +276,7 @@ async def test_markdown_with_code_fence_survives_translation(tmp_path, make_conf
     report = await _run(path, make_config(), fake_backend, source_lang="fr")
     assert isinstance(report, Report)
     assert report.status is RunStatus.COMPLETE
-    assert [s.text for s in report.spans] == [fenced] * 3
+    assert [s.text for s in report.spans] == [fenced, "ls -la", fenced]
 
 
 async def test_bad_prompts_fail_before_any_model_call(doc_path, make_config, fake_backend):

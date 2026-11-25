@@ -19,6 +19,7 @@ from coglossa.schema import (
     GlossaryEntry,
     Guide,
     JudgeError,
+    KeepReason,
     Reliability,
     RevisionSource,
     RunState,
@@ -88,6 +89,7 @@ async def _review_spans(
                 ),
                 flags=[_flag(f) for f in flags.get(span.id, [])],
                 edited=span.id in edited,
+                kept=KeepReason(span.kept) if span.kept is not None else None,
             )
         )
     return spans
