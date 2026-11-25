@@ -58,6 +58,7 @@ it("has a plain title for every engine flag code", () => {
   expect(flagTitle("engine_error")).toBe("Some checking didn't finish");
   expect(flagTitle("number_mismatch")).toBe("A number doesn't match the original");
   expect(flagTitle("untranslated")).toBe("This passage may not have been translated");
+  expect(flagTitle("literal_mismatch")).toBe("A link, email or placeholder was changed");
 });
 
 it("keeps the engine's plain wording for a number that doesn't match", () => {

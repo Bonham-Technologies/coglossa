@@ -7,6 +7,7 @@ import { Loading } from "../components/Loading";
 import { flagExplanation, flagTitle } from "../lib/flags";
 import { AlwaysTranslate } from "./AlwaysTranslate";
 import { byTranslator } from "./byTranslator";
+import { keptLabel } from "./labels";
 import { useRunLanguages } from "./languages";
 import { MoreDetails } from "./MoreDetails";
 
@@ -357,9 +358,14 @@ export function PassagePanel({ runId, projectId, spanId, prefill, onNext, onClos
             );
           })}
         </section>
-      ) : (
+      ) : d.kept ? null : (
         <p className="muted">Nothing to check here.</p>
       )}
+      {d.kept ? (
+        <p className="muted" role="note">
+          {keptLabel(d.kept)}
+        </p>
+      ) : null}
       <Versions runId={runId} detail={d} busy={busy} success={success} onChange={changeThenCheck} />
       <div className="row">
         <EditText

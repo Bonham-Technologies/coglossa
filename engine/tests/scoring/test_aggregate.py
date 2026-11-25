@@ -13,6 +13,7 @@ from coglossa.scoring.aggregate import (
     normalize_sim,
     score_span,
 )
+from coglossa.scoring.literals import literal_check
 from coglossa.scoring.numbers import NumberMismatch
 from coglossa.scoring.rules import GuideViolation
 from coglossa.scoring.untranslated import Untranslated
@@ -209,6 +210,28 @@ def test_number_mismatch_is_raised_without_any_model_signal():
     )
     score, flags = score_span(bare, tier=A, cfg=CFG, diverse=True)
     assert score.meaning is None and [f.code for f in flags] == [FlagCode.NUMBER_MISMATCH]
+
+
+def test_literal_mismatch_is_a_hard_trigger_that_leaves_the_scores_alone():
+    changed = literal_check("See https://example.com/a", "Voir https://example.com/b")
+    clean_score, clean_flags = score_span(_ev(), tier=A, cfg=CFG, diverse=True)
+    score, flags = score_span(_ev(literal_mismatch=changed), tier=A, cfg=CFG, diverse=True)
+    assert score == clean_score and clean_flags == []
+    [flag] = flags
+    assert flag.code is FlagCode.LITERAL_MISMATCH
+    assert flag.explanation == changed.explanation()
+    assert flag.evidence == changed.as_evidence()
+    bare = _ev(
+        qe_raw=None,
+        xsim_cos=None,
+        roundtrip_qe_raw=None,
+        roundtrip_cos=None,
+        judge_errors=None,
+        agreement=None,
+        literal_mismatch=changed,
+    )
+    score, flags = score_span(bare, tier=A, cfg=CFG, diverse=True)
+    assert score.meaning is None and [f.code for f in flags] == [FlagCode.LITERAL_MISMATCH]
 
 
 def test_untranslated_is_a_hard_trigger_that_leaves_the_scores_alone():

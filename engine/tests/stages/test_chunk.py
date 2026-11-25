@@ -3,14 +3,21 @@ import json
 from coglossa.llm.types import ContextOverflowError, OutputTruncatedError
 from coglossa.schema import (
     Agreement,
+    Block,
+    BlockKind,
     Chunk,
     DocumentProfile,
     FlagCode,
     Genre,
     Guide,
+    InlineMark,
+    KeepReason,
+    MarkKind,
     PipelineProfile,
+    Provenance,
     Reliability,
     Span,
+    SpanText,
 )
 from coglossa.stages.chunk import (
     ChunkOutcome,
@@ -18,10 +25,11 @@ from coglossa.stages.chunk import (
     merge_outcomes,
     process_chunk,
     split_chunk_input,
+    translated_part,
 )
 from coglossa.stages.context import StageContext
 from coglossa.stages.score import unscored
-from coglossa.stages.translate import build_chunk_inputs
+from coglossa.stages.translate import build_chunk_inputs, check_coverage
 from tests.conftest import make_segments
 
 PROFILE = DocumentProfile(
@@ -199,3 +207,75 @@ def test_engine_error_outcome():
     assert len(out.errors) == 1
     assert out.errors[0].stage == "sweep" and out.errors[0].message == "boom"
     assert out.errors[0].chunk_id == "c1"
+
+
+# --- CGL-111: text left as written ------------------------------------------------------------
+
+
+def _kept_ci():
+    """Four segments; the second and third are code left as written, the second bold."""
+    segments = [
+        s.model_copy(update={"block_id": f"b{k + 1}"}) for k, s in enumerate(make_segments(*TEXTS))
+    ]
+    blocks = []
+    for s in segments:
+        keep = KeepReason.CODE if s.id in ("s2", "s3") else None
+        marks = [InlineMark(start=0, end=2, kind=MarkKind.BOLD)] if s.id == "s2" else []
+        blocks.append(
+            Block(
+                id=s.block_id,
+                kind=BlockKind.PARAGRAPH,
+                text=s.text,
+                provenance=Provenance(source_path="x", index=0, keep=keep, marks=marks),
+            )
+        )
+    chunk = Chunk(id="c1", segment_ids=[s.id for s in segments])
+    return build_chunk_inputs([chunk], segments, blocks)[0]
+
+
+async def test_kept_segments_are_passages_of_their_own_text(make_runner, fake_backend):
+    out = await process_chunk(
+        _ctx(make_runner), None, PROFILE, GUIDE, _kept_ci(), tier=Reliability.A, diverse=False
+    )
+    assert [(s.id, s.start, s.text, s.kept) for s in out.spans] == [
+        ("c1.1", "s1", "[en] Il pleut.", None),
+        ("c1.2", "s2", "Le chat dort.", KeepReason.CODE),
+        ("c1.3", "s3", "Demain, le soleil.", KeepReason.CODE),
+        ("c1.4", "s4", "[en] Fin.", None),
+    ]
+    assert out.spans[1].formatting is not None and out.spans[2].formatting is None
+    assert len(out.proposed_terms) == 4
+    sent = "\n".join(m.content for r in fake_backend.requests for m in r.messages)
+    assert "Le chat dort." not in sent and "Il pleut." in sent
+
+
+async def test_a_chunk_of_kept_text_alone_calls_no_model(make_runner, fake_backend):
+    ci = _kept_ci()
+    only = split_chunk_input(split_chunk_input(ci)[1])[0]  # s3 alone, still kept
+    out = await process_chunk(
+        _ctx(make_runner), None, PROFILE, GUIDE, only, tier=Reliability.A, diverse=False
+    )
+    assert [(s.text, s.kept) for s in out.spans] == [("Demain, le soleil.", KeepReason.CODE)]
+    assert fake_backend.requests == [] and out.candidates == [] and out.errors == []
+
+
+def test_a_failed_chunk_keeps_its_kept_text():
+    out = engine_error_outcome(_kept_ci(), "boom")
+    assert [(s.id, s.text, s.kept, [f.code for f in s.flags]) for s in out.spans] == [
+        ("c1.1", "", None, [FlagCode.ENGINE_ERROR]),
+        ("c1.2", "Le chat dort.", KeepReason.CODE, []),
+        ("c1.3", "Demain, le soleil.", KeepReason.CODE, []),
+        ("c1.4", "", None, [FlagCode.ENGINE_ERROR]),
+    ]
+
+
+def test_coverage_refuses_a_span_across_kept_text():
+    ci = translated_part(_kept_ci())
+    assert [s.id for s in ci.segments] == ["s1", "s4"] and ci.gaps == {"s4"}
+    joined = [SpanText(start="s1", end="s4", text="x")]
+    assert check_coverage(joined, ["s1", "s4"], ci.gaps) == [
+        "spans[0]: s1..s4 joins text on both sides of a part that is not translated; start a "
+        "new span at s4"
+    ]
+    apart = [SpanText(start="s1", end="s1", text="x"), SpanText(start="s4", end="s4", text="y")]
+    assert check_coverage(apart, ["s1", "s4"], ci.gaps) == []

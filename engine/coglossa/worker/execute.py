@@ -8,7 +8,7 @@ import functools
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -39,7 +39,7 @@ from coglossa.scoring.aggregate import model_diversity
 from coglossa.scoring.client import Scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.segment.chunking import chunk_segments, compute_budget
-from coglossa.segment.markup import chunk_markup
+from coglossa.segment.keep import translatable
 from coglossa.segment.segmenter import segment_document
 from coglossa.service import (
     TASK_FINISH_RUN,
@@ -53,7 +53,7 @@ from coglossa.stages.context import StageContext, StageError
 from coglossa.stages.guide import carry_over, guide_was_built, run_guide
 from coglossa.stages.profile import run_profile
 from coglossa.stages.sweep import SpanChange, run_sweep
-from coglossa.stages.translate import ChunkInput, build_chunk_inputs
+from coglossa.stages.translate import ChunkInput, build_chunk_inputs, with_blocks
 from coglossa.storage import Storage, StorageError
 from coglossa.store import outputs, runs
 from coglossa.store.db import Database
@@ -266,10 +266,11 @@ async def _profile(
 ) -> tuple[dict[str, Any], Saver]:
     async with svc.db.session() as s:
         run = await runs.get_run(s, run_id)
-        _, segments = await runs.load_source(s, run.document_id)
+        blocks, segments = await runs.load_source(s, run.document_id)
+    readable, _ = translatable(segments, [], blocks)  # never text left as written (CGL-111)
     profile = await run_profile(
         svc.context(calls, run.target_lang),
-        segments,
+        readable,
         source_lang=run.source_lang,
         pipeline_profile=PipelineProfile(run.pipeline_profile) if run.pipeline_profile else None,
     )
@@ -289,7 +290,7 @@ async def _guide(
     async with svc.db.session() as s:
         run = await runs.get_run(s, run_id)
         doc = await runs.get_document(s, run.document_id)
-        _, segments = await runs.load_source(s, doc.id)
+        blocks, segments = await runs.load_source(s, doc.id)
         chunks = await runs.load_chunks(s, run_id)
         prior_row = await runs.prior_guide(s, doc.project_id, run.target_lang)
     profile = DocumentProfile.model_validate(run.profile)
@@ -304,8 +305,9 @@ async def _guide(
         return {"errors": [], "checkpoint": False, "reused_version": reused_version}, reuse
     prior = Guide.model_validate(prior_row.content) if prior_row is not None else None
     built_from = prior_row.version if prior_row is not None else None
+    readable, readable_chunks = translatable(segments, chunks, blocks)
     guide, errors = await run_guide(
-        svc.context(calls, run.target_lang), profile, segments, chunks, prior=prior
+        svc.context(calls, run.target_lang), profile, readable, readable_chunks, prior=prior
     )
     checkpoint = guide_was_built(errors) and (
         run.checkpoint
@@ -476,9 +478,10 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
     try:
         ordinal = [c.id for c in chunks].index(chunk_id)
         ci = build_chunk_inputs(chunks, segments)[ordinal]
-        # this chunk's markers only: building every chunk's for each job is quadratic
+        # this chunk's markers and kept text only: building every chunk's for each job is
+        # quadratic
         if blocks:
-            ci = replace(ci, markup=chunk_markup(ci.segments, {b.id: b for b in blocks}))
+            ci = with_blocks(ci, {b.id: b for b in blocks})
         outcome = await process_chunk(
             svc.context(calls, target_lang),
             svc.scorer,

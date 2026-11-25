@@ -2,7 +2,13 @@
 elements become blocks in document order: headings, paragraphs, list items, table cells,
 footnotes and breaks. Inline markup is flattened to its text, and bold, italic, underlined,
 superscript and subscript text and links to web addresses are recorded as the block's marks
-(CGL-108); the head, scripts, styles, comments and note-reference markers are skipped."""
+(CGL-108); the head, scripts, styles, comments and note-reference markers are skipped.
+
+CGL-111: a <pre> block, a block whose text is all code (<code>, <kbd>, <samp>), and a block
+whose text is all marked translate="no" (or class="notranslate", inherited until a
+translate="yes") are left as written: never sent to a model, carried through unchanged. Code or
+no-translate text inside a sentence stays part of the sentence, which would not read whole
+without it, and is recorded as the block's literals, checked to come back unchanged."""
 
 import re
 from pathlib import Path
@@ -11,8 +17,15 @@ from typing import Any
 import lxml.html
 from lxml import etree
 
-from coglossa.ingest.base import file_sha256, is_scene_break, make_blocks, strip_nul
-from coglossa.schema import BlockKind, InlineMark, MarkKind, SourceDocument
+from coglossa.ingest.base import (
+    NO_PROTECTION,
+    Protection,
+    file_sha256,
+    is_scene_break,
+    make_blocks,
+    strip_nul,
+)
+from coglossa.schema import BlockKind, InlineMark, KeepReason, MarkKind, SourceDocument
 from coglossa.segment.markup import MarkKey, link_target, marks_from_keys
 
 Item = tuple[BlockKind, str, str | None]
@@ -42,6 +55,7 @@ _SKIP = frozenset(
         "button",
     }
 )
+_CODE_TAGS = frozenset({"code", "kbd", "samp"})
 _HEADINGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _KIND_OF_TAG = {
     **{h: BlockKind.HEADING for h in _HEADINGS},
@@ -123,23 +137,27 @@ def _normalize(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-Piece = tuple[str, frozenset[MarkKey]]  # text and its formatting
+# A character's formatting, and whether the file marks it as code or not to translate (CGL-111)
+Attr = tuple[frozenset[MarkKey], KeepReason | None]
+_PLAIN: Attr = (frozenset(), None)
+Piece = tuple[str, Attr]  # text and its formatting
 
 
-def _normalize_marked(pieces: list[Piece]) -> tuple[str, list[frozenset[MarkKey]]]:
+def _normalize_marked(pieces: list[Piece]) -> tuple[str, list[Attr]]:
     """`_normalize` of the pieces' text, with the formatting of each character it keeps (none
-    when nothing is formatted). A collapsed run of whitespace takes its first character's."""
+    when nothing is formatted or protected). A collapsed run of whitespace takes its first
+    character's."""
     text = "".join(t for t, _ in pieces)
-    if not any(k for _, k in pieces):
+    if all(a == _PLAIN for _, a in pieces):
         return _normalize(text), []
-    keys = [k for t, k in pieces for _ in range(len(t))]
+    keys = [a for t, a in pieces for _ in range(len(t))]
     out: list[str] = []
-    out_keys: list[frozenset[MarkKey]] = []
+    out_keys: list[Attr] = []
     start = 0
     for line in text.split(_LINE_BREAK):
         chars: list[str] = []
-        line_keys: list[frozenset[MarkKey]] = []
-        space: frozenset[MarkKey] | None = None
+        line_keys: list[Attr] = []
+        space: Attr | None = None
         for i in range(start, start + len(line)):
             if text[i].isspace():  # what \s matches
                 if chars and space is None:
@@ -154,11 +172,39 @@ def _normalize_marked(pieces: list[Piece]) -> tuple[str, list[frozenset[MarkKey]
         if chars:
             if out:
                 out.append("\n")
-                out_keys.append(frozenset())
+                out_keys.append(_PLAIN)
             out += chars
             out_keys += line_keys
         start += len(line) + 1
     return "".join(out), out_keys
+
+
+def _protection(text: str, protects: list[KeepReason | None]) -> Protection:
+    """A block all of whose text is code or marked not to translate is left as written; else
+    the marked pieces inside it are its literals."""
+    if not any(p is not None for p in protects):
+        return NO_PROTECTION
+    solid = [p for c, p in zip(text, protects, strict=True) if not c.isspace()]
+    if all(p is not None for p in solid):
+        return (KeepReason.CODE if KeepReason.CODE in solid else KeepReason.NO_TRANSLATE), []
+    literals: list[str] = []
+    run: list[str] = []
+    for c, p in zip([*text, ""], [*protects, None], strict=True):
+        if p is not None:
+            run.append(c)
+        elif run:
+            literals.append("".join(run).strip())
+            run = []
+    return None, [t for t in literals if t]
+
+
+def _trim_blank_lines(text: str) -> str:
+    lines = text.split("\n")
+    while lines and not lines[0].strip():
+        lines = lines[1:]
+    while lines and not lines[-1].strip():
+        lines = lines[:-1]
+    return "\n".join(lines)
 
 
 def _mark(el: Any, tag: str) -> MarkKey | None:
@@ -174,24 +220,46 @@ class _Collector:
         self.locator = locator
         self.items: list[Item] = []
         self.marks: list[list[InlineMark]] = []  # each item's
+        self.protect: list[Protection] = []  # each item's (CGL-111)
         self._buffer: list[Piece] = []
         self._kinds: list[BlockKind] = [BlockKind.PARAGRAPH]
         self._keys: frozenset[MarkKey] = frozenset()  # the formatting of the text being read
+        self._code = 0  # inside this many code elements
+        self._no_translate = False  # inside translate="no"
 
     def _text(self, text: str) -> None:
-        self._buffer.append((text, self._keys))
+        protect = (
+            KeepReason.CODE
+            if self._code
+            else KeepReason.NO_TRANSLATE
+            if self._no_translate
+            else None
+        )
+        self._buffer.append((text, (self._keys, protect)))
 
     def flush(self) -> None:
-        text, keys = _normalize_marked(self._buffer)
+        text, attrs = _normalize_marked(self._buffer)
         self._buffer.clear()
         if not text:
             return
+        protection = _protection(text, [p for _, p in attrs]) if attrs else NO_PROTECTION
+        keys = [k for k, _ in attrs]
         kind = self._kinds[-1]
-        if kind is BlockKind.PARAGRAPH and is_scene_break(text):
+        if kind is BlockKind.PARAGRAPH and protection[0] is None and is_scene_break(text):
             kind = BlockKind.BREAK
         self.items.append((kind, text, self.locator))
-        plain = not keys or kind is BlockKind.BREAK
+        plain = not any(keys) or kind is BlockKind.BREAK
         self.marks.append([] if plain else marks_from_keys(text, keys))
+        self.protect.append(NO_PROTECTION if kind is BlockKind.BREAK else protection)
+
+    def _keep_pre(self, el: Any) -> None:
+        """A <pre> block, left as written with its spacing and line breaks (CGL-111)."""
+        text = _trim_blank_lines(_clean(el.text_content()).replace("\r\n", "\n"))
+        if text.strip():
+            kind = self._kinds[-1]
+            self.items.append((kind, text, self.locator))
+            self.marks.append([])
+            self.protect.append((KeepReason.CODE, []))
 
     def walk(self, el: Any) -> None:
         tag = _tag(el)
@@ -204,6 +272,7 @@ class _Collector:
             self.flush()
             self.items.append((BlockKind.BREAK, "* * *", self.locator))
             self.marks.append([])
+            self.protect.append(NO_PROTECTION)
             return
         footnote = _is_footnote(el)
         block = footnote or tag in _BLOCK_TAGS
@@ -215,11 +284,20 @@ class _Collector:
             else:
                 kind = BlockKind.FOOTNOTE if footnote else _KIND_OF_TAG.get(tag, outer)
             self._kinds.append(kind)
-        outer_keys = self._keys
+        outer_keys, outer_code, outer_no = self._keys, self._code, self._no_translate
         mark = _mark(el, tag)
         if mark is not None:
             self._keys = outer_keys | {mark}
-        if tag == "pre":
+        translate = el.get("translate")
+        if translate is not None:  # inherited; "yes" or "" turns translation back on
+            self._no_translate = translate.strip().lower() == "no"
+        elif "notranslate" in (el.get("class") or "").split():
+            self._no_translate = True
+        if tag in _CODE_TAGS:
+            self._code += 1
+        if tag == "pre" and (translate or "").strip().lower() != "yes":
+            self._keep_pre(el)
+        elif tag == "pre":
             self._text(_clean(el.text_content()).replace("\n", _LINE_BREAK))
         else:
             if el.text:
@@ -228,7 +306,7 @@ class _Collector:
                 self.walk(child)
                 if child.tail:
                     self._text(_clean(child.tail))
-        self._keys = outer_keys
+        self._keys, self._code, self._no_translate = outer_keys, outer_code, outer_no
         if block:
             self.flush()
             self._kinds.pop()
@@ -250,12 +328,14 @@ def parse_html(data: bytes) -> Any | None:
         return None
 
 
-def collect_marked(root: Any, locator: str | None) -> tuple[list[Item], list[list[InlineMark]]]:
-    """The blocks under `root`, and each one's marks."""
+def collect_marked(
+    root: Any, locator: str | None
+) -> tuple[list[Item], list[list[InlineMark]], list[Protection]]:
+    """The blocks under `root`, and each one's marks and protection."""
     collector = _Collector(locator)
     collector.walk(root)
     collector.flush()
-    return collector.items, collector.marks
+    return collector.items, collector.marks, collector.protect
 
 
 def collect_blocks(root: Any, locator: str | None) -> list[Item]:
@@ -268,10 +348,10 @@ class HtmlIngestor:
 
     def ingest(self, path: Path) -> SourceDocument:
         root = parse_html(path.read_bytes())
-        items, marks = collect_marked(root, None) if root is not None else ([], [])
+        items, marks, protect = collect_marked(root, None) if root is not None else ([], [], [])
         return SourceDocument(
             source_path=str(path),
             format=self.format,
             sha256=file_sha256(path),
-            blocks=make_blocks(str(path), items, marks),
+            blocks=make_blocks(str(path), items, marks, protect),
         )

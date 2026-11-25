@@ -54,6 +54,7 @@ function PassageRow({ span, languages, selected, onOpen, onFocus, onPointerDown 
         <span dir="auto" lang={languages.target}>
           {span.text}
         </span>
+        {span.kept ? <span className="tag">left as written</span> : null}
         {span.edited ? <span className="tag">edited</span> : null}
       </td>
     </tr>

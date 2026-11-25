@@ -81,6 +81,23 @@ it("shows the original beside the translation, marked and labelled", async () =>
   expect(screen.getByText("3 of 3 passages shown")).toBeInTheDocument();
 });
 
+it("marks a passage left as written in plain words", async () => {
+  const code = { ...plain(1), source: "npm install", text: "npm install", kept: "code" as const };
+  serveSpans([code, plain(2)]);
+  renderAt(<DocumentView detail={complete} />);
+  await screen.findByRole("table", { name: "Document" });
+  const [first, second] = rows();
+  expect(first).toHaveTextContent("left as written");
+  expect(first).not.toHaveTextContent("code");
+  expect(second).not.toHaveTextContent("left as written");
+  fireEvent.click(first!);
+  const panel = await screen.findByRole("complementary", { name: "Passage 1" });
+  expect(
+    await within(panel).findByText("This is code, so it was left as written and not translated."),
+  ).toBeInTheDocument();
+  expect(within(panel).queryByText("Nothing to check here.")).not.toBeInTheDocument();
+});
+
 it("leaves the source unmarked when the run has no source language", async () => {
   serveSpans(reviewSpans);
   renderAt(

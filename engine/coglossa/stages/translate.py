@@ -1,8 +1,8 @@
 """Translate stage (spec §4.1, §4.3, §4.4): every translator renders every chunk, keyed by spans."""
 
 import asyncio
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from coglossa.config import TranslatorConfig
@@ -18,6 +18,7 @@ from coglossa.schema import (
     Segment,
     TranslationOutput,
 )
+from coglossa.segment.keep import ChunkKeep, chunk_keep
 from coglossa.segment.markup import ChunkMarkup, chunk_markup
 from coglossa.stages.context import StageContext
 from coglossa.stages.guide import guide_slice
@@ -34,8 +35,12 @@ class _TextSpanLike(_SpanLike, Protocol):
     text: str
 
 
-def check_coverage(spans: Sequence[_SpanLike], segment_ids: list[str]) -> list[str]:
-    """Spans must cover segment_ids exactly once, in order, each a contiguous range."""
+def check_coverage(
+    spans: Sequence[_SpanLike], segment_ids: list[str], gaps: frozenset[str] = frozenset()
+) -> list[str]:
+    """Spans must cover segment_ids exactly once, in order, each a contiguous range. A segment
+    in `gaps` follows text left as written that the model does not see (CGL-111): no span may
+    run into it from the segment before."""
     pos = {sid: i for i, sid in enumerate(segment_ids)}
     expected = 0
     for k, span in enumerate(spans):
@@ -49,6 +54,12 @@ def check_coverage(spans: Sequence[_SpanLike], segment_ids: list[str]) -> list[s
         if a != expected:
             return [
                 f"spans[{k}]: expected a span starting at {segment_ids[expected]}, got {span.start}"
+            ]
+        joined = next((i for i in segment_ids[a + 1 : b + 1] if i in gaps), None)
+        if joined is not None:
+            return [
+                f"spans[{k}]: {span.start}..{span.end} joins text on both sides of a part that "
+                f"is not translated; start a new span at {joined}"
             ]
         expected = b + 1
     if expected < len(segment_ids):
@@ -96,27 +107,36 @@ class ChunkInput:
     context_before: str
     context_after: str
     markup: ChunkMarkup = field(default_factory=ChunkMarkup)  # inline formatting (CGL-108)
+    keep: ChunkKeep = field(default_factory=ChunkKeep)  # text left as written (CGL-111)
+    # segments right after kept text the models do not see; no span may join across it
+    gaps: frozenset[str] = frozenset()
+
+
+def with_blocks(ci: ChunkInput, blocks: Mapping[str, Block]) -> ChunkInput:
+    """`ci` with its segments' inline formatting and the text they keep as written."""
+    return replace(
+        ci, markup=chunk_markup(ci.segments, blocks), keep=chunk_keep(ci.segments, blocks)
+    )
 
 
 def build_chunk_inputs(
     chunks: list[Chunk], segments: list[Segment], blocks: Sequence[Block] = ()
 ) -> list[ChunkInput]:
-    """`blocks` give the segments their inline formatting; without them prompts are plain."""
+    """`blocks` give the segments their inline formatting and the text they keep as written;
+    without them prompts are plain and every segment is translated."""
     by_id = {s.id: s for s in segments}
     by_block = {b.id: b for b in blocks}
     texts = ["\n".join(by_id[i].text for i in c.segment_ids) for c in chunks]
     inputs = []
     for k, chunk in enumerate(chunks):
         own = [by_id[i] for i in chunk.segment_ids]
-        inputs.append(
-            ChunkInput(
-                chunk=chunk,
-                segments=own,
-                context_before=texts[k - 1][-CONTEXT_CHARS:] if k > 0 else "",
-                context_after=texts[k + 1][:CONTEXT_CHARS] if k + 1 < len(texts) else "",
-                markup=chunk_markup(own, by_block) if by_block else ChunkMarkup(),
-            )
+        ci = ChunkInput(
+            chunk=chunk,
+            segments=own,
+            context_before=texts[k - 1][-CONTEXT_CHARS:] if k > 0 else "",
+            context_after=texts[k + 1][:CONTEXT_CHARS] if k + 1 < len(texts) else "",
         )
+        inputs.append(with_blocks(ci, by_block) if by_block else ci)
     return inputs
 
 
@@ -162,7 +182,7 @@ async def translate_with(
         normalize=lambda o: o.model_copy(
             update={"spans": drop_repeated_spans(o.spans, segment_ids)}
         ),
-        validate=lambda o: check_coverage(o.spans, segment_ids) + check_cut_off(o.spans),
+        validate=lambda o: check_coverage(o.spans, segment_ids, ci.gaps) + check_cut_off(o.spans),
     )
     served = ctx.cfg.models[t.model].name or t.model
     return [

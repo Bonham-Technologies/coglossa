@@ -95,7 +95,7 @@ async def run_sweep(
     todo: list[tuple[int, list[GuideViolation]]] = []
     holding: list[int] = []
     for i, span in enumerate(spans):
-        if not span.text.strip():
+        if not span.text.strip() or span.kept is not None:  # text left as written (CGL-111)
             continue
         if violations := _locked_violations(sources[i], span.text, guide):
             todo.append((i, violations))

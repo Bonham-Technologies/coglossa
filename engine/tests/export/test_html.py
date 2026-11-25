@@ -2,6 +2,7 @@ import re
 
 from coglossa.export.html import render_html
 from coglossa.schema import Flag, FlagCode
+from coglossa.scoring.literals import literal_check
 from coglossa.scoring.untranslated import untranslated_check
 from tests.export.conftest import make_report, make_span
 
@@ -65,5 +66,27 @@ def test_html_lists_a_passage_left_untranslated():
     assert (
         "<b>untranslated</b>: This passage may not have been translated: the translation is the "
         "same as the original." in page
+    )
+    assert '<tr id="p2" class="flagged">' in page
+
+
+def test_html_lists_a_placeholder_that_was_dropped():
+    found = literal_check("Bonjour {name} !", "Hello!")
+    flag = Flag(
+        code=FlagCode.LITERAL_MISMATCH,
+        explanation=found.explanation(),
+        evidence=found.as_evidence(),
+    )
+    report = make_report(
+        spans=[
+            make_span("p1", "s1", "s1", "Chapter One"),
+            make_span("p2", "s2", "s3", "Hello!", flags=[flag]),
+            make_span("p3", "s4", "s4", "The end."),
+        ]
+    )
+    page = render_html(report)
+    assert (
+        "<b>literal_mismatch</b>: A placeholder is missing: the original has {name}; the "
+        "translation doesn&#x27;t." in page
     )
     assert '<tr id="p2" class="flagged">' in page

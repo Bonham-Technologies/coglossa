@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import update
 
 from coglossa import review, service
-from coglossa.schema import FlagCode, FlagStatus, Reliability, RevisionSource
-from coglossa.store.models import CandidateRow, FlagRow, RevisionRow
+from coglossa.schema import FlagCode, FlagStatus, KeepReason, Reliability, RevisionSource
+from coglossa.store.models import CandidateRow, FlagRow, RevisionRow, SpanRow
 from coglossa.store.review import SpanFilter, segment_range
 from coglossa.store.runs import NotFoundError
 from coglossa.testing.seed import seed_run
@@ -103,6 +103,22 @@ async def test_latest_revision_and_edited(db):
     page = await review.span_page(db, seeded.run_id)
     assert (page.spans[0].text, page.spans[0].edited) == ("Chapter 1", True)
     assert page.spans[1].edited is False
+
+
+async def test_a_passage_left_as_written_says_so(db):
+    """CGL-111: the review screen is told which passages were left as written; seeded spans, like
+    those of runs from before, were all translated."""
+    seeded = await seed_run(db)
+    page = await review.span_page(db, seeded.run_id)
+    assert [s.kept for s in page.spans] == [None, None, None]
+    async with db.session() as s, s.begin():
+        await s.execute(
+            update(SpanRow).where(SpanRow.id == seeded.span_ids[2]).values(kept="no_translate")
+        )
+    page = await review.span_page(db, seeded.run_id)
+    assert [s.kept for s in page.spans] == [None, None, KeepReason.NO_TRANSLATE]
+    detail = await review.span_detail(db, seeded.run_id, seeded.span_ids[2])
+    assert detail.kept is KeepReason.NO_TRANSLATE
 
 
 async def test_span_detail(db):

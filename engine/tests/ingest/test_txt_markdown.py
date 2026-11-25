@@ -3,7 +3,7 @@ import pytest
 from coglossa.ingest.base import IngestError, is_scene_break, split_paragraphs
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.txt import TextIngestor
-from coglossa.schema import BlockKind
+from coglossa.schema import BlockKind, KeepReason
 
 
 @pytest.mark.parametrize("line", ["***", "* * *", "---", "___", "#", "~~~", "§", "  * * *  "])
@@ -64,3 +64,52 @@ def test_markdown_ingest(tmp_path):
         (BlockKind.BREAK, "* * *"),
     ]
     assert doc.format == "md"
+
+
+# --- CGL-111: code is left as written -------------------------------------------------------
+
+
+def _md(tmp_path, text):
+    path = tmp_path / "doc.md"
+    path.write_text(text, encoding="utf-8")
+    return MarkdownIngestor().ingest(path)
+
+
+def test_a_fenced_code_block_is_one_block_left_as_written(tmp_path):
+    code = "def f(x):\n\n    return x  # see https://example.com\n"
+    doc = _md(
+        tmp_path,
+        f"Run this:\n\n```python\n{code}```\n\n~~~js\nlet a = 1;\n~~~\n\nThen stop.\n",
+    )
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [
+        ("Run this:", None),
+        ("def f(x):\n\n    return x  # see https://example.com", KeepReason.CODE),
+        ("let a = 1;", KeepReason.CODE),
+        ("Then stop.", None),
+    ]
+    assert doc.blocks[1].kind is BlockKind.PARAGRAPH
+
+
+def test_an_indented_fence_loses_only_its_own_indent(tmp_path):
+    doc = _md(tmp_path, "  ```\n  a\n    b\nc\n  ```\n")
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [("a\n  b\nc", KeepReason.CODE)]
+
+
+def test_a_bare_tilde_line_is_still_a_scene_break_and_an_unclosed_fence_is_text(tmp_path):
+    doc = _md(tmp_path, "One.\n\n~~~\n\nTwo.\n\n~~~\n\n```\nThree.\n")
+    assert [(b.kind, b.text, b.provenance.keep) for b in doc.blocks] == [
+        (BlockKind.PARAGRAPH, "One.", None),
+        (BlockKind.BREAK, "~~~", None),
+        (BlockKind.PARAGRAPH, "Two.", None),
+        (BlockKind.BREAK, "~~~", None),
+        (BlockKind.PARAGRAPH, "```\nThree.", None),
+    ]
+
+
+def test_code_spans_stay_in_the_sentence_and_are_recorded(tmp_path):
+    doc = _md(tmp_path, "Run `make test` and ``a`b`` now.\n\n`npm install`\n\n- use `x`\n")
+    assert [(b.text, b.provenance.keep, b.provenance.literals) for b in doc.blocks] == [
+        ("Run `make test` and ``a`b`` now.", None, ["make test", "a`b"]),
+        ("`npm install`", KeepReason.CODE, []),
+        ("use `x`", None, ["x"]),
+    ]

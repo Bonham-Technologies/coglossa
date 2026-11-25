@@ -36,6 +36,7 @@ export type Flag = S["Flag"];
 export type FlagCode = S["FlagCode"];
 export type FlagStatus = S["FlagStatus"];
 export type Reliability = S["Reliability"];
+export type KeepReason = S["KeepReason"];
 export type ExportKind = S["ExportKind"];
 export type DoctorReport = S["DoctorReport"];
 export type DoctorCheck = S["DoctorCheck"];

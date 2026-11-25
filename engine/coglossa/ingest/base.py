@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Protocol
 
-from coglossa.schema import Block, BlockKind, InlineMark, Provenance, SourceDocument
+from coglossa.schema import Block, BlockKind, InlineMark, KeepReason, Provenance, SourceDocument
 
 # How a document notice about content left out begins (CGL-87). The run and its report show it
 # as a document notice (FlagCode.UNREAD_CONTENT), not an error: the translation itself is fine.
@@ -65,11 +65,18 @@ def split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in _BLANK_LINES_RE.split(normalized) if p.strip()]
 
 
+# Text a file marks to leave as written (CGL-111): the whole block, or pieces inside it
+Protection = tuple[KeepReason | None, list[str]]
+NO_PROTECTION: Protection = (None, [])
+
+
 def make_blocks(
     source_path: str,
     items: list[tuple[BlockKind, str, str | None]],
     marks: list[list[InlineMark]] | None = None,  # each item's inline formatting (CGL-108)
+    protect: list[Protection] | None = None,  # each item's keep and literals (CGL-111)
 ) -> list[Block]:
+    protect = protect or [NO_PROTECTION] * len(items)
     return [
         Block(
             id=f"b{i + 1}",
@@ -80,6 +87,8 @@ def make_blocks(
                 index=i,
                 locator=locator,
                 marks=marks[i] if marks is not None else [],
+                keep=protect[i][0],
+                literals=protect[i][1],
             ),
         )
         for i, (kind, text, locator) in enumerate(items)

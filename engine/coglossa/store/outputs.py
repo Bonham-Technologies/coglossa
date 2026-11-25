@@ -17,6 +17,7 @@ from coglossa.schema import (
     FlagStatus,
     GlossaryEntry,
     JudgeError,
+    KeepReason,
     Reliability,
     Revision,
     RevisionSource,
@@ -70,6 +71,7 @@ async def save_chunk_outcome(
             formatting=(
                 span.formatting.model_dump(mode="json") if span.formatting is not None else None
             ),
+            kept=span.kept.value if span.kept is not None else None,
         )
         rows.append(row)
         s.add(row)
@@ -210,6 +212,7 @@ async def load_spans(s: AsyncSession, run_id: uuid.UUID) -> StoredSpans:
                     if row.formatting is not None
                     else None
                 ),
+                kept=KeepReason(row.kept) if row.kept is not None else None,
             )
         )
         proposed.extend(GlossaryEntry.model_validate(t) for t in row.proposed_terms)
