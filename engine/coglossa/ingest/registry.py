@@ -10,7 +10,9 @@ from coglossa.ingest.epub import EpubIngestor
 from coglossa.ingest.html import HtmlIngestor
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.pdf import PdfIngestor
+from coglossa.ingest.pptx import PptxIngestor
 from coglossa.ingest.txt import TextIngestor
+from coglossa.ingest.xlsx import XlsxIngestor
 from coglossa.schema import Block, BlockKind, SourceDocument
 from coglossa.segment.markup import char_keys, marks_from_keys
 from coglossa.text import clean_text
@@ -24,6 +26,8 @@ def available_ingestors() -> list[Ingestor]:
         HtmlIngestor(),
         EpubIngestor(),
         PdfIngestor(),
+        PptxIngestor(),
+        XlsxIngestor(),
     ]
     ingestors += [ep.load()() for ep in entry_points(group="coglossa.ingestors")]
     return ingestors

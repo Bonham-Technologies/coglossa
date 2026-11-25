@@ -15,11 +15,20 @@ import { teamKey } from "../lib/teams";
 import { runsIn } from "./languages";
 import type { Picked } from "./SetPage";
 
+/** CGL-110: a PowerPoint or Excel file also downloads in its own format, translated in place. */
+function ownFormat(filename: string): { kind: "pptx" | "xlsx"; label: string } | null {
+  const name = filename.toLowerCase();
+  if (name.endsWith(".pptx")) return { kind: "pptx", label: "PowerPoint file" };
+  if (name.endsWith(".xlsx")) return { kind: "xlsx", label: "Excel file" };
+  return null;
+}
+
 /** Spec §5.1: shown once the file has a finished translation. */
 export function DownloadMenu({ runId }: { runId: string }) {
   const run = useRun(runId);
   const formatsId = useId();
   if (!run.data?.report_available || run.data.run.state === "sweeping") return null;
+  const own = ownFormat(run.data.run.filename);
   return (
     <Menu
       label="Download"
@@ -32,6 +41,11 @@ export function DownloadMenu({ runId }: { runId: string }) {
     >
       {(close) => (
         <>
+          {own ? (
+            <a role="menuitem" href={exportUrl(runId, own.kind)} download onClick={close}>
+              {own.label}
+            </a>
+          ) : null}
           <a role="menuitem" href={exportUrl(runId, "docx")} download onClick={close}>
             Word document
           </a>
