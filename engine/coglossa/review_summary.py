@@ -20,8 +20,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import PurePath
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from coglossa.schema import FlagStatus, RevisionSource
 from coglossa.schema.review_summary import (
@@ -142,11 +143,22 @@ async def _passages(s: AsyncSession, run_ids: Sequence[uuid.UUID]) -> list[_Pass
         by_span[flag.span_id].flags.append(
             _Flag(flag.code, flag.status, flag.dismiss_reason, flag.created_at)
         )
+    # The texts only of passages a person edited: an unedited passage has no distance, so a
+    # large set never holds every engine text in memory.
+    user_revision = aliased(RevisionRow)
+    edited = (
+        exists()
+        .where(
+            user_revision.span_id == RevisionRow.span_id,
+            user_revision.source == RevisionSource.USER.value,
+        )
+        .correlate(RevisionRow)
+    )
     current: dict[uuid.UUID, str] = {}
     for revision in await s.execute(
         select(RevisionRow.span_id, RevisionRow.source, RevisionRow.after, RevisionRow.created_at)
         .join(SpanRow, SpanRow.id == RevisionRow.span_id)
-        .where(in_runs)
+        .where(in_runs, edited)
         .order_by(RevisionRow.id)
     ):
         passage = by_span[revision.span_id]

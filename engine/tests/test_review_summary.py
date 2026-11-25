@@ -127,6 +127,20 @@ async def test_the_engine_text_is_the_last_before_a_person_edited(db):
     assert (summary.edited, summary.edit_distance_total) == (1, 1)
 
 
+async def test_only_edited_passages_load_their_texts(db):
+    """An unedited passage has no distance, so its revisions' texts are never read: a large set
+    does not hold every engine text in memory."""
+    seeded = await seed_run(db)
+    await review.edit_span(db, seeded.run_id, seeded.span_ids[0], "Chapter 1")
+    async with db.session() as s:
+        passages = await review_summary._passages(s, [seeded.run_id])
+    assert [(p.edited, p.engine_text) for p in passages] == [
+        (True, "Chapter One"),
+        (False, ""),
+        (False, ""),
+    ]
+
+
 async def test_an_edited_passage_reopened_since_is_measured_by_its_current_text(db):
     seeded = await seed_run(db)
     p2 = seeded.span_ids[1]
