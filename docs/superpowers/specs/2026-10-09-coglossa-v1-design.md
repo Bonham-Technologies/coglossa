@@ -160,7 +160,7 @@ ingest → segment → profile → guide ─(checkpoint?)→ [translate → reco
 
 | Stage | Input → Output | Behavior |
 |---|---|---|
-| ingest | file → `SourceDocument` | Produces structured `Block`s (heading, paragraph, footnote, table cell, list item) with provenance (file offsets, page, or EPUB spine item). v1 ingestors: TXT, MD, HTML, DOCX, EPUB, and PDFs that contain text. If a PDF page has no text layer, ingest reports `needs_ocr` and stops; it does not attempt OCR. |
+| ingest | file → `SourceDocument` | Produces structured `Block`s (heading, paragraph, footnote, table cell, list item) with provenance (file offsets, page, or EPUB spine item). v1 ingestors: TXT, MD, HTML, DOCX, EPUB, and PDFs that contain text. Markdown fenced code, HTML `<pre>` and code-only blocks and HTML marked `translate="no"` are kept blocks (`Provenance.keep`, CGL-111): one segment each, never sent to any model (profile, guide, translators, reviewer, judge, sweep), and their passage is their own text, marked as left as written. If a PDF page has no text layer, ingest reports `needs_ocr` and stops; it does not attempt OCR. |
 | segment | blocks → `Segment[]`, `Chunk[]` | Sentence segmentation is language-aware: ICU/`pysbd`-style rules plus a fallback for scripts without sentence punctuation. Chunks are about 1–2k words, split at section or scene breaks, and sized to fit the **smallest context window in the agent roster** after reserving room for the prompt, guide and output. |
 | profile | document → `DocumentProfile` | Records the source language (with a per-block override for mixed-language text), genre, register, length class and chosen pipeline profile. The user can override any of these. |
 | guide | document (+ previous project guide) → `Guide` | Contents: summary, glossary (`term`, `rendering`, `notes`, `locked`), entities (name, gender, forms of address, speech style), style guide, cultural references. Terms and names may also list `forms` (other accepted forms of the rendering, such as plural or case forms) and `source_forms` (other forms of the source words); people list them, the model never does, and the guide check passes when any listed form is present (CGL-109). For `long-form`, the guide is built map-reduce: notes per chunk, then a merge. The merge never drops locked entries from an earlier guide. |
@@ -257,6 +257,7 @@ Flag codes:
 - `possible_omission`
 - `number_mismatch` (CGL-86)
 - `untranslated` (CGL-107)
+- `literal_mismatch` (CGL-111): a web address, email address, placeholder, or code inside a sentence is not in the translation exactly as written
 - `formatting_lost` (CGL-108): the source's bold, italic, underline, superscript, subscript or link markers did not come back whole, so the passage is plain in the clean Word download
 - `cultural_or_wordplay`
 - `engine_error`
@@ -274,6 +275,7 @@ Flag codes:
   - a target/source length ratio outside the band for that language pair, combined with a judge omission (`possible_omission`).
   - numbers written in digits that differ between source and target (`number_mismatch`, CGL-86): an exact multiset check that reads every digit script and separator style and never changes the scores (`coglossa/scoring/numbers.py`).
   - a translation that is the source copied through, or is mostly in a script the target language is not written in (`untranslated`, CGL-107): two text rules with no language model, which leave out names, numbers, addresses and code and never change the scores (`coglossa/scoring/untranslated.py`).
+  - web addresses, email addresses, placeholders (`{name}`, `{{var}}`, `%s`, …) and code inside a sentence that are not in the translation exactly as written (`literal_mismatch`, CGL-111): an exact multiset check that never changes the scores (`coglossa/scoring/literals.py`).
 - The UI and the report always include the raw signals.
 
 ### 6.4 Language reliability tiers

@@ -16,8 +16,16 @@ def test_dispatches_by_extension_case_insensitively(tmp_path):
 def test_unsupported_extension(tmp_path):
     path = tmp_path / "scan.odt"
     path.write_bytes(b"x")
-    with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'"):
+    with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'") as e:
         registry.ingest_file(path)
+    assert ".pptx" in str(e.value) and ".xlsx" in str(e.value)  # CGL-110
+
+
+def test_powerpoint_and_excel_files_are_accepted():
+    registry.check_extension("Slides.PPTX")
+    registry.check_extension("Budget.xlsx")
+    with pytest.raises(UnsupportedFormatError):
+        registry.check_extension("old.ppt")
 
 
 def test_missing_file(tmp_path):
@@ -131,3 +139,37 @@ def test_cleaning_a_blocks_text_keeps_its_marks_on_their_words(tmp_path, monkeyp
     block = registry.ingest_file(path).blocks[0]
     assert block.text == "Bonjour chat."
     assert [block.text[m.start : m.end] for m in block.provenance.marks] == ["chat"]
+
+
+@pytest.mark.parametrize("marked", [False, True])
+def test_cleaning_a_blocks_text_cleans_its_literals_too(tmp_path, monkeypatch, marked):
+    """CGL-111: protected text inside a block stays a piece of its cleaned text."""
+    from coglossa.ingest.base import make_blocks
+    from coglossa.schema import BlockKind, InlineMark, MarkKind
+
+    class OdtIngestor:
+        format = "odt"
+        extensions = (".odt",)
+
+        def ingest(self, path):
+            text = "Run make\x00 test."
+            marks = [[InlineMark(start=0, end=3, kind=MarkKind.BOLD)]] if marked else None
+            blocks = make_blocks(
+                str(path),
+                [(BlockKind.PARAGRAPH, text, None)],
+                marks,
+                [(None, ["make\x00 test"])],
+            )
+            return SourceDocument(source_path=str(path), format="odt", sha256="0", blocks=blocks)
+
+    class EP:
+        name = "odt"
+
+        def load(self):
+            return OdtIngestor
+
+    monkeypatch.setattr(registry, "entry_points", lambda group: [EP()])
+    path = tmp_path / "x.odt"
+    path.write_bytes(b"")
+    block = registry.ingest_file(path).blocks[0]
+    assert block.text == "Run make test." and block.provenance.literals == ["make test"]

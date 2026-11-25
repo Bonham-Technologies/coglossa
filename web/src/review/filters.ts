@@ -7,6 +7,7 @@ export const FLAG_CODES: FlagCode[] = [
   "terminology_violation",
   "number_mismatch",
   "untranslated",
+  "literal_mismatch",
   "possible_omission",
   "cultural_or_wordplay",
   "engine_error",

@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from coglossa.schema.document import InlineMark
+from coglossa.schema.document import InlineMark, KeepReason
 from coglossa.schema.guide import GlossaryEntry
 
 
@@ -71,6 +71,7 @@ class FlagCode(StrEnum):
     UNTRANSLATED = "untranslated"  # copied through or in the wrong script (CGL-107)
     UNREAD_CONTENT = "unread_content"  # a document notice: parts of the file left out (CGL-87)
     FORMATTING_LOST = "formatting_lost"  # inline formatting did not come back (CGL-108)
+    LITERAL_MISMATCH = "literal_mismatch"  # an address or placeholder changed (CGL-111)
 
 
 class FlagStatus(StrEnum):
@@ -172,6 +173,7 @@ class Span(BaseModel):
     judge_errors: list[JudgeError] | None = None  # None: not judged; []: judged, no errors
     back_translation: str | None = None  # None: not back-translated
     formatting: SpanFormatting | None = None  # None: no inline formatting kept
+    kept: KeepReason | None = None  # left as written, never translated (CGL-111)
 
 
 def kept_formatting(span: Span) -> SpanFormatting | None:

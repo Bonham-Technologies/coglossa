@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
+from coglossa.schema.document import KeepReason
 from coglossa.schema.guide import Guide
 from coglossa.schema.profile import DocumentProfile, PipelineProfile
 from coglossa.schema.run import RunProgress, RunState
@@ -195,6 +196,7 @@ class ReviewSpan(BaseModel):
     score: SpanScore  # describes the reviewed draft, not later edits
     flags: list[ReviewFlag]
     edited: bool  # a person changed the text
+    kept: KeepReason | None = None  # left as written, never translated (CGL-111)
 
 
 class SpanPage(BaseModel):

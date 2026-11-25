@@ -10,7 +10,9 @@ from coglossa.ingest.epub import EpubIngestor
 from coglossa.ingest.html import HtmlIngestor
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.pdf import PdfIngestor
+from coglossa.ingest.pptx import PptxIngestor
 from coglossa.ingest.txt import TextIngestor
+from coglossa.ingest.xlsx import XlsxIngestor
 from coglossa.schema import Block, BlockKind, SourceDocument
 from coglossa.segment.markup import char_keys, marks_from_keys
 from coglossa.text import clean_text
@@ -24,6 +26,8 @@ def available_ingestors() -> list[Ingestor]:
         HtmlIngestor(),
         EpubIngestor(),
         PdfIngestor(),
+        PptxIngestor(),
+        XlsxIngestor(),
     ]
     ingestors += [ep.load()() for ep in entry_points(group="coglossa.ingestors")]
     return ingestors
@@ -49,13 +53,15 @@ def check_supported(path: Path) -> None:
 
 def _cleaned(block: Block) -> Block:
     """The block with clean text; its marks follow the characters they cover."""
+    literals = [clean_text(t) for t in block.provenance.literals]
     if not block.provenance.marks:
-        return block.model_copy(update={"text": clean_text(block.text)})
+        provenance = block.provenance.model_copy(update={"literals": literals})
+        return block.model_copy(update={"text": clean_text(block.text), "provenance": provenance})
     keys = char_keys(len(block.text), block.provenance.marks)
     kept = [(clean_text(c), k) for c, k in zip(block.text, keys, strict=True)]
     text = "".join(c for c, _ in kept)
     marks = marks_from_keys(text, [k for c, k in kept if c])
-    provenance = block.provenance.model_copy(update={"marks": marks})
+    provenance = block.provenance.model_copy(update={"marks": marks, "literals": literals})
     return block.model_copy(update={"text": text, "provenance": provenance})
 
 
@@ -71,7 +77,13 @@ def ingest_file(path: Path) -> SourceDocument:
             if any(clean_text(b.text) != b.text for b in doc.blocks):  # NUL, form feeds, ...
                 blocks = [_cleaned(b) for b in doc.blocks]
                 doc = doc.model_copy(update={"blocks": blocks})
-            if not any(b.kind is not BlockKind.BREAK and b.text.strip() for b in doc.blocks):
+            texts = [b for b in doc.blocks if b.kind is not BlockKind.BREAK and b.text.strip()]
+            if not texts:
                 raise IngestError(f"{path.name} contains no translatable text")
+            if all(b.provenance.keep is not None for b in texts):
+                raise IngestError(
+                    f"{path.name} contains no translatable text: all of it is code or marked "
+                    "not to translate"
+                )
             return doc
     raise AssertionError("unreachable")  # pragma: no cover - check_supported guarantees a match

@@ -10,7 +10,7 @@ from urllib.parse import unquote
 
 from lxml import etree
 
-from coglossa.ingest.base import IngestError, error_reason, file_sha256, make_blocks
+from coglossa.ingest.base import IngestError, Protection, error_reason, file_sha256, make_blocks
 from coglossa.ingest.html import Item, collect_marked, parse_html
 from coglossa.schema import InlineMark, SourceDocument
 
@@ -79,12 +79,14 @@ class EpubIngestor:
                     )
                 items: list[Item] = []
                 marks: list[list[InlineMark]] = []
+                protect: list[Protection] = []
                 for href in chapters:
                     root = parse_html(z.read(href))
                     if root is not None:
-                        chapter_items, chapter_marks = collect_marked(root, href)
+                        chapter_items, chapter_marks, chapter_protect = collect_marked(root, href)
                         items += chapter_items
                         marks += chapter_marks
+                        protect += chapter_protect
         except (IngestError, OSError):
             raise  # OSError: the registry reports "cannot be read"
         except Exception as e:  # zipfile, zlib and lxml raise many unrelated types
@@ -93,5 +95,5 @@ class EpubIngestor:
             source_path=str(path),
             format=self.format,
             sha256=file_sha256(path),
-            blocks=make_blocks(str(path), items, marks),
+            blocks=make_blocks(str(path), items, marks, protect),
         )

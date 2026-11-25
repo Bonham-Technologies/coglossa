@@ -1,5 +1,7 @@
 import uuid
 
+from sqlalchemy import select
+
 from coglossa.schema import (
     Agreement,
     Candidate,
@@ -11,6 +13,7 @@ from coglossa.schema import (
     GlossaryEntry,
     InlineMark,
     JudgeError,
+    KeepReason,
     Reliability,
     RevisionSource,
     RunError,
@@ -21,6 +24,7 @@ from coglossa.schema import (
 from coglossa.stages.chunk import ChunkOutcome
 from coglossa.stages.sweep import SWEPT, SpanChange
 from coglossa.store import outputs, runs
+from coglossa.store.models import SpanRow
 
 
 async def _run_id(db):
@@ -102,6 +106,21 @@ async def test_a_passages_formatting_is_stored_with_it(db):
     async with db.session() as s:
         stored = await outputs.load_spans(s, run_id)
     assert [sp.formatting for sp in stored.spans] == [formatting, None]
+
+
+async def test_a_passage_left_as_written_is_stored_as_such(db):
+    """CGL-111: the marking comes back with the passage; translated ones, and the rows of runs
+    from before it, have none."""
+    run_id = await _run_id(db)
+    outcome = _outcome("c1", ["x = 1", "Plain."])
+    outcome.spans[0].kept = KeepReason.CODE
+    async with db.session() as s, s.begin():
+        await outputs.save_chunk_outcome(s, run_id, 0, outcome)
+    async with db.session() as s:
+        stored = await outputs.load_spans(s, run_id)
+        rows = (await s.scalars(select(SpanRow).order_by(SpanRow.ordinal))).all()
+    assert [sp.kept for sp in stored.spans] == [KeepReason.CODE, None]
+    assert [r.kept for r in rows] == ["code", None]
 
 
 async def test_outcome_round_trip_in_reading_order(db):

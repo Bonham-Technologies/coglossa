@@ -1,4 +1,4 @@
-from coglossa.schema import Block, BlockKind, Provenance, SourceDocument
+from coglossa.schema import Block, BlockKind, KeepReason, Provenance, SourceDocument
 from coglossa.segment.segmenter import segment_document
 
 
@@ -27,3 +27,11 @@ def test_segments_are_global_and_point_back_to_blocks():
     ]
     blocks = {b.id: b for b in doc.blocks}
     assert all(blocks[s.block_id].text[s.start : s.end] == s.text for s in segs)
+
+
+def test_a_block_left_as_written_is_one_segment():
+    code = "  a = 1. b = 2.\n  c = 3."
+    block = _block(1, BlockKind.PARAGRAPH, code)
+    block.provenance.keep = KeepReason.CODE
+    doc = SourceDocument(source_path="x", format="md", sha256="0", blocks=[block])
+    assert [(s.start, s.end, s.text) for s in segment_document(doc)] == [(0, len(code), code)]

@@ -10,6 +10,7 @@ came back missing or broken."""
 
 import asyncio
 import dataclasses
+import itertools
 from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel, Field
@@ -25,7 +26,9 @@ from coglossa.schema import (
     ReconciledSpan,
     Reliability,
     RunError,
+    Segment,
     Span,
+    SpanFormatting,
 )
 from coglossa.scoring.client import Scorer
 from coglossa.segment.markup import Unmarked, formatting_flag, strip_markers, unmark
@@ -66,6 +69,21 @@ async def process_chunk(
     diverse: bool,
     on_stage: StageHook | None = None,
 ) -> ChunkOutcome:
+    if any(s.id in ci.keep.kept for s in ci.segments):
+        rest = [s for s in ci.segments if s.id not in ci.keep.kept]
+        outcome = ChunkOutcome(chunk_id=ci.chunk.id)
+        if rest:
+            outcome = await process_chunk(
+                ctx,
+                scorer,
+                profile,
+                guide,
+                translated_part(ci),
+                tier=tier,
+                diverse=diverse,
+                on_stage=on_stage,
+            )
+        return with_kept(ci, outcome)
     try:
         return await _attempt(
             ctx, scorer, profile, guide, ci, tier=tier, diverse=diverse, on_stage=on_stage
@@ -211,6 +229,62 @@ def build_outcome(
     )
 
 
+KEPT_FROM = "original"  # a passage left as written comes from the original (CGL-111)
+
+
+def translated_part(ci: ChunkInput) -> ChunkInput:
+    """`ci` without the segments left as written (CGL-111): the models see the rest in one go,
+    and no passage may join the text on both sides of a kept part."""
+    kept = ci.keep.kept
+    rest = [s for s in ci.segments if s.id not in kept]
+    after_kept = frozenset(
+        s.id for prev, s in itertools.pairwise(ci.segments) if prev.id in kept and s.id not in kept
+    )
+    return dataclasses.replace(
+        ci,
+        chunk=Chunk(id=ci.chunk.id, segment_ids=[s.id for s in rest]),
+        segments=rest,
+        gaps=ci.gaps | after_kept,
+    )
+
+
+def kept_span(ci: ChunkInput, segment: Segment) -> Span:
+    """A segment left as written (CGL-111): its passage is its own text, unscored and with no
+    model call; it keeps the formatting it had."""
+    marks = ci.keep.marks.get(segment.id, [])
+    return Span(
+        id=f"{ci.chunk.id}.0",
+        chunk_id=ci.chunk.id,
+        start=segment.id,
+        end=segment.id,
+        text=segment.text,
+        agreement=Agreement.AGREE,
+        chosen_from=KEPT_FROM,
+        score=unscored(),
+        formatting=SpanFormatting(text=segment.text, marks=marks) if marks else None,
+        kept=ci.keep.kept[segment.id],
+    )
+
+
+def with_kept(ci: ChunkInput, outcome: ChunkOutcome) -> ChunkOutcome:
+    """`outcome` of the translated part of `ci`, with the passages left as written in reading
+    order among its passages."""
+    positions = {s.id: k for k, s in enumerate(ci.segments)}
+    pairs = list(zip(outcome.spans, outcome.proposed_terms, strict=True))
+    pairs += [(kept_span(ci, s), []) for s in ci.segments if s.id in ci.keep.kept]
+    pairs.sort(key=lambda pair: positions[pair[0].start])
+    return outcome.model_copy(
+        update={
+            "chunk_id": ci.chunk.id,
+            "spans": [
+                span.model_copy(update={"id": f"{ci.chunk.id}.{k + 1}"})
+                for k, (span, _) in enumerate(pairs)
+            ],
+            "proposed_terms": [terms for _, terms in pairs],
+        }
+    )
+
+
 def split_chunk_input(ci: ChunkInput) -> tuple[ChunkInput, ChunkInput]:
     mid = len(ci.segments) // 2
     first, second = ci.segments[:mid], ci.segments[mid:]
@@ -225,6 +299,8 @@ def split_chunk_input(ci: ChunkInput) -> tuple[ChunkInput, ChunkInput]:
             context_before=before,
             context_after=after,
             markup=ci.markup,
+            keep=ci.keep,
+            gaps=ci.gaps,
         )
 
     return (
@@ -253,9 +329,12 @@ def _too_large(ci: ChunkInput, message: str) -> ChunkOutcome:
 
 def engine_error_outcome(ci: ChunkInput, error: str, stage: str = "translate") -> ChunkOutcome:
     """Every segment becomes an empty engine_error passage, so a failed chunk is visible in
-    the report instead of silently missing (spec §7.3)."""
+    the report instead of silently missing (spec §7.3); one left as written stays as it is."""
     spans: list[Span] = []
     for k, segment in enumerate(ci.segments):
+        if segment.id in ci.keep.kept:
+            spans.append(kept_span(ci, segment).model_copy(update={"id": f"{ci.chunk.id}.{k + 1}"}))
+            continue
         rs = ReconciledSpan(
             start=segment.id,
             end=segment.id,

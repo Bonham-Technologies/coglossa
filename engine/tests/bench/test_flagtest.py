@@ -268,7 +268,7 @@ async def test_passages_left_untranslated_are_caught_by_the_untranslated_check(
     assert tier.false_positive_rate == 0.0
     md = (out / "flag-summary.md").read_text(encoding="utf-8")
     assert "| untranslated | 8 | 8 | 1.00 |" in md
-    assert "number_mismatch or untranslated for meaning errors" in md
+    assert "untranslated or literal_mismatch for meaning errors" in md
     assert "   - injected: Marie arrived in Paris on 14 July 1998." in md
 
 

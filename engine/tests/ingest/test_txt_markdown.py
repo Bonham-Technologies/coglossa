@@ -1,9 +1,11 @@
+import time
+
 import pytest
 
 from coglossa.ingest.base import IngestError, is_scene_break, split_paragraphs
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.txt import TextIngestor
-from coglossa.schema import BlockKind
+from coglossa.schema import BlockKind, KeepReason
 
 
 @pytest.mark.parametrize("line", ["***", "* * *", "---", "___", "#", "~~~", "§", "  * * *  "])
@@ -64,3 +66,119 @@ def test_markdown_ingest(tmp_path):
         (BlockKind.BREAK, "* * *"),
     ]
     assert doc.format == "md"
+
+
+# --- CGL-111: code is left as written -------------------------------------------------------
+
+
+def _md(tmp_path, text):
+    path = tmp_path / "doc.md"
+    path.write_text(text, encoding="utf-8")
+    return MarkdownIngestor().ingest(path)
+
+
+def test_a_fenced_code_block_is_one_block_left_as_written(tmp_path):
+    code = "def f(x):\n\n    return x  # see https://example.com\n"
+    doc = _md(
+        tmp_path,
+        f"Run this:\n\n```python\n{code}```\n\n~~~js\nlet a = 1;\n~~~\n\nThen stop.\n",
+    )
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [
+        ("Run this:", None),
+        ("def f(x):\n\n    return x  # see https://example.com", KeepReason.CODE),
+        ("let a = 1;", KeepReason.CODE),
+        ("Then stop.", None),
+    ]
+    assert doc.blocks[1].kind is BlockKind.PARAGRAPH
+
+
+def test_an_indented_fence_loses_only_its_own_indent(tmp_path):
+    doc = _md(tmp_path, "  ```\n  a\n    b\nc\n  ```\n")
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [("a\n  b\nc", KeepReason.CODE)]
+
+
+def test_a_bare_tilde_line_is_still_a_scene_break_and_an_unclosed_fence_is_text(tmp_path):
+    doc = _md(tmp_path, "One.\n\n~~~\n\nTwo.\n\n~~~\n\n```\nThree.\n")
+    assert [(b.kind, b.text, b.provenance.keep) for b in doc.blocks] == [
+        (BlockKind.PARAGRAPH, "One.", None),
+        (BlockKind.BREAK, "~~~", None),
+        (BlockKind.PARAGRAPH, "Two.", None),
+        (BlockKind.BREAK, "~~~", None),
+        (BlockKind.PARAGRAPH, "```\nThree.", None),
+    ]
+
+
+def test_many_unclosed_fences_are_read_in_linear_time(tmp_path):
+    """Each unclosed fence used to scan the rest of the file for its closing line."""
+    lines = [f"~~~py {i}" for i in range(50_000)]
+    doc = _md(tmp_path, "\n".join(lines) + "\n\n```\nx\n```\n")
+    assert doc.blocks[0].text.split("\n") == lines
+    assert [(b.text, b.provenance.keep) for b in doc.blocks[1:]] == [("x", KeepReason.CODE)]
+
+
+def test_a_fence_with_many_blank_lines_is_read_in_linear_time(tmp_path):
+    """Blank lines at the ends of a block were trimmed one list copy at a time."""
+    doc = _md(tmp_path, "```\n" + "\n" * 200_000 + "x = 1\n" + "\n" * 200_000 + "```\n\nFin.\n")
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [
+        ("x = 1", KeepReason.CODE),
+        ("Fin.", None),
+    ]
+
+
+def test_a_fence_indented_under_a_list_item_is_left_as_written(tmp_path):
+    doc = _md(
+        tmp_path,
+        "1. Install it:\n\n    ```bash\n    npm install\n\n      --save x\n    ```\n\n"
+        "2. Then:\n\n\t```\n\tmake\n\t```\n",
+    )
+    assert [(b.text, b.provenance.keep) for b in doc.blocks] == [
+        ("Install it:", None),
+        ("npm install\n\n  --save x", KeepReason.CODE),
+        ("Then:", None),
+        ("make", KeepReason.CODE),
+    ]
+
+
+def test_a_fence_inside_a_blockquote_is_left_as_written(tmp_path):
+    doc = _md(tmp_path, "> Run:\n>\n> ```\n> code\n>\n>   more\n> ```\n\nFin.\n")
+    assert [(b.text, b.provenance.keep, b.provenance.literals) for b in doc.blocks] == [
+        ("> Run:\n>", None, []),
+        ("code\n\n  more", KeepReason.CODE, []),
+        ("Fin.", None, []),
+    ]
+
+
+def test_unclosed_quoted_fences_of_every_depth_and_length_are_read_in_linear_time(tmp_path):
+    """Each unclosed opener of a new depth and length used to scan the rest of the file
+    (a 0.34 MB grid took 91 s); now every line is read a bounded number of times."""
+    grid = [
+        ">" * depth + char * length + "py"
+        for depth in range(1, 150)
+        for length in range(150, 2, -1)
+        for char in "`~"
+    ]
+    started = time.monotonic()
+    doc = _md(tmp_path, "Texte.\n\n" + "\n".join(grid) + "\n")
+    assert time.monotonic() - started < 10  # about 0.2 s; quadratic, it took hours
+    assert all(b.provenance.keep is None for b in doc.blocks)
+
+
+def test_a_fence_inside_too_many_blockquotes_is_text(tmp_path):
+    deep = "> " * 9
+    doc = _md(tmp_path, f"{deep}```\n{deep}code\n{deep}```\n\n> > ```\n> > ok\n> > ```\n")
+    assert [b.provenance.keep for b in doc.blocks] == [None, KeepReason.CODE]
+    assert doc.blocks[1].text == "ok"
+
+
+def test_a_fence_the_blockquote_does_not_close_is_text(tmp_path):
+    doc = _md(tmp_path, "> ```\n> code\n\nNot quoted.\n\n```\n")
+    assert all(b.provenance.keep is None for b in doc.blocks)
+
+
+def test_code_spans_stay_in_the_sentence_and_are_recorded(tmp_path):
+    doc = _md(tmp_path, "Run `make test` and ``a`b`` now.\n\n`npm install`\n\n- use `x`\n")
+    assert [(b.text, b.provenance.keep, b.provenance.literals) for b in doc.blocks] == [
+        ("Run `make test` and ``a`b`` now.", None, ["make test", "a`b"]),
+        ("`npm install`", KeepReason.CODE, []),
+        ("use `x`", None, ["x"]),
+    ]

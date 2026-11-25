@@ -85,7 +85,9 @@ async def reconcile_chunk(
             normalize=lambda o: o.model_copy(
                 update={"spans": drop_repeated_spans(o.spans, segment_ids)}
             ),
-            validate=lambda o: check_coverage(o.spans, segment_ids) + check_cut_off(o.spans),
+            validate=lambda o: (
+                check_coverage(o.spans, segment_ids, ci.gaps) + check_cut_off(o.spans)
+            ),
         )
     except OVERSIZE_ERRORS:
         raise  # the caller splits the chunk (spec §7.2)

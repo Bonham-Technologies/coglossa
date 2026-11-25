@@ -1,5 +1,5 @@
 /** Plain words for the engine's enum values shown in the passage details (CGL-66). */
-import type { JudgeError, Reliability, RevisionEntry, SpanDetail } from "../api/types";
+import type { JudgeError, KeepReason, Reliability, RevisionEntry, SpanDetail } from "../api/types";
 
 /** A map typed by an API enum must name every value, so a regenerated schema with a new value
  * fails the type check; an unknown value at run time (a newer engine) still shows its raw key. */
@@ -53,4 +53,10 @@ export const categoryLabel = lookup<JudgeError["category"]>({
   fluency: "Reads awkwardly",
   "style/register": "Tone or style",
   locale: "Local conventions",
+});
+
+/** CGL-111: why a passage was left as written, never translated. */
+export const keptLabel = lookup<KeepReason>({
+  code: "This is code, so it was left as written and not translated.",
+  no_translate: "The original marks this text not to be translated, so it was left as written.",
 });

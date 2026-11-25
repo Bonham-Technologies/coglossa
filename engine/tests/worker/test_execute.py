@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
-from coglossa import catalog, service
+from coglossa import catalog, review, service
 from coglossa.config import config_hash
 from coglossa.export.docx import clean_docx
 from coglossa.ingest.base import UNREAD_PREFIX
@@ -18,6 +18,7 @@ from coglossa.schema import (
     FlagStatus,
     GlossaryEntry,
     Guide,
+    KeepReason,
     PipelineProfile,
     RevisionSource,
     RunState,
@@ -801,6 +802,33 @@ async def test_a_formatted_file_keeps_its_formatting_through_the_worker(services
     document = docx.Document(io.BytesIO(clean_docx(report)))
     bold = [r.text for p in document.paragraphs for r in p.runs if r.bold]
     assert bold == ["chat"]
+
+
+async def test_code_and_translate_no_pass_through_the_worker_unseen(services, tmp_path):
+    """CGL-111: text left as written is stored with its blocks, never reaches a model in any
+    stage (profile, guide, chunks, sweep), and comes back as written, marked, in the report, the
+    review screen and the clean Word download."""
+    html = (
+        "<p>Le chat dort.</p><pre>  x = 1\n  y = 2</pre><p translate='no'>ACME Box</p>"
+        "<p>Il pleut.</p>"
+    )
+    run_id = await submit(services, tmp_path, text=html, name="page.html")
+    await drain(services)
+    assert await _state(services, run_id) is RunState.COMPLETE
+    sent = "\n".join(m.content for r in services.backends["fake"].requests for m in r.messages)
+    assert "x = 1" not in sent and "ACME" not in sent and "Le chat dort." in sent
+    report = await service.build_report(services.db, run_id)
+    assert [b.provenance.keep for b in report.blocks] == [None, "code", "no_translate", None]
+    assert [(s.text, s.kept) for s in report.spans] == [
+        ("[en] Le chat dort.", None),
+        ("  x = 1\n  y = 2", KeepReason.CODE),
+        ("ACME Box", KeepReason.NO_TRANSLATE),
+        ("[en] Il pleut.", None),
+    ]
+    page = await review.span_page(services.db, run_id)
+    assert [s.kept for s in page.spans] == [None, KeepReason.CODE, KeepReason.NO_TRANSLATE, None]
+    document = docx.Document(io.BytesIO(clean_docx(report)))
+    assert "  x = 1\n  y = 2" in [p.text for p in document.paragraphs]
 
 
 async def test_a_document_with_nul_characters_completes(services, tmp_path):
