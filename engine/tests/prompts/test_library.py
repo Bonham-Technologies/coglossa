@@ -13,11 +13,16 @@ ALL_VARS = {
 }
 
 
+# CGL-108 added formatting markers (v2) to the translators and the reviewer; CGL-109 then
+# explained accepted forms to them (v3), and to the judge and the sweep (v2).
+VERSIONS = {"literal": 3, "contextual": 3, "reconcile": 3, "judge": 2, "sweep": 2}
+
+
 @pytest.mark.parametrize("prompt_id", sorted(ALL_VARS))
 def test_builtin_templates_render(prompt_id):
     rendered = PromptLibrary().render(prompt_id, **ALL_VARS[prompt_id])
     assert rendered.id == prompt_id
-    assert rendered.version == MARKER_PROMPTS.get(prompt_id, 1)
+    assert rendered.version == VERSIONS.get(prompt_id, 1)
     assert "JSON" in rendered.text
     assert "{{" not in rendered.text and "{%" not in rendered.text
 
@@ -61,6 +66,24 @@ def test_guide_depth_variants_differ(depth):
     assert marker in text
 
 
+@pytest.mark.parametrize(
+    ("prompt_id", "variables"),
+    [
+        ("literal", ALL_VARS["literal"]),
+        ("contextual", ALL_VARS["contextual"]),
+        ("reconcile", ALL_VARS["reconcile"]),
+        ("judge", {"source_lang": "fr", "target_lang": "en"}),
+        ("sweep", {"source_lang": "fr", "target_lang": "en"}),
+    ],
+)
+def test_guide_prompts_explain_accepted_forms(prompt_id, variables):
+    """CGL-109: a listed form of a locked rendering counts as the rendering."""
+    rendered = PromptLibrary().render(prompt_id, **variables)
+    assert rendered.version == VERSIONS[prompt_id]
+    assert '"forms"' in rendered.text
+    assert "accepted forms" in rendered.text
+
+
 def test_reconcile_lists_translators():
     text = PromptLibrary().render("reconcile", **ALL_VARS["reconcile"]).text
     assert "literal, ctx" in text
@@ -81,7 +104,7 @@ def test_override_dir_wins_and_picks_highest_version(tmp_path):
     rendered = lib.render("literal", target_lang="de")
     assert (rendered.version, rendered.text) == (7, "custom into German (de) JSON")
     # prompts not overridden still come from the built-in templates
-    assert lib.resolve("contextual")[0] == 2
+    assert lib.resolve("contextual")[0] == 3
     assert lib.versions(["literal", "profile"]) == {"literal": 7, "profile": 1}
 
 

@@ -77,7 +77,7 @@ class FlagStatus(StrEnum):
     OPEN = "open"
     ACCEPTED = "accepted"  # a reviewer confirmed the passage is fine as it is
     DISMISSED = "dismissed"  # a reviewer rejected the flag; dismiss_reason says why
-    RESOLVED = "resolved"  # the sweep fixed the problem; the fix is a Revision
+    RESOLVED = "resolved"  # the sweep fixed it (a Revision) or the guide no longer requires it
 
 
 class Flag(BaseModel):

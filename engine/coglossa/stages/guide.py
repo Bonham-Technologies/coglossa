@@ -179,7 +179,7 @@ async def _merge(
     if len(partials) == 1:
         return partials[0]
     size = estimate_tokens(
-        json.dumps([p.model_dump() for p in partials], ensure_ascii=False), bytes_per_token
+        json.dumps([p.prompt_dump() for p in partials], ensure_ascii=False), bytes_per_token
     )
     if size * 2 > budget and len(partials) > 2:
         mid = len(partials) // 2
@@ -198,7 +198,7 @@ async def _merge(
             "task": "guide_merge",
             "source_lang": profile.source_lang,
             "target_lang": profile.target_lang,
-            "partials": [p.model_dump() for p in partials],
+            "partials": [p.prompt_dump() for p in partials],
             "prior_guide": _dump(prior),
         },
         output_type=Guide,
@@ -206,12 +206,16 @@ async def _merge(
 
 
 def _dump(guide: Guide | None) -> dict[str, Any] | None:
-    return guide.model_dump() if guide is not None else None
+    return guide.prompt_dump() if guide is not None else None
+
+
+# Only people lock entries and list their forms (CGL-109): a model's guide has neither.
+_ENGINE_ENTRY = {"locked": False, "forms": [], "source_forms": []}
 
 
 def _unlocked(guide: Guide) -> Guide:
-    glossary = [g.model_copy(update={"locked": False}) for g in guide.glossary]
-    entities = [e.model_copy(update={"locked": False}) for e in guide.entities]
+    glossary = [g.model_copy(update=_ENGINE_ENTRY) for g in guide.glossary]
+    entities = [e.model_copy(update=_ENGINE_ENTRY) for e in guide.entities]
     return guide.model_copy(update={"glossary": glossary, "entities": entities})
 
 
@@ -275,11 +279,16 @@ def carry_over(base: Guide | None, guide: Guide) -> Guide:
 
 
 def guide_slice(guide: Guide, text: str) -> Guide:
-    """The part of the guide relevant to `text`, keeping prompts small for long books."""
+    """The part of the guide relevant to `text`, keeping prompts small for long books: the
+    entries whose term or name, or one of its source forms (CGL-109), is in it."""
     folded = text.casefold()
+
+    def found(words: list[str]) -> bool:
+        return any(w.casefold() in folded for w in words)
+
     return guide.model_copy(
         update={
-            "glossary": [g for g in guide.glossary if g.term.casefold() in folded],
-            "entities": [e for e in guide.entities if e.name.casefold() in folded],
+            "glossary": [g for g in guide.glossary if found(g.source_words)],
+            "entities": [e for e in guide.entities if found(e.source_words)],
         }
     )

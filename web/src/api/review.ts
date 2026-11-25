@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { type ScoreFilter } from "../review/filters";
 import { client, passageChangedTo, unwrap } from "./client";
-import { guideSaved } from "./guide";
+import { guideChanged, guideSaved } from "./guide";
 import { isDocumentsKey, projectKeys } from "./projects";
 import { runKeys } from "./runs";
 import type { Entity, GlossaryEntry, ReviewSpan, SpanDetail, SpanPage } from "./types";
@@ -135,6 +135,26 @@ export function useFlagStatus(runId: string) {
         }),
       ),
     onSuccess,
+  });
+}
+
+/** CGL-109 "This form is fine": the flag is dismissed and the form joins the guide entry in a new
+ * version of the set guide, so the guide panel and its version list refresh. */
+export function useAcceptForm(runId: string, projectId: string) {
+  const queryClient = useQueryClient();
+  const onSuccess = useSpanChanged(runId);
+  return useMutation({
+    mutationFn: ({ flagId, term, form }: { flagId: number; term: string; form: string }) =>
+      unwrap(
+        client.POST("/api/runs/{run_id}/flags/{flag_id}/accept-form", {
+          params: { path: { run_id: runId, flag_id: flagId } },
+          body: { term, form },
+        }),
+      ),
+    onSuccess: (detail: SpanDetail) => {
+      onSuccess(detail);
+      guideChanged(queryClient, projectId);
+    },
   });
 }
 

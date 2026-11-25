@@ -4,6 +4,7 @@ endnotes, text boxes, charts and equations, written as raw OOXML."""
 from typing import Any
 
 import docx
+from docx.enum.style import WD_STYLE_TYPE
 from docx.opc.constants import CONTENT_TYPE as CT
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.opc.packuri import PackURI
@@ -211,3 +212,36 @@ def add_hyperlink(paragraph: Any, part: Any, text: str, url: str) -> None:
             f'<w:hyperlink {_NAMESPACES} r:id="{rid}"><w:r><w:t>{text}</w:t></w:r></w:hyperlink>'
         )
     )
+
+
+def add_field_link(paragraph: Any, text: str, instruction: str) -> None:
+    """A link made with a simple field, `HYPERLINK "url"` (CGL-129)."""
+    paragraph._p.append(
+        parse_xml(
+            f"<w:fldSimple {_NAMESPACES} w:instr='{instruction}'>"
+            f"<w:r><w:t>{text}</w:t></w:r></w:fldSimple>"
+        )
+    )
+
+
+def add_complex_field_link(paragraph: Any, texts: list[str], instruction: str) -> None:
+    """A link made with a complex field: begin, the instruction in two pieces, separate, one
+    run per text as the result, end (CGL-129)."""
+    half = len(instruction) // 2
+    for inner in (
+        '<w:fldChar w:fldCharType="begin"/>',
+        f'<w:instrText xml:space="preserve">{instruction[:half]}</w:instrText>',
+        f'<w:instrText xml:space="preserve">{instruction[half:]}</w:instrText>',
+        '<w:fldChar w:fldCharType="separate"/>',
+        *(f'<w:t xml:space="preserve">{t}</w:t>' for t in texts),
+        '<w:fldChar w:fldCharType="end"/>',
+    ):
+        paragraph._p.append(_run(inner))
+
+
+def add_character_style(document: Any, name: str, based_on: str, *, bold: bool | None) -> Any:
+    """A character style based on another, with its own bold setting or none (CGL-129)."""
+    style = document.styles.add_style(name, WD_STYLE_TYPE.CHARACTER)
+    style.base_style = document.styles[based_on]
+    style.font.bold = bold
+    return style

@@ -24,6 +24,7 @@ from coglossa.schema import (
     RunState,
     SpanScore,
 )
+from coglossa.schema.guide import tidy_forms
 from coglossa.schema.views import (
     GuideView,
     ReviewAction,
@@ -33,10 +34,12 @@ from coglossa.schema.views import (
     SpanDetail,
     SpanPage,
 )
+from coglossa.scoring.aggregate import terminology_explanation
+from coglossa.scoring.rules import guide_check, term_in
 from coglossa.store import review as review_store
 from coglossa.store import runs
 from coglossa.store.db import Database
-from coglossa.store.models import CandidateRow, FlagRow, Run, SpanRow
+from coglossa.store.models import CandidateRow, FlagRow, GuideVersion, Run, SpanRow
 from coglossa.store.review import SpanFilter, SpanRecord, segment_number, segment_range
 from coglossa.text import clean_text, entry_key
 
@@ -343,7 +346,11 @@ async def set_flag_status(
 def _trimmed[E: GlossaryEntry | Entity](entry: E, key: str) -> E:
     """The entry with control characters cleaned from every text field, and its key attribute
     (`term` or `name`) and its rendering trimmed."""
-    cleaned = {name: clean_text(value) for name, value in entry if isinstance(value, str)}
+    cleaned: dict[str, Any] = {
+        name: clean_text(value) for name, value in entry if isinstance(value, str)
+    }
+    for name in ("forms", "source_forms"):  # CGL-109
+        cleaned[name] = tidy_forms([clean_text(f) for f in getattr(entry, name)])
     cleaned[key], cleaned["rendering"] = cleaned[key].strip(), cleaned["rendering"].strip()
     return entry.model_copy(update=cleaned)
 
@@ -375,14 +382,7 @@ async def add_guide_entry(
     async with db.session() as s, s.begin():
         run = await _writable(s, run_id)
         await review_store.span_record(s, run_id, span_id)
-        doc = await runs.get_document(s, run.document_id)
-        await runs.lock_project(s, doc.project_id)
-        base = await runs.prior_guide(s, doc.project_id, run.target_lang)
-        if base is None:
-            raise service.InvalidRunStateError(
-                "the project has no guide yet; wait for the run to build one"
-            )
-        current = Guide.model_validate(base.content)
+        project_id, current = await _set_guide(s, run)
         if isinstance(entry, GlossaryEntry):
             guide = current.model_copy(
                 update={"glossary": _with_entry(current.glossary, entry, "term")}
@@ -391,15 +391,7 @@ async def add_guide_entry(
             guide = current.model_copy(
                 update={"entities": _with_entry(current.entities, entry, "name")}
             )
-        row = await runs.add_guide_version(
-            s,
-            doc.project_id,
-            guide,
-            target_lang=run.target_lang,
-            status=runs.APPROVED,
-            author=runs.USER,
-            source_run_id=run_id,
-        )
+        row = await _add_version(s, run, project_id, guide)
         kind = "glossary" if glossary else "entity"
         await review_store.add_event(
             s,
@@ -409,6 +401,138 @@ async def add_guide_entry(
             _payload(user, kind=kind, entry=entry.model_dump(mode="json"), version=row.version),
         )
         return guide_view(row)
+
+
+async def _set_guide(s: AsyncSession, run: Run) -> tuple[uuid.UUID, Guide]:
+    """The run's set guide as it is now, with the project locked for a new version of it."""
+    doc = await runs.get_document(s, run.document_id)
+    await runs.lock_project(s, doc.project_id)
+    base = await runs.prior_guide(s, doc.project_id, run.target_lang)
+    if base is None:
+        raise service.InvalidRunStateError(
+            "the project has no guide yet; wait for the run to build one"
+        )
+    return doc.project_id, Guide.model_validate(base.content)
+
+
+async def _add_version(
+    s: AsyncSession, run: Run, project_id: uuid.UUID, guide: Guide
+) -> GuideVersion:
+    return await runs.add_guide_version(
+        s,
+        project_id,
+        guide,
+        target_lang=run.target_lang,
+        status=runs.APPROVED,
+        author=runs.USER,
+        source_run_id=run.id,
+    )
+
+
+def _accept_form[E: GlossaryEntry | Entity](
+    entries: list[E], key: str, word: str, form: str
+) -> list[E] | None:
+    """`entries` with `form` among the forms of the entry for `word`; None without one."""
+    wanted = entry_key(word)
+    if not any(entry_key(getattr(e, key)) == wanted for e in entries):
+        return None
+    return [
+        e.model_copy(update={"forms": tidy_forms([*e.forms, form])})
+        if entry_key(getattr(e, key)) == wanted
+        else e
+        for e in entries
+    ]
+
+
+async def accept_form(
+    db: Database,
+    run_id: uuid.UUID,
+    flag_id: int,
+    term: str,
+    form: str,
+    *,
+    user: str | None = None,
+) -> SpanDetail:
+    """CGL-109 "This form is fine": a reviewer dismisses a terminology flag because the passage
+    uses an accepted form of the rendering. The form joins the entry for `term` (a term or a
+    name the flag names) in a new approved version of the set guide, as "add to guide" does; the
+    same flag on other passages clears when the set is rechecked (the sweep). A flag that also
+    names another locked entry the passage still does not follow stays open, naming only the
+    entries still not followed."""
+    form = clean_text(form).strip()
+    if not form:
+        raise service.InvalidRequestError("name the form the passage uses")
+    async with db.session() as s, s.begin():
+        run = await _writable(s, run_id)
+        flag = await review_store.get_flag(s, run_id, flag_id)
+        open_flag = flag.status == FlagStatus.OPEN.value
+        if flag.code != FlagCode.TERMINOLOGY_VIOLATION.value or not open_flag:
+            raise service.InvalidRequestError("only an open terminology flag takes a form")
+        named = [
+            v
+            for v in (flag.evidence or {}).get("violations", [])
+            if isinstance(v, dict) and entry_key(str(v.get("term", ""))) == entry_key(term)
+        ]
+        if not named:
+            raise service.InvalidRequestError(f"this flag is not about “{term}”")
+        text = await _current_text(s, flag.span_id)
+        if not term_in(form, text):
+            raise service.InvalidRequestError(f"the passage does not use “{form}”")
+        project_id, current = await _set_guide(s, run)
+        if named[0].get("kind") == "entity":
+            entities = _accept_form(current.entities, "name", term, form)
+            guide = None if entities is None else current.model_copy(update={"entities": entities})
+        else:
+            glossary = _accept_form(current.glossary, "term", term, form)
+            guide = None if glossary is None else current.model_copy(update={"glossary": glossary})
+        if guide is None:
+            raise service.InvalidRequestError(f"the translation guide no longer has “{term}”")
+        version = None
+        if guide != current:
+            version = (await _add_version(s, run, project_id, guide)).version
+        accepted = {"term": term, "form": form, "version": version}
+        _, violations = guide_check(await _span_source(s, run, flag.span_id), text, guide)
+        if still := [v for v in violations if v.locked]:
+            # another locked entry is still not followed: the flag stays open, naming it alone
+            flag.evidence = {
+                **(flag.evidence or {}),
+                "violations": [v.as_evidence() for v in still],
+            }
+            flag.explanation = terminology_explanation(still)
+            await review_store.add_event(
+                s,
+                run_id,
+                flag.span_id,
+                ReviewAction.ADD_TO_GUIDE,
+                _payload(user, kind="form", flag=flag_id, form=accepted),
+            )
+            return await _detail(s, run_id, flag.span_id)
+        reason = f"This form is fine: “{form}”"
+        flag.status, flag.dismiss_reason = FlagStatus.DISMISSED.value, reason
+        await review_store.add_event(
+            s,
+            run_id,
+            flag.span_id,
+            ReviewAction.DISMISS_FLAG,
+            _payload(
+                user,
+                flag=flag_id,
+                code=flag.code,
+                before=FlagStatus.OPEN.value,
+                reason=reason,
+                form=accepted,
+            ),
+        )
+        return await _detail(s, run_id, flag.span_id)
+
+
+async def _span_source(s: AsyncSession, run: Run, span_id: uuid.UUID) -> str:
+    """The source text a span translates, its segments joined as the scorer and sweep join them."""
+    span = await s.get(SpanRow, span_id)
+    assert span is not None  # the flag's span
+    segment_ids = segment_range(span.seg_start, span.seg_end)
+    sources = await review_store.segment_texts(s, run.document_id, segment_ids)
+    return " ".join(sources[i] for i in segment_ids if i in sources)
 
 
 async def approved_texts(db: Database, run_id: uuid.UUID) -> dict[str, str]:

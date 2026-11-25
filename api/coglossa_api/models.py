@@ -104,6 +104,12 @@ class GlossaryEntryEdit(GlossaryEntry):
         description=GlossaryEntry.model_fields["rendering"].description
     )
     notes: _limited(SHORT_MAX, "The notes on a term are") = ""
+    forms: list[_limited(SHORT_MAX, "A form of a term's translation is")] = Field(
+        default=[], description=GlossaryEntry.model_fields["forms"].description
+    )
+    source_forms: list[_limited(SHORT_MAX, "A form of a term is")] = Field(
+        default=[], description=GlossaryEntry.model_fields["source_forms"].description
+    )
 
 
 class EntityEdit(Entity):
@@ -117,6 +123,12 @@ class EntityEdit(Entity):
     gender: _limited(SHORT_MAX, "A name's gender is") | None = None
     forms_of_address: _limited(SHORT_MAX, "A name's forms of address are") = ""
     speech_style: _limited(SHORT_MAX, "A name's speech style is") = ""
+    forms: list[_limited(SHORT_MAX, "A form of a name's translation is")] = Field(
+        default=[], description=Entity.model_fields["forms"].description
+    )
+    source_forms: list[_limited(SHORT_MAX, "A form of a name is")] = Field(
+        default=[], description=Entity.model_fields["source_forms"].description
+    )
 
 
 class GuideEdit(Guide):
@@ -172,6 +184,14 @@ class UseCandidate(BaseModel):
 class FlagUpdate(BaseModel):
     status: Literal["accepted", "dismissed", "open"]  # "resolved" is set only by the sweep
     reason: Reason = None  # required to dismiss
+
+
+class AcceptForm(BaseModel):
+    """CGL-109 "This form is fine": the passage uses `form` of the translation of `term`, one of
+    the terms or names its terminology flag names."""
+
+    term: _limited(SHORT_MAX, "A term is") = Field(min_length=1)
+    form: _limited(SHORT_MAX, "A form is") = Field(min_length=1)
 
 
 class GuideAddition(BaseModel):
