@@ -11,7 +11,7 @@ from coglossa.ingest import registry
 from coglossa.ingest.base import IngestError
 from coglossa.ingest.xlsx import XlsxIngestor, cell_locator, parse_locator
 from coglossa.schema import BlockKind, InlineMark, MarkKind
-from tests.ingest.office_files import OLE_HEADER, workbook
+from tests.ingest.office_files import OLE_HEADER, table_workbook, workbook
 
 
 def test_only_text_cells_are_read(tmp_path):
@@ -113,7 +113,7 @@ def test_a_file_that_is_no_workbook_is_refused(tmp_path):
 def test_a_damaged_workbook_is_refused(tmp_path, monkeypatch):
     path = workbook(tmp_path)
 
-    def broken(path, workbook):
+    def broken(path, workbook, headings):
         raise ValueError("bad drawing")
 
     monkeypatch.setattr("coglossa.ingest.xlsx._unread", broken)
@@ -126,3 +126,18 @@ def test_a_workbook_that_unpacks_to_too_much_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr("coglossa.ingest.base.MAX_OFFICE_UNCOMPRESSED_BYTES", 1024)
     with pytest.raises(IngestError, match="budget.xlsx is too large to translate once unpacked"):
         registry.ingest_file(path)
+
+
+def test_a_tables_heading_and_totals_rows_are_not_read(tmp_path):
+    """Excel requires a table's heading cells to match the names its columns keep (CGL-110)."""
+    doc = registry.ingest_file(table_workbook(tmp_path))
+    assert [(b.provenance.locator, b.text) for b in doc.blocks] == [
+        ("sheet 'Clients', cell D1", "Hors du tableau"),
+        ("sheet 'Clients', cell A2", "Dupont"),
+        ("sheet 'Clients', cell B2", "Paris"),
+        ("sheet 'Clients', cell A3", "Martin"),
+        ("sheet 'Clients', cell B3", "Lyon"),
+    ]
+    assert doc.notices == [
+        "Some parts of this file couldn't be read, so they aren't translated: 3 table headings."
+    ]

@@ -54,7 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="translate a document")
     run.add_argument(
-        "input", type=Path, help="TXT, MD, DOCX, HTML, EPUB or PDF (with a text layer) file"
+        "input",
+        type=Path,
+        help="TXT, MD, DOCX, PPTX, XLSX, HTML, EPUB or PDF (with a text layer) file",
     )
     run.add_argument("--config", type=Path, default=default_config_path())
     run.add_argument("--target-lang", required=True, help="BCP-47 code, e.g. en, pt-BR")

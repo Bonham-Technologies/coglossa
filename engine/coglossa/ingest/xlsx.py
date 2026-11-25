@@ -8,7 +8,9 @@ locator names the sheet and the cell, which is how the Excel download (`coglossa
 finds it again. Sheet names are not translated, since formulas refer to them. Bold, italic,
 underlined, superscript and subscript words inside a cell are the block's marks (CGL-108);
 formatting of the whole cell stays on the cell. Charts, comments and text boxes cannot be read,
-and the document's notices name them."""
+and the document's notices name them. Neither are the heading and totals rows of a table
+("Format as Table"), which Excel requires to match the table's own column names; the notices
+name them too."""
 
 import re
 import zipfile
@@ -18,6 +20,7 @@ from typing import Any
 import openpyxl
 from lxml import etree
 from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.utils.cell import range_boundaries
 from openpyxl.utils.escape import unescape
 
 from coglossa.ingest.base import (
@@ -95,7 +98,21 @@ def _cell_text(value: str | CellRichText) -> tuple[str, list[InlineMark]]:
     return strip_marked(text, marks_from_keys(text, keys) if any(keys) else [])
 
 
-def _unread(path: Path, workbook: Any) -> list[str]:
+def _table_labels(sheet: Any) -> set[tuple[int, int]]:
+    """(row, column) of the cells in the heading and totals rows of the sheet's tables. Excel
+    keeps each column's name in the table too, and repairs (drops) a table whose heading cells
+    no longer match it; renaming the column would break the formulas that name it."""
+    cells: set[tuple[int, int]] = set()
+    for table in sheet.tables.values():
+        first_col, first_row, last_col, last_row = range_boundaries(table.ref)
+        heading = 1 if table.headerRowCount is None else table.headerRowCount
+        totals = table.totalsRowCount or 0
+        rows = [*range(first_row, first_row + heading), *range(last_row - totals + 1, last_row + 1)]
+        cells.update((r, c) for r in rows for c in range(first_col, last_col + 1))
+    return cells
+
+
+def _unread(path: Path, workbook: Any, headings: int) -> list[str]:
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
         charts = sum(1 for n in names if _CHART_PART.fullmatch(n))
@@ -111,6 +128,7 @@ def _unread(path: Path, workbook: Any) -> list[str]:
             (charts, "chart", "charts"),
             (comments, "comment", "comments"),
             (boxes, "text box", "text boxes"),
+            (headings, "table heading", "table headings"),
         ]
     )
 
@@ -127,8 +145,10 @@ class XlsxIngestor:
             reason = error_reason(e)
             raise IngestError(f"{path.name} is not a readable {APP} file ({reason})") from e
         blocks: list[Block] = []
+        headings = 0
         try:
             for sheet in workbook.worksheets:
+                labels = _table_labels(sheet)
                 # the cells that exist, row by row; iter_rows would make every empty cell of a
                 # sheet whose recorded size is far larger than its content
                 for _, cell in sorted(sheet._cells.items()):
@@ -136,6 +156,9 @@ class XlsxIngestor:
                         continue
                     text, marks = _cell_text(cell.value)
                     if not any(c.isalpha() for c in text):
+                        continue
+                    if (cell.row, cell.column) in labels:
+                        headings += 1
                         continue
                     index = len(blocks)
                     provenance = Provenance(
@@ -152,7 +175,7 @@ class XlsxIngestor:
                             provenance=provenance,
                         )
                     )
-            notices = _unread(path, workbook)
+            notices = _unread(path, workbook, headings)
         except Exception as e:  # malformed content in a file that opens
             raise IngestError(
                 f"{path.name} is not a readable {APP} file: part of it is damaged "

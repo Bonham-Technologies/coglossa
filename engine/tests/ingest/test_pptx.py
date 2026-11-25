@@ -13,7 +13,7 @@ from coglossa.ingest import registry
 from coglossa.ingest.base import IngestError
 from coglossa.ingest.pptx import PptxIngestor
 from coglossa.schema import BlockKind, InlineMark, MarkKind
-from tests.ingest.office_files import OLE_HEADER, deck
+from tests.ingest.office_files import OLE_HEADER, deck, odd_deck
 
 
 def test_slides_tables_and_notes_are_read_in_order(tmp_path):
@@ -165,3 +165,15 @@ def test_a_damaged_deck_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr("coglossa.ingest.pptx._Walker.deck", broken)
     with pytest.raises(IngestError, match=r"part of it is damaged \(rId9\)"):
         registry.ingest_file(path)
+
+
+def test_untyped_shapes_ink_and_fields(tmp_path):
+    """A shape python-pptx has no type for is read for its text and ink is passed over, instead
+    of the deck being refused; a paragraph with a slide number or date field keeps its text (the
+    download could not put the field back), and is named when it has words besides it."""
+    doc = PptxIngestor().ingest(odd_deck(tmp_path))
+    assert [b.text for b in doc.blocks] == ["Bonjour", "Fin"]
+    assert doc.notices == [
+        "Some parts of this file couldn't be read, so they aren't translated: "
+        "1 paragraph with a slide number or date."
+    ]

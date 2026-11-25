@@ -13,7 +13,7 @@ from coglossa.export.xlsx import translated_xlsx
 from coglossa.ingest import registry
 from coglossa.schema import InlineMark, MarkKind, Report, SpanFormatting
 from tests.export.conftest import translated_report
-from tests.ingest.office_files import OLE_HEADER, workbook
+from tests.ingest.office_files import OLE_HEADER, table_workbook, workbook
 
 
 def _report_of(data: bytes, tmp_path, name: str = "budget") -> Report:
@@ -251,3 +251,16 @@ def test_text_that_looks_like_an_escaped_character_stays_as_it_is(tmp_path):
     ]
     data = translated_xlsx(report.model_copy(update={"spans": spans}), original)
     assert "<t>Code _x005F_x0041_ here</t>" in _part(data, "xl/worksheets/sheet1.xml")
+
+
+def test_a_tables_heading_cells_still_match_its_column_names(tmp_path):
+    """Excel repairs, and so drops, a table whose heading cells differ from its columns' names."""
+    original = table_workbook(tmp_path).read_bytes()
+    data = translated_xlsx(_report_of(original, tmp_path, name="clients"), original)
+    ws = load_workbook(io.BytesIO(data))["Clients"]
+    names = re.findall(r'<tableColumn [^>]*name="([^"]*)"', _part(data, "xl/tables/table1.xml"))
+    assert names == ["Nom", "Ville"]
+    assert [ws["A1"].value, ws["B1"].value] == names
+    assert ws["A4"].value == "Total général"
+    assert [ws["A2"].value, ws["D1"].value] == ["[en] Dupont", "[en] Hors du tableau"]
+    assert _part(data, "xl/tables/table1.xml") == _part(original, "xl/tables/table1.xml")

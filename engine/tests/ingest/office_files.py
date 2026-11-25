@@ -5,10 +5,14 @@ import io
 from pathlib import Path
 
 import xlsxwriter
+from openpyxl import Workbook
+from openpyxl.worksheet.table import Table
 from PIL import Image
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE
+from pptx.oxml import parse_xml
+from pptx.oxml.ns import nsdecls, qn
 from pptx.util import Inches, Pt
 
 # An OLE compound file's first bytes: how Office saves a password-protected file
@@ -104,4 +108,51 @@ def workbook(path: Path) -> Path:
     other.write("B2", "Total")
     other.write_formula("B3", "=Budget!B4*2", None, 2561)
     wb.close()
+    return path
+
+
+def odd_deck(path: Path) -> Path:
+    """A slide with a shape python-pptx has no type for (no outline, not a text box), ink (a
+    bare p:contentPart), a text box whose paragraph has words and a slide-number field, one with
+    only a date field, and an ordinary text box."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    shapeless = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+    shapeless.text_frame.text = "Bonjour"
+    sp = shapeless._element
+    del sp.nvSpPr.cNvSpPr.attrib["txBox"]
+    sp.spPr.remove(sp.spPr.find(qn("a:prstGeom")))
+    slide.shapes._spTree.append(parse_xml(f'<p:contentPart {nsdecls("p", "r")} r:id="rId99"/>'))
+    for words, field, text in (("Page ", "slidenum", "3"), ("", "datetime1", "25/11/2026")):
+        box = slide.shapes.add_textbox(Inches(1), Inches(3), Inches(3), Inches(1))
+        p = box.text_frame.paragraphs[0]
+        if words:
+            p.add_run().text = words
+        p._p.append(
+            parse_xml(
+                f'<a:fld {nsdecls("a")} id="{{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}}" '
+                f'type="{field}"><a:t>{text}</a:t></a:fld>'
+            )
+        )
+    slide.shapes.add_textbox(Inches(5), Inches(5), Inches(3), Inches(1)).text_frame.text = "Fin"
+    path = path / "odd.pptx"
+    prs.save(path)
+    return path
+
+
+def table_workbook(path: Path) -> Path:
+    """A sheet with a table ("Format as Table") that has a heading row and a totals row."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Clients"
+    ws.append(["Nom", "Ville"])
+    ws.append(["Dupont", "Paris"])
+    ws.append(["Martin", "Lyon"])
+    ws.append(["Total général", "2"])
+    ws["D1"] = "Hors du tableau"
+    table = Table(displayName="Clients", ref="A1:B4")
+    table.totalsRowCount = 1
+    ws.add_table(table)
+    path = path / "clients.xlsx"
+    wb.save(path)
     return path

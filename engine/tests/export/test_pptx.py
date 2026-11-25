@@ -15,7 +15,7 @@ from coglossa.ingest import registry
 from coglossa.pipeline import RunOptions, run_document
 from coglossa.schema import InlineMark, MarkKind, Report, SpanFormatting
 from tests.export.conftest import translated_report
-from tests.ingest.office_files import OLE_HEADER, deck
+from tests.ingest.office_files import OLE_HEADER, deck, odd_deck
 
 
 async def _no_sleep(_):
@@ -250,3 +250,14 @@ def _zip_of(files: dict[str, str]) -> bytes:
         for name, text in files.items():
             z.writestr(name, text)
     return out.getvalue()
+
+
+def test_untyped_shapes_ink_and_fields_come_back(tmp_path):
+    original = odd_deck(tmp_path).read_bytes()
+    data = translated_pptx(_report_of(original, tmp_path), original)
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        slide = z.read("ppt/slides/slide1.xml").decode("utf-8")
+    assert "[en] Bonjour" in slide and "[en] Fin" in slide
+    assert "<p:contentPart" in slide
+    assert slide.count("<a:fld ") == 2
+    assert "<a:t>Page </a:t>" in slide  # the paragraph with the field is as it was

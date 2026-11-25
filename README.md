@@ -47,11 +47,18 @@ text layer. A scanned PDF stops with `needs_ocr` and the pages that have no text
 password-protected Word, PowerPoint or Excel file is refused with a message saying so.
 
 PowerPoint: slide text (titles, text boxes, body text), table cells and speaker notes are
-translated; chart and SmartArt text, slide numbers and dates are not. Excel: only cells holding
-text are translated; formulas, numbers, dates, booleans and sheet names never change, and
-charts, comments and text boxes keep their original text. Both download in their own format
-(`exports/pptx`, `exports/xlsx`): a copy of the original file with the translated text in place,
-so slides, layouts, pictures, formulas and sheets stay as they were.
+translated; chart and SmartArt text, slide numbers and dates, and a paragraph that holds a
+slide number or date are not. Excel: only cells holding text are translated; formulas, numbers,
+dates, booleans and sheet names never change, and charts, comments, text boxes and the heading
+and totals rows of a table ("Format as Table", whose column names formulas refer to) keep their
+original text. Both download in their own format (`exports/pptx`, `exports/xlsx`): a copy of
+the original file with the translated text in place, so slides, layouts, pictures, formulas and
+sheets stay as they were. Alt text, the document's properties and title, page headers and
+footers, data-validation lists, comments and text inside formulas also keep their original
+text. Translating a cell changes what formulas see in it: a formula that compares a cell with
+a fixed text or looks it up (`IF`, `VLOOKUP` keys), or a validation list that limits a cell to
+certain words, may give a different result or reject the translated text, so check those
+workbooks after downloading.
 
 ## Scoring
 

@@ -4,8 +4,10 @@ Reading order: slide by slide; on each slide its shapes in the order they are st
 a group in place of the group), then the slide's speaker notes. Every paragraph of a text frame
 with text is a block: a slide title is a heading, a table cell's paragraph a table cell (with its
 position, so the Word download can rebuild the table), the rest paragraphs. Slide numbers and
-dates are left out; charts, SmartArt diagrams and embedded objects cannot be read, and the
-document's notices name them. Bold, italic, underlined, superscript and subscript runs and links
+dates are left out, and so is any paragraph with a field PowerPoint fills in (a slide number or
+a date), which keeps its text in the download. Charts, SmartArt diagrams, embedded objects and
+paragraphs with a field and words besides it cannot be read, and the document's notices name
+them; ink is passed over. Bold, italic, underlined, superscript and subscript runs and links
 to web and mail addresses are the block's marks, as for Word files (CGL-108).
 
 The PowerPoint download (`coglossa.export.pptx`) writes the translation back into a copy of the
@@ -57,7 +59,9 @@ _UNREADABLE = (
     ("chart", "chart", "charts"),
     ("diagram", "diagram", "diagrams"),
     ("object", "embedded object", "embedded objects"),
+    ("field", "paragraph with a slide number or date", "paragraphs with a slide number or date"),
 )
+_CONTENT_PART = qn("p:contentPart")  # ink, which python-pptx cannot make a shape of
 
 
 @dataclasses.dataclass(frozen=True)
@@ -103,8 +107,8 @@ def _paragraph_text(p: Any, part: Any) -> tuple[str, list[InlineMark]]:
     for child in p:
         if child.tag == _BR:
             pieces.append(("\n", frozenset()))
-        elif child.tag in (_R, _FLD):
-            pieces.append((child.text, run_keys(child, part) if child.tag == _R else frozenset()))
+        elif child.tag == _R:
+            pieces.append((child.text, run_keys(child, part)))
     text = "".join(t for t, _ in pieces)
     keys = [k for t, k in pieces for _ in t]
     return strip_marked(text, marks_from_keys(text, keys) if any(keys) else [])
@@ -127,8 +131,14 @@ class _Walker:
                     self._frame(frame, notes.part, where, BlockKind.PARAGRAPH)
 
     def _shapes(self, shapes: Any, part: Any, where: str) -> None:
-        for shape in shapes:
-            kind = shape.shape_type
+        for element in shapes._iter_member_elms():
+            if element.tag == _CONTENT_PART:
+                continue
+            shape = shapes._shape_factory(element)
+            try:
+                kind = shape.shape_type
+            except NotImplementedError:  # a shape with no outline python-pptx knows
+                kind = None
             if kind == MSO_SHAPE_TYPE.GROUP:
                 self._shapes(shape.shapes, part, where)
                 continue
@@ -172,6 +182,14 @@ class _Walker:
 
     def _frame(self, frame: Any, part: Any, locator: str, kind: BlockKind, **extra: Any) -> None:
         for n, paragraph in enumerate(frame.paragraphs, 1):
+            if paragraph._p.find(_FLD) is not None:
+                # a slide number or date PowerPoint fills in: the download could not put it back
+                # in the translated words, so the paragraph keeps its text, and is named when it
+                # has words besides the field
+                text, _ = _paragraph_text(paragraph._p, part)
+                if any(c.isalpha() for c in text):
+                    self.unread["field"] += 1
+                continue
             text, marks = _paragraph_text(paragraph._p, part)
             if text:
                 where = f"{locator}, paragraph {n}"
