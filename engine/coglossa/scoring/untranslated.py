@@ -31,14 +31,17 @@ between backticks; a word with code punctuation such as snake_case, file.ext, a/
 --option or key=value, or in camelCase; a passage dense with brackets and operators). A
 passage needs at least `MIN_LETTERS` counted letters, in at least `MIN_WORDS` words unless its
 script is written without spaces, to be flagged, so passages that are only names, numbers,
-addresses or code, single words and very short ones never are. A bibliography entry (one that
-starts like one, with its number "[4]" or its first author "Smith, J.", and has a year and two
-marks of one, such as "Smith, J.", "(2020).", "46(2)", "pp. 12", "et al." or a DOI) is never
-flagged: a reference list stays as it is. Prose that cites works ("Recent work (Smith et al.,
-2020; Jones, 2019) shows ...") does not start like an entry and is checked. A copy that does not
-end like a sentence needs `MIN_FRAGMENT_WORDS` words (capitalised ones included), so labels,
-units and mottos that rightly stay the same ("total (in millions)", "kg per m2 per year") are
-not flagged as copies.
+addresses or code, single words and very short ones never are. A bibliography entry is never
+flagged: a reference list stays as it is. It must start like one: its number "[4]" if any, then
+its authors in one of the usual shapes with the year where that style puts it ("Smith, J., &
+Jones, K. (2020).", "J. Smith and K. Jones, ...", "Smith J, Jones K. ... 2020;46(2)", "Koehn,
+Philipp. Title. Publisher, 2010.", "World Health Organization. (2020)."), and it must have two
+marks of one, such as "(2020).", "46(2)", "pp. 12", "et al." or a DOI. Prose that cites works,
+or has a number, a name and a date, does not start like that and is checked ("Recent work
+(Smith et al., 2020) shows ...", "[12] On May 25, 2018, the appellant ...", "Smith, J. (2020)
+argues ..."). A copy that does not end like a sentence needs `MIN_FRAGMENT_WORDS` words
+(capitalised ones included), so labels, units and mottos that rightly stay the same ("total (in
+millions)", "kg per m2 per year") are not flagged as copies.
 
 Rule (a) is left out when the source is already in the target language and script (en-US to
 en-GB, which the web app allows): there most passages rightly stay as they are.
@@ -311,18 +314,39 @@ _CITATION_MARKS = (
     re.compile(r"\b\d+\s?\(\d+(?:[–-]\d+)?\)"),  # volume(issue): 46(2)
     re.compile(r"^\s*\[\d+\]\s"),  # [4] a numbered reference
 )
-# How a bibliography entry starts: its number, or its first author. Prose that cites works
-# ("Recent work (Smith et al., 2020) ...", "Since May 25, 2018, Article 5(2) ...") does not.
+# How a bibliography entry starts: its number, then its authors in one of the usual shapes with
+# the year where those styles put it, or an organisation as author. Prose does not start like
+# that, even when it has a number, a name and a year ("[12] On May 25, 2018, the appellant ...",
+# "Smith, J. (2020) argues that ..."). Author lists are atomic groups, so a long list that turns
+# out not to be an entry is given up in linear time.
 _UPPER = "A-ZÀ-ÖØ-Þ"
-_SURNAME = rf"(?:[a-z]{{1,3}}\s+){{0,2}}[{_UPPER}][^\W\d_]*(?:['’-][^\W\d_]+)*"
+_U = f"[{_UPPER}]"
+_L = r"[^\W\d_]"
+_YEAR_RE = r"(?:1[5-9]|20)\d\d[a-z]?"
+_SURNAME = rf"(?:(?!and\s)[a-z]{{1,3}}\s+){{0,2}}{_U}{_L}*(?:['’-]{_L}+)*"
+_INITIALS = rf"{_U}\.(?:-?{_U}\.|\s?{_U}\.)*"  # J. / W.-J. / J. A.
+_SEP = r"(?:,\s+(?:&\s+|and\s+)?|\s+(?:&|and)\s+)"  # , / , & / , and / and
+_ET_AL = r"(?:,?\s+et\s+al\.)?"
+# Smith, J. / Smith, John A. / van der Berg, A.
+_SURNAME_FIRST = rf"{_SURNAME},\s+(?:{_U}{_L}+\s+)?{_INITIALS}"
 _ENTRY_START = re.compile(
-    rf"^\s*(?:\[\d+\]\s|(?:\d{{1,3}}[.)]\s+)?(?:"
-    # Smith, J. / Smith, John A. / Koehn, Philipp.
-    rf"{_SURNAME},\s+(?:[{_UPPER}][^\W\d_]+\s+)?[{_UPPER}][^\W\d_]*\."
-    rf"|(?:[{_UPPER}]\.[\s-]*)+{_SURNAME}(?:,|\s+(?:and|&)\s)"  # J. Smith, / W.-J. Zhu and
-    rf"|{_SURNAME}\s+[{_UPPER}]{{1,3}}[,.]\s"  # Smith J, (Vancouver)
-    rf"|[^.()\n]{{2,120}}(?<!et al)\.\s*\((?:1[5-9]|20)\d\d"  # World Health Organization. (2020)
-    r"))"
+    rf"^\s*(?:\[\d+\]\s*|\d{{1,3}}[.)]\s+)?(?:"
+    # APA and Harvard: Smith, J., & Jones, K. (2020). / ... and Bengio, Y. 2015.
+    rf"(?>{_SURNAME_FIRST}(?:{_SEP}{_SURNAME_FIRST})*{_ET_AL})"
+    rf"(?:\s*\({_YEAR_RE}(?:,[^()\n]{{1,30}})?\)|,?\s+{_YEAR_RE})\."
+    # IEEE: J. Smith and K. Jones, "Title," ... / J. Smith (2020).
+    rf"|(?>{_INITIALS}\s*{_SURNAME}(?:{_SEP}{_INITIALS}\s*{_SURNAME})*{_ET_AL})"
+    rf"(?:,\s*[\"“]|\s*\({_YEAR_RE}\)\.|,\s+{_YEAR_RE}\.)"
+    # Vancouver: Smith J, Jones K. Title. Journal. 2020;46(2):123-45.
+    rf"|(?>{_SURNAME}\s+{_U}{{1,3}}(?:,\s+{_SURNAME}\s+{_U}{{1,3}})*(?:,?\s+et\s+al)?)\.\s"
+    rf"[^\n]{{0,300}}?(?<!\d){_YEAR_RE}(?:\s{_U}[a-z]{{2}}(?:\s\d{{1,2}})?)?;\s*\d"
+    # MLA and Chicago: Koehn, Philipp. Title. Publisher, 2010. / Koehn, Philipp. 2010.
+    rf"|{_SURNAME},\s+{_U}{_L}+(?:\s+{_U}{_L}+)*(?:\s+{_U})?\.\s+"
+    rf"(?:\(?{_YEAR_RE}\)?\.|(?:[^.\n]+\.[\"”]?\s+){{1,4}}[^.\n]*,\s*{_YEAR_RE}\.?\s*$)"
+    # An organisation: World Health Organization. (2020).
+    rf"|{_U}[\w'’&-]*(?:\s+(?:of|for|and|the|on|in|&|{_U}[\w'’&-]*)){{0,12}}"
+    rf"\.\s*\({_YEAR_RE}(?:,[^()\n]{{1,30}})?\)\."
+    r")"
 )
 
 

@@ -6,6 +6,7 @@ from coglossa.schema import Entity, GlossaryEntry, Guide
 from coglossa.scoring.untranslated import (
     MIN_LETTERS,
     Untranslated,
+    _citation,
     kept_names,
     target_scripts,
     untranslated_check,
@@ -429,6 +430,31 @@ def test_prose_that_cites_works_is_still_checked(passage):
 
 
 @pytest.mark.parametrize(
+    "passage",
+    [
+        # a numbered paragraph of a judgment, full of dates and case names
+        "[12] On May 25, 2018, the appellant filed a notice of appeal against the decision of "
+        "the tribunal.",
+        "[12] In R v Smith (2018), the court held that the evidence was inadmissible and "
+        "ordered a new trial.",
+        # a name and an initial, then a sentence
+        "Miller, J. delivered the judgment of the court on March 3, 2020, and dismissed the "
+        "appeal with costs.",
+        "Smith, J. (2020) argues that machine translation has improved, and the rest of this "
+        "section explains why.",
+        # a sentence, then a year in brackets
+        "The report was published. (2020) It found that the factory had polluted the river for "
+        "years; see pp. 4.",
+    ],
+)
+def test_prose_that_starts_like_a_reference_is_still_checked(passage):
+    found = untranslated_check(passage, passage, "fr", source_lang="en")
+    assert found is not None and found.rule == "copied"
+    found = untranslated_check("x", passage, "ru")
+    assert found is not None and found.rule == "script"
+
+
+@pytest.mark.parametrize(
     "entry",
     [
         "World Health Organization. (2020). Global tuberculosis report 2020. Geneva: WHO, "
@@ -437,6 +463,13 @@ def test_prose_that_cites_works_is_still_checked(passage):
         'J. Smith and K. Jones, "Machine translation quality," IEEE Trans., vol. 4, '
         "pp. 1-10, 2020.",
         "van der Berg, A. (2019). Neural models for translation. Journal of MT, 12(3), 45-67.",
+        "Smith, J. A., & Doe, R. (2020, May 3). A post about translation. Retrieved from "
+        "https://example.com",
+        "Koehn, Philipp. 2010. Statistical Machine Translation. Cambridge: Cambridge "
+        "University Press.",
+        "12. Vaswani, A., et al. (2017). Attention is all you need. NeurIPS, 30, 5998-6008.",
+        "Smith J, Jones K, et al. Machine translation quality. Comput Linguist. "
+        "2020 Mar;46(2):123-45.",
     ],
 )
 def test_other_reference_styles_are_not_flagged(entry):
@@ -460,3 +493,28 @@ def test_a_long_reference_like_passage_is_checked_quickly():
     for passage in ("Ab" + "-Ab" * 200 + " 1", ("A.  -  " * 200) + "1", "ab " * 200):
         untranslated_check(passage, passage, "fr")
     assert time.perf_counter() - start < 2
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        "Ab, A., and " * 9000 + "1",
+        "Ab, A. " * 15000 + "1",
+        "A. Ab and " * 10000 + "1",
+        "Ab A, " * 17000 + "1",
+        "Ab, Abc Ab A. " * 7000 + "1",
+        "Ab, Abc. " + "ab. " * 25000 + "1",
+        "World of " * 11000 + "1",
+        "[1] " + "Ab, A.-B. " * 10000 + "(2020)",
+        "Ab, A. " + "ab, 2020; " * 10000,
+    ],
+)
+def test_a_100_kb_reference_like_passage_is_checked_quickly(passage):
+    # each is a long author list, or an entry's start, that turns out not to be an entry
+    assert len(passage) >= 90_000
+    start = time.perf_counter()
+    assert not _citation(passage)
+    assert time.perf_counter() - start < 0.5
+    start = time.perf_counter()
+    untranslated_check(passage, passage, "fr")
+    assert time.perf_counter() - start < 3

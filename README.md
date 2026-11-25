@@ -112,11 +112,13 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   correct Chinese, Korean, Hindi, Russian or Greek passage do not flag it. A copy is not flagged
   when the source is already in the target language and script (en-US to en-GB; zh-CN and
   zh-Hans are the same, zh-CN and zh-TW are not). Bibliography entries (a passage that starts
-  with its number or its first author and has a year and other marks of a reference) are never
-  flagged; prose that cites works is checked as usual. A copy that does not end like a sentence
-  needs five words or more, so labels, units and mottos that rightly stay the same ("total (in
-  millions)", "kg per m2 per year") are not flagged, and nor is a heading or table cell of four
-  words or fewer copied into a language written in the same script. A passage of
+  with its authors in one of the usual reference styles, with the year where that style puts
+  it, and has other marks of a reference) are never flagged; prose that cites works, or a
+  numbered paragraph with names and dates ("[12] On May 25, 2018, ..."), is checked as usual.
+  A copy that does not end like a sentence needs five words or more, so labels, units and
+  mottos that rightly stay the same ("total (in millions)", "kg per m2 per year") are not
+  flagged, and nor is a heading or table cell of four words or fewer copied into a language
+  written in the same script. A passage of
   the source that is already in the target language (a French quotation in an English source
   translated into French) rightly stays as it is, and is flagged as a copy; mark it checked.
   The full rules are in `engine/coglossa/scoring/untranslated.py`
