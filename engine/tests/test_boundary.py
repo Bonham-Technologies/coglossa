@@ -13,6 +13,7 @@ DATABASE_MODULES = (
     "coglossa.catalog",
     "coglossa.access",  # who sees which sets: queries the store (CGL-26)
     "coglossa.review",
+    "coglossa.review_summary",  # reads the review view's stored data (CGL-112)
     "coglossa.worker",
     "coglossa.doctor",
     "coglossa.cli_ops",

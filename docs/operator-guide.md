@@ -464,6 +464,23 @@ show, or open `/api/me`, which lists your teams.
 - **Start:** `docker compose up -d --wait`.
 - After a reboot the services start by themselves once Docker starts. The worker waits up to 15 minutes for the scorer to load its models (section 3).
 
+### How much reviewing a translation took
+
+Admins see a **review summary** under **Technical details** at the bottom of a translation's
+page: for the language shown, over the latest version of each file, how many passages were
+checked and how many a reviewer changed, how much they changed on average (characters added,
+removed or replaced, and as a share of the passage), and for each kind of flag how often it was
+raised, marked "not a problem" (with the reasons given) and followed by a change to the passage.
+That last figure says how often a flag points at something reviewers actually fix.
+
+It is read from what reviewing already records; nothing is stored for it, and it changes no
+setting or threshold. **Download every passage as a spreadsheet (CSV)** gives one row per passage
+(its flags, whether it was checked and changed, the size of the change, and who reviewed it, by
+the name the sign-in proxy passes), for the language or for one file. The CSV is UTF-8 with a
+byte order mark, so Excel opens accents correctly, and a cell that would start a formula begins
+with an apostrophe. The same figures are in the API (`GET /api/runs/{id}/review-summary`,
+`GET /api/projects/{id}/review-summary`, and `.csv` after either), for admins only.
+
 ## 8. Backups
 
 ```sh
