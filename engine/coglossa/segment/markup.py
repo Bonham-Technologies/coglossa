@@ -27,7 +27,7 @@ _MARKER_LIKE = re.compile(r"[<\uff1c]\s*/?\s*\d+\s*/?\s*[>\uff1e]")
 _AROUND_MARKERS = re.compile(rf"([ \t]*)(?:{_MARKER_LIKE.pattern})+([ \t]*)")
 _LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp"})  # targets a Word file can open
 FORMATTING_LOST = (
-    "Formatting could not be kept here, so the Word download shows this passage as plain text."
+    "Formatting could not be kept here, so the download shows this passage as plain text."
 )
 
 

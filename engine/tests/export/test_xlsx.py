@@ -206,3 +206,48 @@ def test_a_file_that_cannot_be_written_back_says_so(tmp_path):
         )
         with pytest.raises(ExportError, match=message):
             translated_xlsx(broken, data)
+
+
+def test_cells_without_a_position_in_the_file_are_found(tmp_path):
+    """A row's and a cell's position may be left out of the file; Excel and openpyxl then count
+    from the one before, and so does the download."""
+    wb = Workbook()
+    wb.active.title = "Feuille"
+    wb.active["A1"] = "Bonjour"
+    wb.active["B1"] = 3
+    wb.active["C1"] = "Au revoir"
+    wb.active["A2"] = "Merci"
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    original = _rewrite(
+        buffer.getvalue(),
+        "xl/worksheets/sheet1.xml",
+        lambda xml: re.sub(r' r="[A-Z]*[0-9]+"', "", xml),
+    )
+    report = _report_of(original, tmp_path, name="positions")
+    data = translated_xlsx(report, original)
+    ws = load_workbook(io.BytesIO(data))["Feuille"]
+    assert [ws[c].value for c in ("A1", "B1", "C1", "A2")] == [
+        "[en] Bonjour",
+        3,
+        "[en] Au revoir",
+        "[en] Merci",
+    ]
+
+
+def test_text_that_looks_like_an_escaped_character_stays_as_it_is(tmp_path):
+    """Excel reads `_x0041_` in a cell's text as "A": a translation that says it literally has
+    its "_" escaped in turn, and a line break the file escaped (`_x000D_`) is read as one."""
+    original = _rewrite(
+        workbook(tmp_path).read_bytes(),
+        "xl/sharedStrings.xml",
+        lambda xml: xml.replace("Loyer du bureau", "Loyer_x000D_\ndu bureau", 1),
+    )
+    report = _report_of(original, tmp_path)
+    assert report.blocks[3].text == "Loyer\ndu bureau"
+    spans = [
+        s.model_copy(update={"text": "Code _x0041_ here"}) if n == 3 else s
+        for n, s in enumerate(report.spans)
+    ]
+    data = translated_xlsx(report.model_copy(update={"spans": spans}), original)
+    assert "<t>Code _x005F_x0041_ here</t>" in _part(data, "xl/worksheets/sheet1.xml")

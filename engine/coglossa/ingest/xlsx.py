@@ -18,6 +18,7 @@ from typing import Any
 import openpyxl
 from lxml import etree
 from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.utils.escape import unescape
 
 from coglossa.ingest.base import (
     IngestError,
@@ -73,11 +74,20 @@ def _font_keys(font: Any) -> frozenset[MarkKey]:
     return frozenset(keys)
 
 
+def _plain(text: str) -> str:
+    return unescape(text).replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _cell_text(value: str | CellRichText) -> tuple[str, list[InlineMark]]:
+    """The cell's text and marks. A character XML cannot hold, such as the carriage return of a
+    Windows line break, is written `_x000D_` in the file; openpyxl leaves that as it is, so it is
+    read here, and every line break becomes a line feed."""
     if not isinstance(value, CellRichText):
-        return value.strip(), []
+        return _plain(value).strip(), []
     pieces = [
-        (p.text, _font_keys(p.font)) if isinstance(p, TextBlock) else (p, frozenset())
+        (_plain(p.text), _font_keys(p.font))
+        if isinstance(p, TextBlock)
+        else (_plain(p), frozenset())
         for p in value
     ]
     text = "".join(t for t, _ in pieces)

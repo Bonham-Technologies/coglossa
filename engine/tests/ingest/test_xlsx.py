@@ -119,3 +119,10 @@ def test_a_damaged_workbook_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr("coglossa.ingest.xlsx._unread", broken)
     with pytest.raises(IngestError, match=r"part of it is damaged \(bad drawing\)"):
         registry.ingest_file(path)
+
+
+def test_a_workbook_that_unpacks_to_too_much_is_refused(tmp_path, monkeypatch):
+    path = workbook(tmp_path)
+    monkeypatch.setattr("coglossa.ingest.base.MAX_OFFICE_UNCOMPRESSED_BYTES", 1024)
+    with pytest.raises(IngestError, match="budget.xlsx is too large to translate once unpacked"):
+        registry.ingest_file(path)

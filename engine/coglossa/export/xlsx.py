@@ -12,11 +12,13 @@ sentences were translated together with an earlier cell's is left empty."""
 
 import io
 import posixpath
+import re
 import zipfile
 from copy import deepcopy
 from typing import Any
 
 from lxml import etree
+from openpyxl.utils.cell import coordinate_to_tuple, get_column_letter
 
 from coglossa.export.office import (
     ExportError,
@@ -40,6 +42,8 @@ _RT_DOCUMENT = f"{_REL}/officeDocument"
 _RT_SHEET = f"{_REL}/worksheet"
 _RT_STRINGS = f"{_REL}/sharedStrings"
 _TEXT_TYPES = ("s", "inlineStr", "str")
+# Text Excel would read as an escaped character (`_x000D_`); its "_" is escaped in turn
+_LOOKS_ESCAPED = re.compile(r"_(?=x[0-9A-Fa-f]{4}_)")
 # Each kind of formatting: the run property that turns it on
 _PROPS = (
     (MarkKind.BOLD, "b", None),
@@ -118,7 +122,7 @@ def _base_props(item: Any | None) -> Any | None:
 
 def _text_element(parent: Any, text: str) -> None:
     t = etree.SubElement(parent, _q("t"))
-    t.text = text
+    t.text = _LOOKS_ESCAPED.sub("_x005F_", text)
     if text != text.strip():
         t.set(_XML_SPACE, "preserve")
 
@@ -147,6 +151,22 @@ def _inline(text: str, marks: list[InlineMark], base: Any | None) -> Any:
         _text_element(r, text[start:end])
         start = end
     return inline
+
+
+def _cells(sheet: Any) -> Any:
+    """(coordinate, c element) of every cell of a sheet. A row's or a cell's position may be left
+    out of the file, and is then the one after the previous one, as openpyxl reads it."""
+    row = 0
+    for r in sheet.iter(_q("row")):
+        row = int(float(r.get("r"))) if r.get("r") else row + 1
+        col = 0
+        for c in r.iter(_q("c")):
+            ref = c.get("r")
+            if ref:
+                at, col = coordinate_to_tuple(ref)
+            else:
+                at, col = row, col + 1
+            yield f"{get_column_letter(col)}{at}", c
 
 
 def _write_cell(c: Any, inline: Any | None) -> None:
@@ -200,8 +220,8 @@ def _translated(report: Report, original: bytes) -> bytes:
     texts = translations(report)
     for part, cells in wanted.items():
         found = 0
-        for c in package.xml(part).iter(_q("c")):
-            block = cells.get(c.get("r", ""))
+        for ref, c in _cells(package.xml(part)):
+            block = cells.get(ref)
             if block is None:
                 continue
             if c.get("t") not in _TEXT_TYPES or c.find(_q("f")) is not None:

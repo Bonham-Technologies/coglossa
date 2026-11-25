@@ -67,10 +67,27 @@ def check_office_zip(name: str, head: bytes, is_zip: bool, app: str, ext: str) -
         raise IngestError(f"{name} is not a readable {app} file")
 
 
+# What a PowerPoint or Excel file may expand to: their libraries read every part into memory,
+# so a small file that unpacks to gigabytes (a "zip bomb") is refused before they open it
+MAX_OFFICE_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
+
+
 def check_office_file(path: Path, app: str, ext: str) -> None:
     with path.open("rb") as f:
         head = f.read(len(_OLE_MAGIC))
-    check_office_zip(path.name, head, zipfile.is_zipfile(path), app, ext)
+    is_zip = zipfile.is_zipfile(path)
+    check_office_zip(path.name, head, is_zip, app, ext)
+    try:
+        with zipfile.ZipFile(path) as z:
+            size = sum(info.file_size for info in z.infolist())
+    except (zipfile.BadZipFile, ValueError) as e:
+        raise IngestError(f"{path.name} is not a readable {app} file ({error_reason(e)})") from e
+    if size > MAX_OFFICE_UNCOMPRESSED_BYTES:
+        raise IngestError(
+            f"{path.name} is too large to translate once unpacked (more than "
+            f"{MAX_OFFICE_UNCOMPRESSED_BYTES // 2**30} GB); split it into smaller files and try "
+            "again"
+        )
 
 
 def unread_notices(counts: Iterable[tuple[int, str, str]]) -> list[str]:
