@@ -16,8 +16,16 @@ def test_dispatches_by_extension_case_insensitively(tmp_path):
 def test_unsupported_extension(tmp_path):
     path = tmp_path / "scan.odt"
     path.write_bytes(b"x")
-    with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'"):
+    with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'") as e:
         registry.ingest_file(path)
+    assert ".pptx" in str(e.value) and ".xlsx" in str(e.value)  # CGL-110
+
+
+def test_powerpoint_and_excel_files_are_accepted():
+    registry.check_extension("Slides.PPTX")
+    registry.check_extension("Budget.xlsx")
+    with pytest.raises(UnsupportedFormatError):
+        registry.check_extension("old.ppt")
 
 
 def test_missing_file(tmp_path):

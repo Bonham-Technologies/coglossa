@@ -127,7 +127,7 @@ async def run_sweep(
         # validation guarantees the text changed: it now contains a rendering it lacked
         rules = "; ".join(f"'{v.term}' → '{v.expected}'" for v in violations)
         flags = _resolve_terminology(span)
-        # the rewrite leaves the passage plain in the Word download, so say so (CGL-108)
+        # the rewrite leaves the passage plain in the downloads, so say so (CGL-108)
         raised: tuple[Flag, ...] = ()
         if kept_formatting(span) is not None and not any(
             f.code is FlagCode.FORMATTING_LOST for f in flags

@@ -10,7 +10,12 @@ export const ACCEPTED = [
   ".xhtml",
   ".epub",
   ".pdf",
+  ".pptx",
+  ".xlsx",
 ];
+
+/** The kinds of file Coglossa reads, in words. */
+export const FILE_KINDS = "Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB";
 
 export const MB = 1024 * 1024;
 
@@ -27,7 +32,7 @@ function accepted(name: string): boolean {
 /** Spec §4.1: what is wrong with a file, before it is uploaded; null when nothing is. */
 export function fileProblem(file: File, maxMb: number | null): string | null {
   if (!accepted(file.name)) {
-    return `${file.name} isn't a file type Coglossa reads (Word, PDF, text, Markdown, HTML or EPUB).`;
+    return `${file.name} isn't a file type Coglossa reads (${FILE_KINDS}).`;
   }
   if (file.size === 0) return `${file.name} is empty.`;
   if (maxMb !== null && file.size > maxMb * MB) {
@@ -91,7 +96,8 @@ export function DropArea({ files, onFiles, maxMb, active = true }: Props) {
       >
         <strong>Drop files here, or click to choose</strong>
         <span className="muted">
-          Word, PDF, text, Markdown, HTML or EPUB{maxMb !== null ? ` · up to ${maxMb} MB each` : ""}
+          {FILE_KINDS}
+          {maxMb !== null ? ` · up to ${maxMb} MB each` : ""}
         </span>
       </label>
       <input

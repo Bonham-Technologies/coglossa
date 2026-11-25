@@ -1006,7 +1006,9 @@
           "docx",
           "bilingual-docx",
           "json",
-          "tmx"
+          "tmx",
+          "pptx",
+          "xlsx"
         ],
         "title": "ExportKind",
         "type": "string"
@@ -5037,7 +5039,7 @@
     },
     "/api/runs/{run_id}/exports/{kind}": {
       "get": {
-        "description": "`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies\nto tmx: only the passages a person accepted or edited, with the text they approved.",
+        "description": "`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies\nto tmx: only the passages a person accepted or edited, with the text they approved. pptx and\nxlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text\ntranslated.",
         "operationId": "export_api_runs__run_id__exports__kind__get",
         "parameters": [
           {
@@ -5083,6 +5085,8 @@
           "200": {
             "content": {
               "application/json": {},
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
               "application/x-tmx+xml": {},
               "text/html": {}
@@ -5093,11 +5097,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "pptx or xlsx of a run of another format, or a file that can't be written back."
           }
         },
         "summary": "Export",

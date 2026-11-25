@@ -42,8 +42,23 @@ Exit codes: `0` complete, `1` failed, `2` usage error, `3` complete with errors,
 and `engine_error` flags in the report).
 
 Supported input formats: plain text and Markdown (`.txt`, `.md`, `.markdown`), Word (`.docx`),
-HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a text layer. A scanned PDF stops with
-`needs_ocr` and the pages that have no text.
+PowerPoint (`.pptx`), Excel (`.xlsx`), HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a
+text layer. A scanned PDF stops with `needs_ocr` and the pages that have no text. A
+password-protected Word, PowerPoint or Excel file is refused with a message saying so.
+
+PowerPoint: slide text (titles, text boxes, body text), table cells and speaker notes are
+translated; chart and SmartArt text, slide numbers and dates, and a paragraph that holds a
+slide number or date are not. Excel: only cells holding text are translated; formulas, numbers,
+dates, booleans and sheet names never change, and charts, comments, text boxes and the heading
+and totals rows of a table ("Format as Table", whose column names formulas refer to) keep their
+original text. Both download in their own format (`exports/pptx`, `exports/xlsx`): a copy of
+the original file with the translated text in place, so slides, layouts, pictures, formulas and
+sheets stay as they were. Alt text, the document's properties and title, page headers and
+footers, data-validation lists, comments and text inside formulas also keep their original
+text. Translating a cell changes what formulas see in it: a formula that compares a cell with
+a fixed text or looks it up (`IF`, `VLOOKUP` keys), or a validation list that limits a cell to
+certain words, may give a different result or reject the translated text, so check those
+workbooks after downloading.
 
 ## Scoring
 
@@ -115,8 +130,9 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)
 - `formatting_lost`: "Formatting couldn't be kept". The source's bold, italic, underlined,
-  superscript, subscript or linked words (Word, HTML and EPUB files) did not come back whole
-  from the models, so the passage is plain in the clean Word download (CGL-108)
+  superscript, subscript or linked words (Word, PowerPoint, Excel, HTML and EPUB files) did not
+  come back whole from the models, so the passage is plain in the clean Word download and in a
+  PowerPoint or Excel download (CGL-108, CGL-110)
 
 Document-level notices: `low_reliability_language` (tier C pairs) and `unscored`. Thresholds
 are set with `scoring.thresholds` (`meaning: 70` for every tier, or `meaning: {A: 70, C: 75}`).
@@ -279,7 +295,7 @@ air-gapped network cannot reach.
 | Runs | `POST /projects/{id}/runs` (upload), `POST /documents/{id}/runs`, `GET /runs`, `GET /runs/{id}`, `GET /runs/{id}/progress`, `GET /runs/{id}/events` (SSE), `POST /runs/{id}/cancel`, `/retry`, `/sweep` |
 | Guide | `GET /runs/{id}/guide`, `POST /runs/{id}/guide/approve`, `GET/PUT /projects/{id}/guide`, `GET /projects/{id}/guide/versions`, `POST /projects/{id}/guide/import/preview` and `/import` (a CSV, TSV or TBX glossary, multipart) |
 | Review | `GET /runs/{id}/spans` (filters), `GET /runs/{id}/spans/{span}`, `POST …/edit`, `…/use-candidate`, `…/accept`, `…/guide`, `POST /runs/{id}/flags/{flag}` |
-| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited) |
+| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx,pptx,xlsx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited; `pptx` and `xlsx`: a PowerPoint or Excel file in its own format) |
 | Review summary (admins) | `GET /runs/{id}/review-summary`, `GET /projects/{id}/review-summary` (per language), and the same with `.csv` (one row per passage; the set's takes `?target_lang=`) |
 | System | `GET /health`, `GET /me`, `GET /system/doctor`, `GET /system/config`, `GET /system/tiers` |
 
@@ -308,7 +324,7 @@ The web app (`web/`, React + Vite) is how reviewers use Coglossa:
 - **A translation's page:** one tab per file, with live steps while it works, then a plain summary of how it went and the original beside the translation.
 - **Review:** open any passage to see why it was flagged, edit it, choose a better version, mark it checked, or fix a name or term everywhere.
 - **Translation guide:** the names, terms and style a translation follows; edit it, and update the translations to match.
-- **Download:** the translation as a web page, Word file or side-by-side Word file, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
+- **Download:** the translation as a web page, Word file or side-by-side Word file, a PowerPoint or Excel file as the same file translated, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
 - **Review summary (admins):** under Technical details on a translation's page, how much reviewing each language took: passages checked and changed, how much was changed, and what became of each kind of flag, with a CSV of every passage.
 - **Settings:** installation checks and, under Technical details, the scores and settings behind the results.
 

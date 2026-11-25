@@ -19,7 +19,7 @@ import { renderAt } from "../test/render";
 import { server } from "../test/server";
 import { nodeFormData } from "../test/node-web";
 import { enqueueUploads, resetUploads } from "../upload/queue";
-import { teamLabel } from "./SetHeader";
+import { DownloadMenu, teamLabel } from "./SetHeader";
 import { pickRun, SetPage } from "./SetPage";
 
 vi.mock("../upload/queue", async (importOriginal) => ({
@@ -90,6 +90,26 @@ it("opens a single file straight into its document", async () => {
   ]);
   items.forEach((a) => expect(a).toHaveAttribute("download"));
   expect(within(menu).getByText("Other formats")).toBeInTheDocument();
+});
+
+it.each([
+  ["Rapport annuel.PPTX", "PowerPoint file", "pptx"],
+  ["Budget.xlsx", "Excel file", "xlsx"],
+])("offers %s back in its own format first (CGL-110)", async (filename, label, kind) => {
+  server.use(
+    http.get("*/api/runs/r-9", () => {
+      const run = complete("r-9");
+      return HttpResponse.json({ ...run, run: { ...run.run, filename } });
+    }),
+  );
+  const { user } = renderAt(<DownloadMenu runId="r-9" />);
+  await user.click(await screen.findByRole("button", { name: "Download" }));
+  const items = within(screen.getByRole("menu", { name: "Download" })).getAllByRole("menuitem");
+  expect(items.slice(0, 2).map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+    [label, `/api/runs/r-9/exports/${kind}`],
+    ["Word document", "/api/runs/r-9/exports/docx"],
+  ]);
+  expect(items[0]).toHaveAttribute("download");
 });
 
 const ITEM_ROLES = ["menuitem", "menuitemcheckbox", "menuitemradio"];
