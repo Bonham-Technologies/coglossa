@@ -107,10 +107,16 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   rule: a passage copied through is flagged, one written in the wrong language of that script is
   not; nor is Chinese for a Japanese target. A language whose scripts are not known is checked
   for copies only. "Most" weighs a Chinese character or a Hangul syllable as three Latin
-  letters (kana, Ethiopic and the Indian scripts as two), so a few English terms in a correct
-  Chinese, Korean or Hindi passage do not flag it. A copy is not flagged when the source is
-  already in the target language and script (en-US to en-GB). The full rules are in
-  `engine/coglossa/scoring/untranslated.py`
+  letters (kana, Ethiopic and the Indian scripts as two), and a sentence counts as written in
+  another script only when a fifth or less of it is in the target script, so English terms in a
+  correct Chinese, Korean, Hindi, Russian or Greek passage do not flag it. A copy is not flagged
+  when the source is already in the target language and script (en-US to en-GB; zh-CN and
+  zh-Hans are the same, zh-CN and zh-TW are not). Bibliography entries are never flagged, and a
+  copy that does not end like a sentence needs five words or more, so labels, units and mottos
+  that rightly stay the same ("total (in millions)", "kg per m2 per year") are not. A passage of
+  the source that is already in the target language (a French quotation in an English source
+  translated into French) rightly stays as it is, and is flagged as a copy; mark it checked.
+  The full rules are in `engine/coglossa/scoring/untranslated.py`
 - `agent_disagreement`: the reviewer rated the translators' disagreement `major`
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)
