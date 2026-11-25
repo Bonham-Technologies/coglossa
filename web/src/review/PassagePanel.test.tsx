@@ -706,6 +706,120 @@ it("keeps scores and flag history under More details", async () => {
   );
 });
 
+const termFlag = {
+  id: 30,
+  code: "terminology_violation" as const,
+  status: "open" as const,
+  explanation: "Locked guide entries were not followed: 'chat' should be rendered as 'cat'.",
+  evidence: {
+    violations: [{ term: "chat", expected: "cat", kind: "glossary", locked: true }],
+  },
+  dismiss_reason: null,
+};
+
+it("This form is fine adds the form to the guide, then updates the translations (CGL-109)", async () => {
+  const flagged: SpanDetail = { ...spanDetail, text: "The cats sleep.", flags: [termFlag] };
+  const fine: SpanDetail = {
+    ...flagged,
+    flags: [{ ...termFlag, status: "dismissed", dismiss_reason: "This form is fine: “cats”" }],
+  };
+  let body: unknown;
+  const swept: string[] = [];
+  twoFiles([]);
+  server.use(
+    http.get("*/api/runs/r-1/spans/s-2", () => HttpResponse.json(flagged)),
+    http.post("*/api/runs/r-1/flags/30/accept-form", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json(fine);
+    }),
+    http.post("*/api/runs/:runId/sweep", ({ params }) => {
+      swept.push(params["runId"] as string);
+      return HttpResponse.json({ message: "ok", progress }, { status: 202 });
+    }),
+  );
+  const { user } = renderPanel();
+  const more = (await screen.findByText("More details")).closest("details")!;
+  await user.click(within(more).getByText("More details"));
+  await user.click(
+    within(more).getByRole("button", {
+      name: "Not a problem: Doesn't follow your translation guide",
+    }),
+  );
+  const field = within(more).getByLabelText("The form this passage uses instead of “cat”");
+  const fineButton = within(more).getByRole("button", { name: "This form is fine" });
+  expect(fineButton).toBeDisabled();
+  await user.type(field, " cats ");
+  await user.click(fineButton);
+  await vi.waitFor(() => expect(body).toEqual({ term: "chat", form: "cats" }));
+  const flags = within(more).getByRole("list", { name: "Flags" });
+  expect(
+    await within(flags).findByText(/Doesn't follow your translation guide: not a problem/),
+  ).toHaveTextContent("This form is fine: “cats”");
+  expect(within(more).queryByLabelText(/The form this passage uses/)).not.toBeInTheDocument();
+  expect(within(more).getByText("Saved. Update the translations to match?")).toBeInTheDocument();
+  await user.click(within(more).getByRole("button", { name: "Update the translations" }));
+  expect(await within(more).findByRole("status")).toHaveTextContent("Rechecking 2 files…");
+  expect(swept.sort()).toEqual(["r-1", "r-2"]);
+});
+
+it("offers This form is fine only on a terminology flag that names its terms", async () => {
+  const other = { ...termFlag, id: 31, evidence: {} };
+  server.use(
+    http.get("*/api/runs/r-1/spans/s-2", () =>
+      HttpResponse.json({ ...spanDetail, flags: [other, ...spanDetail.flags] }),
+    ),
+  );
+  const { user } = renderPanel();
+  const more = (await screen.findByText("More details")).closest("details")!;
+  await user.click(within(more).getByText("More details"));
+  for (const name of [
+    "Not a problem: Doesn't follow your translation guide",
+    "Not a problem: The meaning may have shifted",
+  ]) {
+    await user.click(within(more).getByRole("button", { name }));
+    expect(within(more).getByLabelText("Why isn't it a problem?")).toBeInTheDocument();
+    expect(
+      within(more).queryByRole("button", { name: "This form is fine" }),
+    ).not.toBeInTheDocument();
+  }
+});
+
+it("This form is fine asks which word when a flag names several, and shows a refusal", async () => {
+  const two = {
+    ...termFlag,
+    evidence: {
+      violations: [
+        { term: "chat", expected: "cat", kind: "glossary", locked: true },
+        { term: "Marie", expected: "Mary", kind: "entity", locked: true },
+      ],
+    },
+  };
+  let body: unknown;
+  server.use(
+    http.get("*/api/runs/r-1/spans/s-2", () => HttpResponse.json({ ...spanDetail, flags: [two] })),
+    http.post("*/api/runs/r-1/flags/30/accept-form", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({ detail: "the passage does not use “Maria”" }, { status: 422 });
+    }),
+  );
+  const { user } = renderPanel();
+  const more = (await screen.findByText("More details")).closest("details")!;
+  await user.click(within(more).getByText("More details"));
+  await user.click(
+    within(more).getByRole("button", {
+      name: "Not a problem: Doesn't follow your translation guide",
+    }),
+  );
+  await user.selectOptions(within(more).getByLabelText("Which word"), "1");
+  await user.type(
+    within(more).getByLabelText("The form this passage uses instead of “Mary”"),
+    "Maria",
+  );
+  await user.click(within(more).getByRole("button", { name: "This form is fine" }));
+  expect(await within(more).findByText(/does not use “Maria”/)).toBeInTheDocument();
+  expect(body).toEqual({ term: "Marie", form: "Maria" });
+});
+
 it("drops a refused version's error once another action succeeds (CGL-45)", async () => {
   server.use(
     http.post("*/api/runs/r-1/spans/s-2/use-candidate", () =>

@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "AcceptForm": {
+        "description": "CGL-109 \"This form is fine\": the passage uses `form` of the translation of `term`, one of\nthe terms or names its terminology flag names.",
+        "properties": {
+          "form": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Form",
+            "type": "string"
+          },
+          "term": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "form"
+        ],
+        "title": "AcceptForm",
+        "type": "object"
+      },
       "ActionResult": {
         "properties": {
           "message": {
@@ -756,6 +779,15 @@
       },
       "Entity": {
         "properties": {
+          "forms": {
+            "default": [],
+            "description": "Other accepted forms of the rendering, such as its plural or case forms",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forms",
+            "type": "array"
+          },
           "forms_of_address": {
             "default": "",
             "title": "Forms Of Address",
@@ -790,6 +822,15 @@
             "title": "Rendering",
             "type": "string"
           },
+          "source_forms": {
+            "default": [],
+            "description": "Other forms of the source words, such as plural or case forms, it also covers",
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Forms",
+            "type": "array"
+          },
           "speech_style": {
             "default": "",
             "title": "Speech Style",
@@ -807,6 +848,16 @@
       "EntityEdit": {
         "description": "A name as a reviewer saves it: each field at most 2,000 characters.",
         "properties": {
+          "forms": {
+            "default": [],
+            "description": "Other accepted forms of the rendering, such as its plural or case forms",
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": "Forms",
+            "type": "array"
+          },
           "forms_of_address": {
             "default": "",
             "maxLength": 2000,
@@ -845,6 +896,16 @@
             "maxLength": 2000,
             "title": "Rendering",
             "type": "string"
+          },
+          "source_forms": {
+            "default": [],
+            "description": "Other forms of the source words, such as plural or case forms, it also covers",
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": "Source Forms",
+            "type": "array"
           },
           "speech_style": {
             "default": "",
@@ -1044,6 +1105,15 @@
       },
       "GlossaryEntry": {
         "properties": {
+          "forms": {
+            "default": [],
+            "description": "Other accepted forms of the rendering, such as its plural or case forms",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forms",
+            "type": "array"
+          },
           "locked": {
             "default": false,
             "title": "Locked",
@@ -1058,6 +1128,15 @@
             "description": "Target-language rendering to use",
             "title": "Rendering",
             "type": "string"
+          },
+          "source_forms": {
+            "default": [],
+            "description": "Other forms of the source words, such as plural or case forms, it also covers",
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Forms",
+            "type": "array"
           },
           "term": {
             "description": "Source-language term exactly as it appears",
@@ -1075,6 +1154,16 @@
       "GlossaryEntryEdit": {
         "description": "A term as a reviewer saves it: each field at most 2,000 characters.",
         "properties": {
+          "forms": {
+            "default": [],
+            "description": "Other accepted forms of the rendering, such as its plural or case forms",
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": "Forms",
+            "type": "array"
+          },
           "locked": {
             "default": false,
             "title": "Locked",
@@ -1091,6 +1180,16 @@
             "maxLength": 2000,
             "title": "Rendering",
             "type": "string"
+          },
+          "source_forms": {
+            "default": [],
+            "description": "Other forms of the source words, such as plural or case forms, it also covers",
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": "Source Forms",
+            "type": "array"
           },
           "term": {
             "description": "Source-language term exactly as it appears",
@@ -4678,6 +4777,69 @@
           }
         },
         "summary": "Set Flag",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/flags/{flag_id}/accept-form": {
+      "post": {
+        "description": "CGL-109 \"This form is fine\": dismiss an open terminology flag because the passage uses an\naccepted form of the translation. The form joins the guide entry in a new approved version of\nthe set guide; rechecking the set clears the same flag where the form is used elsewhere.",
+        "operationId": "accept_form_api_runs__run_id__flags__flag_id__accept_form_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "flag_id",
+            "required": true,
+            "schema": {
+              "title": "Flag Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Form",
         "tags": [
           "review"
         ]

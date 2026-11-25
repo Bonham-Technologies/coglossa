@@ -258,7 +258,11 @@ The panel opens on the right, about 380 px wide. Between 1024 and 1280 px it ove
    - the signals and the revision history (today's `Signals` and `Revisions`)
    - every flag with its status in §3.3 wording
    - **Reopen** on checked flags
-   - **Not a problem…**, which dismisses a flag after asking for a reason, as today
+   - **Not a problem…**, which dismisses a flag after asking for a reason, as today; on a
+     "Doesn't follow your translation guide" flag it also offers **This form is fine**: the reviewer
+     types the form the passage uses (a plural, another ending), it joins the guide entry's
+     accepted forms in a new guide version, and "Update the translations" clears the same flag
+     where that form is used elsewhere (CGL-109)
 
 ### 5.5 The translation guide panel
 
@@ -267,7 +271,8 @@ A wide panel that slides in from the right, about 640 px, as a `<dialog>`. It wo
 - **Names** (entities), **Terms** (glossary) and **Style** tabs.
 - **Each name or term is one readable row,** e.g. "Riverside Community Centre → Centro Comunitario Riverside · always".
   - Clicking a row turns it into a form: source, translation, the Always tick box and, for names, the kind.
-  - The rarely used fields (gender, forms of address, notes) sit in a **More** fold inside the row.
+  - The rarely used fields (gender, forms of address, notes, and the other correct forms of the
+    translation and of the original word, one per line; CGL-109) sit in a **More** fold inside the row.
   - This replaces today's wide input grid, which overflows the page.
 - **+ Add a name** / **+ Add a term**, and a remove button on each row.
 - **Style** shows the guide's style settings as labelled form fields, one per line.

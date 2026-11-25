@@ -2,6 +2,7 @@
 ratio, and MQM-style judge penalties. Pure functions; no I/O."""
 
 import re
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -28,9 +29,15 @@ class GuideViolation:
     expected: str
     kind: Literal["glossary", "entity"]
     locked: bool
+    forms: tuple[str, ...] = ()  # the entry's other accepted forms of `expected` (CGL-109)
 
     def as_evidence(self) -> dict[str, object]:
-        return asdict(self)
+        evidence = asdict(self)
+        if self.forms:
+            evidence["forms"] = list(self.forms)
+        else:
+            del evidence["forms"]  # as before forms existed
+        return evidence
 
 
 def term_in(term: str, text: str) -> bool:
@@ -51,21 +58,32 @@ def term_in(term: str, text: str) -> bool:
     return re.search(pattern, haystack) is not None
 
 
+def any_in(terms: Iterable[str], text: str) -> bool:
+    """term_in for any of `terms`: an entry's words and their listed forms (CGL-109)."""
+    return any(term_in(t, text) for t in terms)
+
+
 def guide_check(
     source_text: str, final_text: str, guide: Guide
 ) -> tuple[float | None, list[GuideViolation]]:
     applicable = 0
     violations: list[GuideViolation] = []
+    # An entry applies where its term (or name), or one of its source forms, is in the source,
+    # and holds where its rendering, or one of its accepted forms, is in the translation.
     for g in guide.glossary:
-        if term_in(g.term, source_text):
+        if any_in(g.source_words, source_text):
             applicable += 1
-            if not term_in(g.rendering, final_text):
-                violations.append(GuideViolation(g.term, g.rendering, "glossary", g.locked))
+            if not any_in(g.target_words, final_text):
+                violations.append(
+                    GuideViolation(g.term, g.rendering, "glossary", g.locked, tuple(g.forms))
+                )
     for e in guide.entities:
-        if term_in(e.name, source_text):
+        if any_in(e.source_words, source_text):
             applicable += 1
-            if not term_in(e.rendering, final_text):
-                violations.append(GuideViolation(e.name, e.rendering, "entity", e.locked))
+            if not any_in(e.target_words, final_text):
+                violations.append(
+                    GuideViolation(e.name, e.rendering, "entity", e.locked, tuple(e.forms))
+                )
     if applicable == 0:
         return None, []
     return (applicable - len(violations)) / applicable, violations

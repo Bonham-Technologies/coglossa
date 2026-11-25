@@ -64,6 +64,41 @@ it("adds, edits, finishes and removes a term", async () => {
   expect(screen.getByText("No terms yet.")).toBeInTheDocument();
 });
 
+it("lists other forms of a term and a name, one per line (CGL-109)", async () => {
+  const user = userEvent.setup();
+  const seen: GlossaryEntry[][] = [];
+  function Watched() {
+    const [terms, setTerms] = useState([
+      { ...emptyTerm(), term: "contract", rendering: "Vertrag" },
+    ]);
+    seen.push(terms);
+    return <TermRows terms={terms} onChange={setTerms} />;
+  }
+  const { unmount } = render(<Watched />);
+  await user.click(screen.getByRole("button", { name: /^Edit contract\b/ }));
+  const forms = screen.getByLabelText("Other correct forms of the translation, one per line");
+  await user.type(forms, "Vertrags{Enter}Verträge");
+  await user.type(
+    screen.getByLabelText("Other forms of the term in the original, one per line"),
+    "contracts",
+  );
+  expect(forms).toHaveValue("Vertrags\nVerträge");
+  expect(seen.at(-1)![0]).toMatchObject({
+    forms: ["Vertrags", "Verträge"],
+    source_forms: ["contracts"],
+  });
+
+  unmount();
+  render(<Names initial={[{ ...emptyEntity(), name: "Moskva", forms: ["Moskau"] }]} />);
+  await user.click(screen.getByRole("button", { name: /^Edit Moskva\b/ }));
+  expect(screen.getByLabelText("Other correct forms of the translation, one per line")).toHaveValue(
+    "Moskau",
+  );
+  expect(
+    screen.getByLabelText("Other forms of the name in the original, one per line"),
+  ).toHaveValue("");
+});
+
 it("names an empty term by its number", () => {
   render(<Terms initial={[emptyTerm()]} />);
   expect(screen.getByRole("button", { name: /^Edit term 1\b/ })).toHaveAccessibleName(

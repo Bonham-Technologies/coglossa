@@ -466,3 +466,85 @@ def test_a_tbx_field_over_the_limit_is_refused(note, rendering, what):
     ).encode()
     with pytest.raises(GlossaryFileError, match=f"has a {what} of 2,001 characters"):
         _parse(tbx, "base.tbx")
+
+
+# Accepted forms (CGL-109) ------------------------------------------------------------------
+
+
+def test_a_header_can_name_columns_of_forms():
+    data = (
+        "term,translation,other forms,source forms,notes\n"
+        'contract,Vertrag,"Vertrags, Verträge",contracts,law\n'
+        "deed,Urkunde,Urkunden | Urkunde,,\n"
+        "seal,Siegel\n"
+    ).encode()
+    parsed = _parse(data, target="de", source="en")
+    assert _pairs(parsed) == [
+        ("contract", "Vertrag", 2),
+        ("deed", "Urkunde", 3),
+        ("seal", "Siegel", 4),
+    ]
+    assert [(t.forms, t.source_forms) for t in parsed.terms] == [
+        (("Vertrags", "Verträge"), ("contracts",)),
+        (("Urkunden", "Urkunde"), ()),
+        ((), ()),
+    ]
+
+
+def test_without_a_header_extra_columns_are_still_not_forms():
+    parsed = _parse(b"contract,Vertrag,Vertrags\n", target="de", source="en")
+    assert parsed.terms[0].forms == ()
+
+
+def test_tbx_other_accepted_target_terms_are_forms():
+    data = """<martif><termEntry>
+<langSet xml:lang="en"><tig><term>contract</term></tig></langSet>
+<langSet xml:lang="de">
+  <tig><term>Vertrag</term></tig>
+  <tig><term>Kontrakt</term>
+    <termNote type="administrativeStatus">deprecatedTerm-admn-sts</termNote></tig>
+  <tig><term>Verträge</term></tig>
+</langSet>
+</termEntry></martif>""".encode()
+    parsed = _parse(data, "a.tbx", target="de", source="en")
+    assert _pairs(parsed) == [("contract", "Vertrag", 2)]
+    assert parsed.terms[0].forms == ("Verträge",)
+
+
+def test_tbx_with_one_target_term_has_no_forms():
+    assert [t.forms for t in _parse(TBX, "base.tbx").terms] == [(), (), ()]
+
+
+def test_forms_are_merged_into_the_guide():
+    guide = Guide(
+        summary="",
+        style_guide="",
+        glossary=[
+            GlossaryEntry(term="contract", rendering="Vertrag", forms=["Vertrags"]),
+            GlossaryEntry(term="deed", rendering="Akte", forms=["Akten"]),
+        ],
+    )
+    terms = [
+        ImportedTerm("contract", "Vertrag", 2, forms=("Verträge", "vertrags")),
+        ImportedTerm("deed", "Urkunde", 3, forms=("Urkunden",)),
+        ImportedTerm("seal", "Siegel", 4, forms=("Siegeln",), source_forms=("seals",)),
+    ]
+    merged, counts = merge_import(
+        guide, plan_import(guide, terms), lock_all=False, overwrite_conflicts=True
+    )
+    assert [(g.term, g.rendering, g.forms, g.source_forms) for g in merged.glossary] == [
+        ("contract", "Vertrag", ["Vertrags", "Verträge"], []),  # identical: the forms join
+        ("deed", "Urkunde", ["Urkunden"], []),  # replaced: the old translation's forms go
+        ("seal", "Siegel", ["Siegeln"], ["seals"]),
+    ]
+    assert (counts.added, counts.updated) == (1, 1)
+    kept, _ = merge_import(
+        guide, plan_import(guide, terms), lock_all=False, overwrite_conflicts=False
+    )
+    assert kept.glossary[1] == guide.glossary[1]
+
+
+def test_a_form_over_the_limit_is_refused():
+    long = "x" * (MAX_FIELD_CHARS + 1)
+    with pytest.raises(GlossaryFileError, match="has a form of"):
+        _parse(f"term,translation,forms\nchat,cat,{long}\n".encode())

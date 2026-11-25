@@ -8,7 +8,7 @@ import functools
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -39,6 +39,7 @@ from coglossa.scoring.aggregate import model_diversity
 from coglossa.scoring.client import Scorer
 from coglossa.scoring.tiers import LanguageTiers
 from coglossa.segment.chunking import chunk_segments, compute_budget
+from coglossa.segment.markup import chunk_markup
 from coglossa.segment.segmenter import segment_document
 from coglossa.service import (
     TASK_FINISH_RUN,
@@ -474,7 +475,10 @@ async def process_chunk_job(svc: WorkerServices, run_id: uuid.UUID, chunk_id: st
     ordinal = -1
     try:
         ordinal = [c.id for c in chunks].index(chunk_id)
-        ci = build_chunk_inputs(chunks, segments, blocks)[ordinal]
+        ci = build_chunk_inputs(chunks, segments)[ordinal]
+        # this chunk's markers only: building every chunk's for each job is quadratic
+        if blocks:
+            ci = replace(ci, markup=chunk_markup(ci.segments, {b.id: b for b in blocks}))
         outcome = await process_chunk(
             svc.context(calls, target_lang),
             svc.scorer,
@@ -644,13 +648,14 @@ async def _sweep_and_finish(svc: WorkerServices, run_id: uuid.UUID, passes: int 
     if needed:
         calls = svc.call_log()
         changes: list[SpanChange] = []
+        cleared: list[str] = []
         if enabled:
             errors: list[RunError]
             try:
                 result = await run_sweep(
                     svc.context(calls, target_lang), profile, guide, stored.spans, segments
                 )
-                changes, errors = result.changes, result.errors
+                changes, errors, cleared = result.changes, result.errors, result.cleared
             except DB_ERRORS:
                 raise
             except Exception as e:
@@ -663,8 +668,8 @@ async def _sweep_and_finish(svc: WorkerServices, run_id: uuid.UUID, passes: int 
         else:
             output = {"errors": [], "skipped": True}
         try:
-            row_ids = stored.row_ids if changes else {}
-            await _save_sweep(svc, run_id, calls.records, output, changes, row_ids)
+            row_ids = stored.row_ids if changes or cleared else {}
+            await _save_sweep(svc, run_id, calls.records, output, changes, row_ids, cleared)
         except DB_ERRORS:
             raise
         except Exception as e:
@@ -718,6 +723,7 @@ async def _save_sweep(
     output: dict[str, Any] | None,
     changes: list[SpanChange],
     row_ids: dict[str, uuid.UUID],
+    cleared: list[str] | None = None,
     *,
     error: str | None = None,
 ) -> None:
@@ -731,8 +737,8 @@ async def _save_sweep(
         if error is not None:
             runs.fail_stage(row, error)
             return
-        if changes:
-            await outputs.apply_sweep(s, row_ids, changes)
+        if changes or cleared:
+            await outputs.apply_sweep(s, row_ids, changes, cleared or [])
         runs.finish_stage(row, output)
 
 
