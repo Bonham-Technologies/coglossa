@@ -278,6 +278,12 @@ def test_code_and_translate_no_inside_a_sentence_stay_in_it_as_literals(tmp_path
     ]
 
 
+def test_a_pre_with_many_blank_lines_is_read_in_linear_time(tmp_path):
+    blank = "\n" * 200_000
+    doc = HtmlIngestor().ingest(_write(tmp_path, f"<pre>{blank}x = 1{blank}</pre><p>Fin.</p>"))
+    assert _protected(doc) == [("x = 1", KeepReason.CODE, []), ("Fin.", None, [])]
+
+
 def test_a_key_name_inside_a_sentence_may_be_localised(tmp_path):
     doc = HtmlIngestor().ingest(_write(tmp_path, "<p>Appuyez sur <kbd>Entrée</kbd>.</p>"))
     assert _protected(doc) == [("Appuyez sur Entrée.", None, [])]

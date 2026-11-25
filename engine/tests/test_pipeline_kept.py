@@ -189,3 +189,21 @@ async def test_a_changed_web_address_is_flagged_and_an_identical_one_is_not(
     }
     assert code.evidence == {"changed": [], "missing": [{"kind": "code", "source": "make test"}]}
     assert all(s.score.meaning is None for s in report.spans)
+
+
+async def test_indented_and_quoted_fences_cost_no_model_call(tmp_path, make_config, fake_backend):
+    path = tmp_path / "doc.md"
+    path.write_text(
+        "1. Installez :\n\n    ```bash\n    npm install\n\n    npm run build\n    ```\n\n"
+        "> Exemple :\n>\n> ```\n> print('salut')\n>\n> exit()\n> ```\n\nC'est tout.\n",
+        encoding="utf-8",
+    )
+    report = await _translate(path, make_config(), fake_backend)
+    kept = [(s.text, s.kept) for s in report.spans if s.kept is not None]
+    assert kept == [
+        ("npm install\n\nnpm run build", KeepReason.CODE),
+        ("print('salut')\n\nexit()", KeepReason.CODE),
+    ]
+    sent = _sent(fake_backend)
+    assert "npm" not in sent and "print(" not in sent and "exit()" not in sent
+    assert all(f.code is not FlagCode.LITERAL_MISMATCH for s in report.spans for f in s.flags)

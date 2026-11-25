@@ -46,12 +46,18 @@ HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a text layer. A scanned PDF 
 `needs_ocr` and the pages that have no text.
 
 Code and text marked not to translate are left as written (CGL-111): a Markdown fenced code
-block (```, or ~~~ with a language), an HTML `<pre>` block, a block whose text is all `<code>`,
-`<kbd>` or `<samp>`, and HTML marked `translate="no"` (or `class="notranslate"`, until a
-`translate="yes"` inside it) are never sent to a model and come back unchanged in every export;
-the review screen says so in plain words. Code or no-translate text inside a sentence stays part
-of the sentence, so the sentence still reads whole, and the `literal_mismatch` check expects it
-back as written.
+block (```, or ~~~ with a language; indented under a list item or inside a `>` blockquote too),
+an HTML `<pre>` block, a block whose text is all `<code>` or `<samp>`, and HTML marked
+`translate="no"` (or `class="notranslate"`, until a `translate="yes"` inside it) are never sent
+to a model and come back unchanged in every export; the review screen says so in plain words.
+Key names in `<kbd>` are translated, since they are localised ("Ctrl" is "Strg" in German). A
+`<pre>` that holds prose, such as verse, is translated when marked `<pre translate="yes">`. Code
+or no-translate text inside a sentence stays part of the sentence, so the sentence still reads
+whole, and the `literal_mismatch` check expects it back as written. Limits: a fence must be
+closed inside the blockquote it opens in, a fence on the same line as a list marker (`` 1. ``` ``)
+and a code block indented without a fence are translated as text. A file uploaded before this
+change keeps its earlier reading, code included, for every new run: upload it again to have its
+code left as written.
 
 ## Scoring
 

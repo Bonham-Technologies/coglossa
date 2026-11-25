@@ -1,8 +1,10 @@
 """Markdown ingestion: headings, list items, paragraphs and breaks. A fenced code block
-(```, or ~~~ with a language) is one block left as written (CGL-111): it is never sent to a
-model and comes back unchanged. A `code span` inside a sentence stays part of the sentence, so
-the sentence still reads whole, and its text is checked to come back unchanged; a paragraph
-that is only a code span is left as written."""
+(```, or ~~~ with a language), also indented under a list item or inside a > blockquote, is one
+block left as written (CGL-111): it is never sent to a model and comes back unchanged. Limits:
+a fence not closed inside its blockquote, a fence on a list marker's line ("1. ```") and a code
+block indented without a fence are read as text and translated. A `code span` inside a
+sentence stays part of the sentence, so the sentence still reads whole, and its text is checked
+to come back unchanged; a paragraph that is only a code span is left as written."""
 
 import re
 from collections.abc import Iterator
@@ -17,12 +19,15 @@ from coglossa.ingest.base import (
     read_utf8,
     split_paragraphs,
     strip_nul,
+    trim_blank_lines,
 )
 from coglossa.schema import BlockKind, KeepReason, SourceDocument
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 _LIST_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
-_FENCE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+_FENCE_RE = re.compile(r"^([ \t]*)(`{3,}|~{3,})(.*)$")
+_QUOTES_RE = re.compile(r"(?:[ \t]*>)*")
+_QUOTE_RE = re.compile(r"[ \t]*> ?")
 _CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
 
 Item = tuple[BlockKind, str, str | None]
@@ -53,18 +58,36 @@ def _protection(text: str) -> Protection:
     return None, [t for t in literals if t]
 
 
-def _trim_blank_lines(lines: list[str]) -> str:
-    while lines and not lines[0].strip():
-        lines = lines[1:]
-    while lines and not lines[-1].strip():
-        lines = lines[:-1]
-    return "\n".join(lines)
+def _depth(line: str) -> int:
+    """How many blockquote markers (>) the line starts with."""
+    m = _QUOTES_RE.match(line)
+    return m.group().count(">") if m else 0
 
 
-def _opens_fence(line: str) -> re.Match[str] | None:
-    """A fence that opens a code block. A bare ~~~ is a scene break, as in plain text files,
-    so a tilde fence needs an info string (~~~python); a backtick fence's may not hold one."""
-    m = _FENCE_RE.match(line)
+def _unquote(line: str, depth: int) -> str:
+    """`line` without its first `depth` blockquote markers, each with the space after it."""
+    for _ in range(depth):
+        m = _QUOTE_RE.match(line)
+        if m is None:
+            break
+        line = line[m.end() :]
+    return line
+
+
+def _dedent(line: str, indent: int) -> str:
+    """`line` without up to `indent` characters of its leading whitespace."""
+    k = 0
+    while k < indent and k < len(line) and line[k] in " \t":
+        k += 1
+    return line[k:]
+
+
+def _opens_fence(line: str) -> tuple[int, re.Match[str]] | None:
+    """A fence that opens a code block, with its blockquote depth. A bare ~~~ is a scene break,
+    as in plain text files, so a tilde fence needs an info string (~~~python); a backtick
+    fence's may not hold one."""
+    depth = _depth(line)
+    m = _FENCE_RE.match(_unquote(line, depth))
     if m is None:
         return None
     fence, info = m.group(2), m.group(3).strip()
@@ -72,39 +95,50 @@ def _opens_fence(line: str) -> re.Match[str] | None:
         return None
     if fence[0] == "~" and not info:
         return None
-    return m
+    return depth, m
 
 
 def _sections(text: str) -> Iterator[tuple[bool, str]]:
     """The text cut at fenced code blocks: (True, code) for each block, (False, text) between.
-    A fence that is never closed opens no block: its text is translated as before."""
+    A fence may be indented (under a list item) and inside a blockquote; its body and its
+    closing line lose the same blockquote markers and up to the same indent. A fence that is
+    not closed before the file or its blockquote ends opens no block: its text is translated
+    as before."""
     lines = text.split("\n")
     prose: list[str] = []
-    # per fence character, the shortest fence known to have no closing line further down: a
-    # longer one opened later has none either, so it is not looked for again (linear time)
-    unclosed: dict[str, int] = {}
+    # per fence character and blockquote depth, the shortest fence known to have no closing
+    # line before `stop` (the end of its blockquote, or of the file): a longer one opened before
+    # `stop` has none either, so it is not looked for again (linear time)
+    unclosed: dict[tuple[str, int], tuple[int, int]] = {}
     i = 0
     while i < len(lines):
         opening = _opens_fence(lines[i])
         end = -1
         if opening is not None:
-            fence = opening.group(2)
-            if len(fence) < unclosed.get(fence[0], len(fence) + 1):
-                closing = re.compile(rf"^ {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}\s*$")
-                end = next((j for j in range(i + 1, len(lines)) if closing.match(lines[j])), -1)
+            depth, m = opening
+            fence = m.group(2)
+            key = (fence[0], depth)
+            known = unclosed.get(key)
+            if known is None or i >= known[1] or len(fence) < known[0]:
+                closing = re.compile(rf"^[ \t]*{re.escape(fence[0])}{{{len(fence)},}}[ \t]*$")
+                j = i + 1
+                while j < len(lines) and _depth(lines[j]) >= depth:
+                    if closing.match(_unquote(lines[j], depth)):
+                        end = j
+                        break
+                    j += 1
                 if end < 0:
-                    unclosed[fence[0]] = len(fence)
+                    unclosed[key] = (len(fence), j)
         if opening is None or end < 0:
             prose.append(lines[i])
             i += 1
             continue
         yield False, "\n".join(prose)
         prose = []
-        indent = len(opening.group(1))
-        code = [
-            line[min(indent, len(line) - len(line.lstrip(" "))) :] for line in lines[i + 1 : end]
-        ]
-        yield True, _trim_blank_lines(code)
+        depth, m = opening
+        indent = len(m.group(1))
+        code = [_dedent(_unquote(line, depth), indent) for line in lines[i + 1 : end]]
+        yield True, trim_blank_lines(code)
         i = end + 1
     yield False, "\n".join(prose)
 

@@ -70,6 +70,33 @@ def test_addresses_next_to_punctuation_or_other_scripts_are_read_the_same(source
     assert literal_check(source, translation) is None
 
 
+@pytest.mark.parametrize(
+    ("source", "translation"),
+    [
+        (r"$v = \text{speed}$", r"$v = \text{vitesse}$"),
+        (r"\section*{Introduction}", r"\section*{Einleitung}"),
+        (r"\href{https://example.com}{docs}", r"\href{https://example.com}{la doc}"),
+        (r"\textbf[x]{bold}", r"\textbf[x]{gras}"),
+    ],
+)
+def test_the_arguments_of_a_latex_command_are_not_placeholders(source, translation):
+    assert literal_check(source, translation) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "placeholder"),
+    [
+        ("Hello {name}", "{name}"),
+        ("x{0}", "{0}"),  # a word right before the brace: still a placeholder
+        ("file{0}.txt", "{0}"),
+        (r"Line\n{name}", "{name}"),  # a one-letter escape is not a LaTeX command
+        (r"\x{{var}}", "{{var}}"),  # double braces are template placeholders anywhere
+    ],
+)
+def test_braces_after_a_word_or_an_escape_are_still_placeholders(text, placeholder):
+    assert [lit.text for lit in find_literals(text)] == [placeholder]
+
+
 def test_a_long_run_of_closing_brackets_is_trimmed_in_linear_time():
     """Trimming recounted the brackets for every character it took off the end."""
     text = "https://example.com/a(b)" + ")" * 200_000 + "]" * 200_000

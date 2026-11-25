@@ -89,6 +89,9 @@ it("marks a passage left as written in plain words", async () => {
   const [first, second] = rows();
   expect(first).toHaveTextContent("left as written");
   expect(first).not.toHaveTextContent("code");
+  // code keeps its line breaks and indentation (review.css: tr.kept is pre-wrap)
+  expect(first).toHaveClass("kept");
+  expect(second).not.toHaveClass("kept");
   expect(second).not.toHaveTextContent("left as written");
   fireEvent.click(first!);
   const panel = await screen.findByRole("complementary", { name: "Passage 1" });

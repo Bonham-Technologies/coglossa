@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -63,6 +64,16 @@ def strip_nul(text: str) -> str:
 def split_paragraphs(text: str) -> list[str]:
     normalized = strip_nul(text).replace("\r\n", "\n").replace("\r", "\n")
     return [p.strip() for p in _BLANK_LINES_RE.split(normalized) if p.strip()]
+
+
+def trim_blank_lines(lines: Sequence[str]) -> str:
+    """`lines` joined, without the blank lines at either end (by index: linear time)."""
+    start, end = 0, len(lines)
+    while start < end and not lines[start].strip():
+        start += 1
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return "\n".join(lines[start:end])
 
 
 # Text a file marks to leave as written (CGL-111): the whole block, or pieces inside it

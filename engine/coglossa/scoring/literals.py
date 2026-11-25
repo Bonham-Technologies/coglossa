@@ -58,6 +58,18 @@ _PLACEHOLDER = re.compile(
     r"(?:hh|h|ll|l|L|q|j|z|t)?[sdiufFeEgGxXoc@](?![A-Za-z0-9])"
 )
 _ASCII_WORD = re.compile(r"[A-Za-z0-9_]")
+# A LaTeX command of two or more letters with the arguments before a brace: in \text{speed} or
+# \href{url}{docs} the braces hold words to translate, not a placeholder. One letter is left out
+# so that an escape such as \n stays text ("Line\n{name}" still has its placeholder).
+_LATEX_COMMAND = re.compile(r"\\[A-Za-z]{2,}\*?(?:\[[^\[\]\n\\]{0,200}\]|\{[^{}\n\\]{0,200}\})*")
+_LATEX_LOOKBACK = 1024
+
+
+def _latex_argument(text: str, start: int) -> bool:
+    """Whether the brace at `start` opens an argument of a LaTeX command."""
+    window = text[max(0, start - _LATEX_LOOKBACK) : start]
+    k = window.rfind("\\")
+    return k >= 0 and _LATEX_COMMAND.fullmatch(window, k) is not None
 
 
 @dataclass(frozen=True)
@@ -117,6 +129,9 @@ def find_literals(text: str) -> list[Literal]:
         masked[m.start() : m.end()] = " " * (m.end() - m.start())
     rest = "".join(masked)
     for m in _PLACEHOLDER.finditer(rest):
+        single = m.group().startswith("{") and not m.group().startswith("{{")
+        if single and _latex_argument(rest, m.start()):
+            continue
         found.append((m.start(), Literal(PLACEHOLDER, m.group())))
     return [item for _, item in sorted(found, key=lambda pair: pair[0])]
 

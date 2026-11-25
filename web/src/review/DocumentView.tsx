@@ -23,7 +23,9 @@ type RowProps = {
 
 function PassageRow({ span, languages, selected, onOpen, onFocus, onPointerDown }: RowProps) {
   const flagged = span.flags.some((f) => f.status === "open");
-  const classes = [flagged ? "flagged" : "", selected ? "selected" : ""].filter(Boolean).join(" ");
+  const classes = [flagged ? "flagged" : "", selected ? "selected" : "", span.kept ? "kept" : ""]
+    .filter(Boolean)
+    .join(" ");
   return (
     <tr
       id={`passage-${span.id}`}

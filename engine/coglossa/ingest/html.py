@@ -6,7 +6,8 @@ superscript and subscript text and links to web addresses are recorded as the bl
 
 CGL-111: a <pre> block, a block whose text is all code (<code>, <samp>), and a block
 whose text is all marked translate="no" (or class="notranslate", inherited until a
-translate="yes") are left as written: never sent to a model, carried through unchanged. Code or
+translate="yes") are left as written: never sent to a model, carried through unchanged. A <pre>
+holding prose, such as verse, is translated when marked <pre translate="yes">. Code or
 no-translate text inside a sentence stays part of the sentence, which would not read whole
 without it, and is recorded as the block's literals, checked to come back unchanged."""
 
@@ -24,6 +25,7 @@ from coglossa.ingest.base import (
     is_scene_break,
     make_blocks,
     strip_nul,
+    trim_blank_lines,
 )
 from coglossa.schema import BlockKind, InlineMark, KeepReason, MarkKind, SourceDocument
 from coglossa.segment.markup import MarkKey, link_target, marks_from_keys
@@ -199,15 +201,6 @@ def _protection(text: str, protects: list[KeepReason | None]) -> Protection:
     return None, [t for t in literals if t]
 
 
-def _trim_blank_lines(text: str) -> str:
-    lines = text.split("\n")
-    while lines and not lines[0].strip():
-        lines = lines[1:]
-    while lines and not lines[-1].strip():
-        lines = lines[:-1]
-    return "\n".join(lines)
-
-
 def _mark(el: Any, tag: str) -> MarkKey | None:
     kind = _MARK_OF_TAG.get(tag)
     if kind is not None:
@@ -255,7 +248,7 @@ class _Collector:
 
     def _keep_pre(self, el: Any) -> None:
         """A <pre> block, left as written with its spacing and line breaks (CGL-111)."""
-        text = _trim_blank_lines(_clean(el.text_content()).replace("\r\n", "\n"))
+        text = trim_blank_lines(_clean(el.text_content()).replace("\r\n", "\n").split("\n"))
         if text.strip():
             kind = self._kinds[-1]
             self.items.append((kind, text, self.locator))
