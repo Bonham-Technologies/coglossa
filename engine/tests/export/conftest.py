@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 
 import pytest
@@ -126,3 +127,35 @@ def make_report(target_lang: str = "en", spans: list[Span] | None = None) -> Rep
 @pytest.fixture
 def report() -> Report:
     return make_report()
+
+
+def translated_report(
+    blocks: list[Block],
+    original: bytes,
+    *,
+    fmt: str,
+    target_lang: str = "en",
+    name: str = "source",
+) -> Report:
+    """A report of `original` with one passage per block, translated as "[en] <source>"
+    (CGL-110)."""
+    segments = [
+        Segment(id=f"s{n}", block_id=b.id, start=0, end=len(b.text), text=b.text)
+        for n, b in enumerate(blocks, start=1)
+    ]
+    spans = [
+        make_span(f"p{n}", seg.id, seg.id, f"[en] {seg.text}")
+        for n, seg in enumerate(segments, start=1)
+    ]
+    document = DocumentInfo(
+        source_path=f"{name}.{fmt}", format=fmt, sha256=hashlib.sha256(original).hexdigest()
+    )
+    return make_report(target_lang=target_lang).model_copy(
+        update={
+            "document": document,
+            "blocks": blocks,
+            "segments": segments,
+            "spans": spans,
+            "chunks": [Chunk(id="c1", segment_ids=[s.id for s in segments])],
+        }
+    )

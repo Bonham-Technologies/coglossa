@@ -513,6 +513,15 @@ def ingest_notices(rows: list[StageResult]) -> list[str]:
     return []
 
 
+async def original_file(db: Database, storage: Storage, run_id: uuid.UUID) -> bytes:
+    """The file a run translated, as it was uploaded (CGL-110: the PowerPoint and Excel
+    downloads write the translation back into a copy of it)."""
+    async with db.session() as s:
+        run = await runs.get_run(s, run_id)
+        doc = await runs.get_document(s, run.document_id)
+    return await asyncio.to_thread(storage.get, doc.storage_key)
+
+
 async def build_report(
     db: Database, run_id: uuid.UUID, *, include_llm_calls: bool = True
 ) -> Report:
