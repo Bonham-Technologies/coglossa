@@ -3,6 +3,7 @@ import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import psycopg
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
@@ -12,8 +13,8 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from coglossa.store.db import to_sqlalchemy_url
-from coglossa.store.migrate import MIGRATIONS_DIR, downgrade, migration_state, upgrade
+from coglossa.store.db import to_libpq_url, to_sqlalchemy_url
+from coglossa.store.migrate import downgrade, migration_state, upgrade
 from coglossa.store.models import (
     Base,
     Document,
@@ -53,11 +54,96 @@ def _tables(url):
         engine.dispose()
 
 
-def test_vendored_procrastinate_schema_matches_the_installed_package():
-    vendored = MIGRATIONS_DIR / "versions" / "0001_procrastinate_3_10_0.sql"
-    assert vendored.read_text(encoding="utf-8") == SchemaManager.get_schema(), (
-        "the installed procrastinate's schema differs from the one revision 0001 installs: "
-        "add a new Alembic revision that applies procrastinate's migration SQL"
+# procrastinate's objects as Postgres sees them, each kind a sorted list of rows: the
+# definitions come from pg_get_*def so two schemas built by different SQL compare equal
+# exactly when they would behave the same.
+_PROCRASTINATE_CATALOG = {
+    "functions": """
+        SELECT p.oid::regprocedure::text, pg_get_functiondef(p.oid)
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname LIKE 'procrastinate%'
+    """,
+    "columns": """
+        SELECT c.relname, c.relkind::text, a.attname, format_type(a.atttypid, a.atttypmod),
+               a.attnotnull, pg_get_expr(d.adbin, d.adrelid)
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+        WHERE n.nspname = 'public' AND c.relname LIKE 'procrastinate%'
+          AND c.relkind IN ('r', 'v', 'c')
+    """,
+    "enums": """
+        SELECT t.typname, array_agg(e.enumlabel::text ORDER BY e.enumsortorder)
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE n.nspname = 'public' AND t.typname LIKE 'procrastinate%'
+        GROUP BY t.typname
+    """,
+    "sequences": """
+        SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname LIKE 'procrastinate%' AND c.relkind = 'S'
+    """,
+    "constraints": """
+        SELECT cl.relname, co.conname, pg_get_constraintdef(co.oid)
+        FROM pg_constraint co JOIN pg_class cl ON cl.oid = co.conrelid
+        JOIN pg_namespace n ON n.oid = cl.relnamespace
+        WHERE n.nspname = 'public' AND cl.relname LIKE 'procrastinate%'
+    """,
+    "indexes": """
+        SELECT tablename, indexname, indexdef FROM pg_indexes
+        WHERE schemaname = 'public' AND tablename LIKE 'procrastinate%'
+    """,
+    "triggers": """
+        SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid)
+        FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname LIKE 'procrastinate%' AND NOT t.tgisinternal
+    """,
+}
+
+
+def _procrastinate_catalog(url) -> dict[str, list[tuple]]:
+    with psycopg.connect(to_libpq_url(url)) as conn:
+        return {
+            kind: sorted(tuple(row) for row in conn.execute(query).fetchall())
+            for kind, query in _PROCRASTINATE_CATALOG.items()
+        }
+
+
+def _assert_same_catalog(actual, expected, message):
+    for kind in _PROCRASTINATE_CATALOG:
+        missing = [row for row in expected[kind] if row not in actual[kind]]
+        extra = [row for row in actual[kind] if row not in expected[kind]]
+        assert not missing and not extra, f"{message}: {kind} differ\n{missing=}\n{extra=}"
+
+
+@pytest.fixture(scope="module")
+def installed_procrastinate_catalog(pg_admin):
+    """procrastinate's objects in a database built from the installed package's schema.sql."""
+    url = create_test_database(pg_admin)
+    try:
+        with psycopg.connect(to_libpq_url(url)) as conn:
+            conn.execute(SchemaManager.get_schema())
+        return _procrastinate_catalog(url)
+    finally:
+        drop_test_database(pg_admin, url)
+
+
+def test_vendored_procrastinate_schema_matches_the_installed_package(
+    pg_url, installed_procrastinate_catalog
+):
+    """Revision 0001 installs procrastinate 3.10.0's schema; later revisions apply the
+    package's migrations since. Together they must build what the installed procrastinate
+    expects, so a procrastinate upgrade that brings a new migration fails here until a
+    revision applies it."""
+    assert installed_procrastinate_catalog["functions"]  # the snapshot found the objects
+    _assert_same_catalog(
+        _procrastinate_catalog(pg_url),
+        installed_procrastinate_catalog,
+        "the installed procrastinate's schema differs from the one the migrations build: "
+        "add a new Alembic revision that applies procrastinate's migration SQL",
     )
 
 
@@ -70,7 +156,7 @@ def test_upgrade_creates_our_tables_and_the_job_queue(pg_url):
 
 def test_migration_state_is_current(pg_url):
     state = migration_state(pg_url)
-    assert state.current == state.head == "0008"
+    assert state.current == state.head == "0012"
     assert state.up_to_date
 
 
@@ -102,6 +188,122 @@ def test_downgrade_then_upgrade_again(pg_admin):
         assert not (_tables(url) & (OUR_TABLES | {"procrastinate_jobs"}))
         upgrade(url)
         assert migration_state(url).up_to_date
+    finally:
+        drop_test_database(pg_admin, url)
+
+
+@pytest.mark.parametrize(
+    ("previous", "revision"),
+    [("0008", "0009"), ("0009", "0010"), ("0010", "0011"), ("0011", "0012")],
+)
+def test_procrastinate_revisions_round_trip(
+    pg_admin, installed_procrastinate_catalog, previous, revision
+):
+    """CGL-106: 0009 applies procrastinate 3.11.0's migration; 0010 and 0011 3.12.0's
+    pre-migrations and 0012 its post-migrations. Each downgrade puts back exactly the
+    job-queue objects of the revision before it, and upgrading again builds the installed
+    procrastinate's schema."""
+    url = create_test_database(pg_admin)
+    try:
+        upgrade(url, previous)
+        before = _procrastinate_catalog(url)
+        upgrade(url, revision)
+        assert _procrastinate_catalog(url) != before
+        downgrade(url, previous)
+        assert migration_state(url).current == previous
+        _assert_same_catalog(
+            _procrastinate_catalog(url), before, f"{revision}'s downgrade left a change"
+        )
+        upgrade(url)
+        assert migration_state(url).up_to_date
+        _assert_same_catalog(
+            _procrastinate_catalog(url),
+            installed_procrastinate_catalog,
+            "upgrading again does not build the installed procrastinate's schema",
+        )
+    finally:
+        drop_test_database(pg_admin, url)
+
+
+# What procrastinate 3.10 and 3.11 call to queue a job and a periodic job.
+_DEFER_3_11 = """
+SELECT procrastinate_defer_jobs_v1(ARRAY[
+    ROW('coglossa', 'old.task', 0, 'lock-1', 'lock-1', '{}'::jsonb, NULL)
+]::procrastinate_job_to_defer_v1[])
+"""
+_DEFER_PERIODIC_3_11 = """
+SELECT procrastinate_defer_periodic_job_v2(
+    'coglossa', NULL, NULL, 'old.periodic', 0, 'periodic-1', 1, '{}'::jsonb
+)
+"""
+
+
+def test_old_workers_can_still_queue_jobs_until_the_post_migrations(pg_admin):
+    """CGL-106: after 3.12.0's pre-migrations (0010, 0011) a 3.11 worker or API still queues
+    jobs; 0012, the post-migrations, removes what it calls, so it must run after they stop."""
+    url = create_test_database(pg_admin)
+    try:
+        upgrade(url, "0011")
+        with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
+            conn.execute(_DEFER_3_11)
+            conn.execute(_DEFER_PERIODIC_3_11)
+            rows = conn.execute(
+                "SELECT task_name, lock_mode::text FROM procrastinate_jobs ORDER BY id"
+            ).fetchall()
+            assert rows == [("old.task", "ordered"), ("old.periodic", "ordered")]
+        upgrade(url, "0012")
+        with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
+            with pytest.raises(psycopg.errors.UndefinedObject):  # the composite type is gone
+                conn.execute(_DEFER_3_11)
+            with pytest.raises(psycopg.errors.UndefinedFunction):
+                conn.execute(_DEFER_PERIODIC_3_11)
+    finally:
+        drop_test_database(pg_admin, url)
+
+
+_LOCK_INDEX = "procrastinate_jobs_todo_doing_lock_idx_v1"
+
+
+@pytest.mark.parametrize(
+    "leftover",
+    [
+        # an interrupted concurrent build leaves an invalid index (marking it so needs a superuser)
+        [
+            f"CREATE INDEX {_LOCK_INDEX} ON procrastinate_jobs (id)",
+            f"UPDATE pg_index SET indisvalid = false WHERE indexrelid = '{_LOCK_INDEX}'::regclass",
+        ],
+        # a build that finished before the revision was recorded leaves the index itself
+        [
+            f"CREATE INDEX {_LOCK_INDEX} ON procrastinate_jobs (lock)"
+            " WHERE status = ANY (ARRAY['todo'::procrastinate_job_status,"
+            " 'doing'::procrastinate_job_status])"
+        ],
+    ],
+    ids=["invalid", "valid"],
+)
+def test_0010_runs_again_after_an_interrupted_index_build(
+    pg_admin, installed_procrastinate_catalog, leftover
+):
+    """CGL-106: running CREATE INDEX CONCURRENTLY again fails on the name of the index an
+    earlier attempt left: 0011 drops an invalid one and builds it again, and keeps a valid one."""
+    url = create_test_database(pg_admin)
+    try:
+        upgrade(url, "0010")
+        with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
+            for statement in leftover:
+                conn.execute(statement)
+        upgrade(url)
+        assert migration_state(url).up_to_date
+        _assert_same_catalog(
+            _procrastinate_catalog(url),
+            installed_procrastinate_catalog,
+            "0011 did not leave the index procrastinate builds",
+        )
+        with psycopg.connect(to_libpq_url(url)) as conn:
+            valid = conn.execute(
+                f"SELECT indisvalid FROM pg_index WHERE indexrelid = '{_LOCK_INDEX}'::regclass"
+            ).fetchone()
+        assert valid == (True,)
     finally:
         drop_test_database(pg_admin, url)
 
