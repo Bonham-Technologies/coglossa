@@ -41,6 +41,8 @@ coglossa-<version>/
 
 A bundle with the CUDA scorer is roughly 35 GB.
 
+The scorer image's Python packages, PyTorch and its CUDA libraries included, are exactly the ones listed in the source's `scorer/uv.lock`. When the image was built, each one was checked against the checksum recorded there, and each came from a single source: PyTorch from download.pytorch.org, everything else from PyPI.
+
 ## 2. Requirements
 
 - **Host:** Linux x86_64 with Docker Engine 24 or newer and the Compose plugin 2.24 or newer. Check with `docker compose version`.

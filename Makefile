@@ -4,8 +4,11 @@ COGLOSSA_VERSION ?= dev
 PLATFORM ?= linux/amd64
 # CUDA build of torch for the scorer (download.pytorch.org/whl/<index>). CUDA 12.6 keeps the
 # NVIDIA driver minimum at 525; its index stops at torch 2.14.1, so scorer/pyproject.toml holds
-# torch below 2.15 (CGL-76). make torch-wheel-check (CI's deploy job) fails when the locked torch
-# has no wheel on this index; keep deploy/bundle.sh and the Modal app's TORCH_INDEX in step.
+# torch below 2.15 (CGL-76). It is also the scorer's extra of that name, locked in scorer/uv.lock
+# with its index and hashes (CGL-50), so another value needs that extra first. make deploy-check
+# fails when the lock and the installs disagree, and make torch-wheel-check (CI's deploy job) when
+# the index no longer serves the locked wheel; keep deploy/bundle.sh and the Modal app's
+# TORCH_INDEX in step.
 CUDA_INDEX ?= cu126
 WEIGHTS_DIR ?= $(HOME)/coglossa-weights
 # FLORES-200 for bench (CC BY-SA 4.0): make flores fetches it; make bundle ships it when present
@@ -143,6 +146,7 @@ deploy-check:
 	python3 deploy/tests/check_compose.py
 	python3 deploy/tests/check_workflows.py
 	python3 deploy/tests/check_tracker_links.py
+	python3 deploy/tests/check_scorer_lock.py
 
 # Needs network: reads download.pytorch.org's index pages (no image build).
 torch-wheel-check:
