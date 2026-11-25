@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import logging
 import os
 import signal
 from types import SimpleNamespace
@@ -184,7 +185,7 @@ async def test_burst_does_not_spin_on_a_job_whose_lock_is_held(worker_env, pg_ur
     assert await _jobs(svc.db) == [("failed", "h:finish", "h:finish")]  # the stalled copy
 
 
-async def test_requeue_stalled_closes_a_copy_that_has_a_waiting_twin(db, pg_url):
+async def test_requeue_stalled_closes_a_copy_that_has_a_waiting_twin(db, pg_url, caplog):
     await _stalled_copy_with_a_waiting_copy(db, pg_url, "t:finish", "t")
     async with open_app(pg_url) as opened:
         queue = ProcrastinateQueue(opened)
@@ -193,7 +194,10 @@ async def test_requeue_stalled_closes_a_copy_that_has_a_waiting_twin(db, pg_url)
             await conn.execute(
                 text("UPDATE procrastinate_jobs SET status = 'doing' WHERE lock = 'u:start'")
             )
-        assert await requeue_stalled(opened.job_manager, 60) == 1
+        with caplog.at_level(logging.WARNING, logger="coglossa.worker"):
+            assert await requeue_stalled(opened.job_manager, 60) == 1
+    assert "(t:finish) from a worker that stopped responding: a copy is waiting" in caplog.text
+    assert "re-queued 1 job(s)" in caplog.text
     assert sorted(await _jobs(db)) == [
         ("failed", "t:finish", "t:finish"),
         ("todo", "t:finish", "t:finish"),
@@ -304,14 +308,17 @@ async def test_requeue_stalled():
 
         async def get_stalled_jobs(self, *, seconds_since_heartbeat):
             assert seconds_since_heartbeat == 60
-            return ["job-1", "job-2"]
+            return [
+                SimpleNamespace(id=1, queueing_lock=None),
+                SimpleNamespace(id=2, queueing_lock=None),
+            ]
 
         async def retry_job(self, job):
-            self.retried.append(job)
+            self.retried.append(job.id)
 
     manager = Manager()
     assert await requeue_stalled(manager, 60) == 2
-    assert manager.retried == ["job-1", "job-2"]
+    assert manager.retried == [1, 2]
 
 
 async def test_requeue_stalled_task_uses_the_configured_threshold(make_config):
