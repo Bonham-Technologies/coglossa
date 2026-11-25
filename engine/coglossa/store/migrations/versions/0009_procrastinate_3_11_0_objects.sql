@@ -1,5 +1,5 @@
--- procrastinate 3.11.0's job-queue objects that revision 0008 replaced or added: its downgrade
--- runs this, after 0007_procrastinate_03.11.00_01_pre_fetch_job_skip_null_lock.sql puts back
+-- procrastinate 3.11.0's job-queue objects that revision 0009 replaced or added: its downgrade
+-- runs this, after 0008_procrastinate_03.11.00_01_pre_fetch_job_skip_null_lock.sql puts back
 -- 3.11.0's procrastinate_fetch_job_v2. The two functions below are copied verbatim from
 -- 0001_procrastinate_3_10_0.sql (procrastinate 3.11.0 left them as 3.10.0 defined them).
 DROP FUNCTION procrastinate_defer_periodic_job_v3(character varying, character varying, procrastinate_lock_mode, character varying, character varying, integer, character varying, bigint, jsonb);

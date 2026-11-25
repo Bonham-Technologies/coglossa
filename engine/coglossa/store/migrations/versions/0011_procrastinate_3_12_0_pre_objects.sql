@@ -1,8 +1,8 @@
 -- The objects procrastinate 3.12.0's post-migrations drop, as they stood between its pre- and
--- post-migrations: revision 0010's downgrade puts them back. procrastinate_job_to_defer_v1,
+-- post-migrations: revision 0011's downgrade puts them back. procrastinate_job_to_defer_v1,
 -- procrastinate_defer_jobs_v1 and procrastinate_jobs_id_lock_idx_v1 are copied verbatim from
 -- 0001_procrastinate_3_10_0.sql; procrastinate_defer_periodic_job_v2 from
--- 0008_procrastinate_03.12.00_01_pre_add_lock_mode.sql, which replaced it. The index is built
+-- 0009_procrastinate_03.12.00_01_pre_add_lock_mode.sql, which replaced it. The index is built
 -- inside the downgrade's transaction, not concurrently: it blocks writes to the jobs table
 -- while it builds.
 CREATE TYPE procrastinate_job_to_defer_v1 AS (
