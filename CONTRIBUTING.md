@@ -30,6 +30,10 @@ Your machine should run what a client runs, so a regression shows up before a de
   Docker volumes. `SCORER_IN_DOCKER=1` forces the container anywhere, `=0` runs natively.
   To check the real models there:
   `COGLOSSA_REAL_MODELS=1 COGLOSSA_METRICX_DIR=… COGLOSSA_MT5_TOKENIZER_DIR=… COGLOSSA_LABSE_DIR=… make test-scorer`.
+  The lock holds both torch builds the images use, which conflict: the `cpu` dependency group,
+  which `uv sync` and `uv run` install by default, and the `cu126` extra
+  (`uv sync --no-default-groups --extra cu126`). The images install only what the lock names,
+  hash-checked (`deploy/tests/check_scorer_lock.py`).
 - **Postgres 16,** the same image in `deploy/compose.dev.yaml` as in `deploy/compose.yaml`.
 
 The README's quick start runs the engine against your own OpenAI-compatible model server or

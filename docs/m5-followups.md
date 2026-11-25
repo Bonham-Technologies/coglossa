@@ -20,8 +20,18 @@ Triaged on 2026-10-30 (CGL-13). Each item names its ticket; items fixed together
   `check_compose.py` asserts the demo worker's `depends_on`; the app Dockerfile's comment passes
   `--platform`. The shellcheck container's `-v "$(CURDIR):/mnt"` was already quoted, and works
   from a path with a space; `deploy/tests/test-bundle.sh` covers the build and the checks.
-- **The torch install in the scorer image** (CGL-50) uses `--no-hashes` constraints (versions
-  pinned from `scorer/uv.lock`, hashes not checked) and two indexes.
+- ~~**The torch install in the scorer image** (CGL-50) uses `--no-hashes` constraints (versions
+  pinned from `scorer/uv.lock`, hashes not checked) and two indexes.~~
+  Done in CGL-50: `scorer/uv.lock` holds both torch builds, the `cpu` dependency group (a default
+  group, so `uv sync` and `uv run` are unchanged) and the `cu126` extra, which conflict, each
+  pinned to its explicit PyTorch index. The image installs with `uv sync --frozen
+  --no-default-groups` and the build's group or extra, and the hosted scorer from a pylock.toml
+  exported from the lock, so uv checks every wheel against the lock's sha256 and takes each
+  package from the one index the lock names. `deploy/tests/check_scorer_lock.py` (in
+  `make deploy-check`) holds the Dockerfile, the Modal app, `pyproject.toml` and the lock to that,
+  and `make torch-wheel-check` now also checks the index still serves each locked wheel's hash.
+  The project itself is still built from source with hatchling, which uv fetches from PyPI
+  without a hash into a throwaway build environment; it is not installed in the image.
 - ~~**`coglossa-scorer-weights`** (CGL-51):
   - `main` catches only `OSError`, so a conversion error gives a traceback and a hub error can be
     several lines.

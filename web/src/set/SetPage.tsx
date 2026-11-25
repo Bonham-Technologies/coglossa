@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useProject } from "../api/projects";
 import { useSetDocuments, useTranslateAgain } from "../api/sets";
+import { useMe } from "../api/system";
 import type { DocumentSummary, ProjectInfo, RunSummary } from "../api/types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Loading } from "../components/Loading";
@@ -15,6 +16,7 @@ import { MoveTeamDialog } from "./MoveTeamDialog";
 import { FileTabs } from "./FileTabs";
 import { LanguageTabs } from "./LanguageTabs";
 import { languagesOf, newestIn } from "./languages";
+import { ReviewSummary } from "./ReviewSummary";
 import { RunView } from "./RunView";
 import { SetHeader } from "./SetHeader";
 
@@ -96,6 +98,7 @@ export function SetPage() {
   const project = useProject(projectId);
   const documents = useSetDocuments(projectId);
   const uploads = useUploads(projectId);
+  const me = useMe();
   const [guide, setGuide] = useState<GuideMode | null>(null);
   const [adding, setAdding] = useState(false);
   const [addingLanguage, setAddingLanguage] = useState(false);
@@ -180,6 +183,9 @@ export function SetPage() {
             + Add files
           </button>
         </div>
+      ) : null}
+      {me.data?.admin === true && docs.length > 0 ? (
+        <ReviewSummary projectId={p.id} lang={lang} runId={picked?.run?.id} />
       ) : null}
       <AddFilesDialog project={p} lang={lang} open={adding} onClose={() => setAdding(false)} />
       <MoveTeamDialog project={p} open={moving} onClose={() => setMoving(false)} />
