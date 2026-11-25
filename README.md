@@ -42,8 +42,37 @@ Exit codes: `0` complete, `1` failed, `2` usage error, `3` complete with errors,
 and `engine_error` flags in the report).
 
 Supported input formats: plain text and Markdown (`.txt`, `.md`, `.markdown`), Word (`.docx`),
-HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a text layer. A scanned PDF stops with
-`needs_ocr` and the pages that have no text.
+PowerPoint (`.pptx`), Excel (`.xlsx`), HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a
+text layer. A scanned PDF stops with `needs_ocr` and the pages that have no text. A
+password-protected Word, PowerPoint or Excel file is refused with a message saying so.
+
+PowerPoint: slide text (titles, text boxes, body text), table cells and speaker notes are
+translated; chart and SmartArt text, slide numbers and dates, and a paragraph that holds a
+slide number or date are not. Excel: only cells holding text are translated; formulas, numbers,
+dates, booleans and sheet names never change, and charts, comments, text boxes and the heading
+and totals rows of a table ("Format as Table", whose column names formulas refer to) keep their
+original text. Both download in their own format (`exports/pptx`, `exports/xlsx`): a copy of
+the original file with the translated text in place, so slides, layouts, pictures, formulas and
+sheets stay as they were. Alt text, the document's properties and title, page headers and
+footers, data-validation lists, comments and text inside formulas also keep their original
+text. Translating a cell changes what formulas see in it: a formula that compares a cell with
+a fixed text or looks it up (`IF`, `VLOOKUP` keys), or a validation list that limits a cell to
+certain words, may give a different result or reject the translated text, so check those
+workbooks after downloading.
+
+Code and text marked not to translate are left as written (CGL-111): a Markdown fenced code
+block (```, or ~~~ with a language; indented under a list item or inside a `>` blockquote too),
+an HTML `<pre>` block, a block whose text is all `<code>` or `<samp>`, and HTML marked
+`translate="no"` (or `class="notranslate"`, until a `translate="yes"` inside it) are never sent
+to a model and come back unchanged in every export; the review screen says so in plain words.
+Key names in `<kbd>` are translated, since they are localised ("Ctrl" is "Strg" in German). A
+`<pre>` that holds prose, such as verse, is translated when marked `<pre translate="yes">`. Code
+or no-translate text inside a sentence stays part of the sentence, so the sentence still reads
+whole, and the `literal_mismatch` check expects it back as written. Limits: a fence must be
+closed inside the blockquote it opens in; a fence inside more than 8 `>` markers, a fence on the
+same line as a list marker (`` 1. ``` ``) and a code block indented without a fence are
+translated as text. A file uploaded before this change keeps its earlier reading, code included,
+for every new run: upload it again to have its code left as written.
 
 ## Scoring
 
@@ -99,24 +128,46 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   the translation is the source copied through (the same letters once case, spacing,
   punctuation, digits and accents are ignored), or most of its letters are in a script the
   target language is not written in (Latin text for an Amharic or Hindi target). The evidence
-  holds both texts. It never changes the scores. Names (capitalised words and the guide's names
-  and kept terms), numbers, web and email addresses and code are not counted, and a passage
+  holds both texts. It never changes the scores. Names (capitalised words, unless the passage is
+  written in capitals, and the guide's names and kept terms), numbers, web and email addresses and code are not counted, and a passage
   needs at least 10 other letters in two words or more (or in a script written without
   spaces), so a passage of names, numbers, a link or code, or a single word, is not flagged. Two
   languages written in the same script (Spanish and Portuguese) are told apart only by the first
   rule: a passage copied through is flagged, one written in the wrong language of that script is
   not; nor is Chinese for a Japanese target. A language whose scripts are not known is checked
   for copies only. "Most" weighs a Chinese character or a Hangul syllable as three Latin
-  letters (kana, Ethiopic and the Indian scripts as two), so a few English terms in a correct
-  Chinese, Korean or Hindi passage do not flag it. A copy is not flagged when the source is
-  already in the target language and script (en-US to en-GB). The full rules are in
-  `engine/coglossa/scoring/untranslated.py`
+  letters (kana, Ethiopic and the Indian scripts as two), and a sentence counts as written in
+  another script only when less than a fifth of it is in the target script, so English terms in a
+  correct Chinese, Korean, Hindi, Russian or Greek passage do not flag it. A copy is not flagged
+  when the source is already in the target language and script (en-US to en-GB; zh-CN and
+  zh-Hans are the same, zh-CN and zh-TW are not). Bibliography entries (a passage that starts
+  with its authors in one of the usual reference styles, with the year where that style puts
+  it, and has other marks of a reference) are never flagged; prose that cites works, or a
+  numbered paragraph with names and dates ("[12] On May 25, 2018, ..."), is checked as usual.
+  A copy that does not end like a sentence needs five words or more, so labels, units and
+  mottos that rightly stay the same ("total (in millions)", "kg per m2 per year") are not
+  flagged, and nor is a heading or table cell of four words or fewer copied into a language
+  written in the same script. A passage of
+  the source that is already in the target language (a French quotation in an English source
+  translated into French) rightly stays as it is, and is flagged as a copy; mark it checked.
+  The full rules are in `engine/coglossa/scoring/untranslated.py`
+- `literal_mismatch`: "A link, email or placeholder was changed". Web addresses (`http://`,
+  `https://`, `ftp://`, `www.`), email addresses and placeholders (`{name}`, `{0}`, `{{var}}`,
+  `${var}`, `%s`, `%d`, `%(name)s`, `%1$s` and the like) in the source must be in the
+  translation exactly as written, compared as a multiset, so a duplicated placeholder that is
+  dropped once is caught; so must code or text marked not to translate inside a sentence. The
+  evidence lists each item missing from the translation, with what the translation has instead
+  when it can be paired with an item of the same kind. Trailing sentence punctuation is not part
+  of an address, the words around an address may be translated, and an item the translation adds
+  is not flagged. It never changes the scores. Text left as written is not checked. The full
+  rules are in `engine/coglossa/scoring/literals.py`
 - `agent_disagreement`: the reviewer rated the translators' disagreement `major`
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)
 - `formatting_lost`: "Formatting couldn't be kept". The source's bold, italic, underlined,
-  superscript, subscript or linked words (Word, HTML and EPUB files) did not come back whole
-  from the models, so the passage is plain in the clean Word download (CGL-108)
+  superscript, subscript or linked words (Word, PowerPoint, Excel, HTML and EPUB files) did not
+  come back whole from the models, so the passage is plain in the clean Word download and in a
+  PowerPoint or Excel download (CGL-108, CGL-110)
 
 Document-level notices: `low_reliability_language` (tier C pairs) and `unscored`. Thresholds
 are set with `scoring.thresholds` (`meaning: 70` for every tier, or `meaning: {A: 70, C: 75}`).
@@ -279,7 +330,8 @@ air-gapped network cannot reach.
 | Runs | `POST /projects/{id}/runs` (upload), `POST /documents/{id}/runs`, `GET /runs`, `GET /runs/{id}`, `GET /runs/{id}/progress`, `GET /runs/{id}/events` (SSE), `POST /runs/{id}/cancel`, `/retry`, `/sweep` |
 | Guide | `GET /runs/{id}/guide`, `POST /runs/{id}/guide/approve`, `GET/PUT /projects/{id}/guide`, `GET /projects/{id}/guide/versions`, `POST /projects/{id}/guide/import/preview` and `/import` (a CSV, TSV or TBX glossary, multipart) |
 | Review | `GET /runs/{id}/spans` (filters), `GET /runs/{id}/spans/{span}`, `POST …/edit`, `…/use-candidate`, `…/accept`, `…/guide`, `POST /runs/{id}/flags/{flag}` |
-| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited) |
+| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx,pptx,xlsx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited; `pptx` and `xlsx`: a PowerPoint or Excel file in its own format) |
+| Review summary (admins) | `GET /runs/{id}/review-summary`, `GET /projects/{id}/review-summary` (per language), and the same with `.csv` (one row per passage; the set's takes `?target_lang=`) |
 | System | `GET /health`, `GET /me`, `GET /system/doctor`, `GET /system/config`, `GET /system/tiers` |
 
 The API also serves the web app when `api.web_dir` points at the built files (`web/dist`); every
@@ -307,7 +359,8 @@ The web app (`web/`, React + Vite) is how reviewers use Coglossa:
 - **A translation's page:** one tab per file, with live steps while it works, then a plain summary of how it went and the original beside the translation.
 - **Review:** open any passage to see why it was flagged, edit it, choose a better version, mark it checked, or fix a name or term everywhere.
 - **Translation guide:** the names, terms and style a translation follows; edit it, and update the translations to match.
-- **Download:** the translation as a web page, Word file or side-by-side Word file, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
+- **Download:** the translation as a web page, Word file or side-by-side Word file, a PowerPoint or Excel file as the same file translated, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
+- **Review summary (admins):** under Technical details on a translation's page, how much reviewing each language took: passages checked and changed, how much was changed, and what became of each kind of flag, with a CSV of every passage.
 - **Settings:** installation checks and, under Technical details, the scores and settings behind the results.
 
 It comes in a light and a dark theme (it follows the system setting, and can be switched by hand).

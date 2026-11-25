@@ -7,7 +7,13 @@ def segment_document(doc: SourceDocument) -> list[Segment]:
     for block in doc.blocks:
         if block.kind is BlockKind.BREAK:
             continue
-        for start, end in split_sentences(block.text):
+        # a block left as written (CGL-111) is one segment: code is never split into sentences
+        spans = (
+            [(0, len(block.text))]
+            if block.provenance.keep is not None
+            else split_sentences(block.text)
+        )
+        for start, end in spans:
             segments.append(
                 Segment(
                     id=f"s{len(segments) + 1}",

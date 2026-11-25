@@ -226,6 +226,7 @@ def test_the_flag_is_plain():
     assert flag.code is FlagCode.FORMATTING_LOST
     assert flag.explanation == FORMATTING_LOST
     assert FORMATTING_LOST.startswith("Formatting could not be kept here")
+    assert "the download shows" in FORMATTING_LOST  # every download, not only Word (CGL-110)
 
 
 def test_mark_helpers():

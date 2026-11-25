@@ -169,6 +169,50 @@ it("says in plain words when a passage may not have been translated", async () =
   expect(why).not.toHaveTextContent("Latn");
 });
 
+it("explains a changed web address in plain words", async () => {
+  const explanation =
+    "A web address was changed: the original has https://example.com/a; the translation has " +
+    "https://example.com/b. Web addresses, email addresses, placeholders and code must be " +
+    "copied exactly as they are.";
+  const flagged: SpanDetail = {
+    ...spanDetail,
+    flags: [
+      {
+        id: 24,
+        code: "literal_mismatch",
+        status: "open",
+        explanation,
+        evidence: {
+          changed: [
+            { kind: "link", source: "https://example.com/a", translation: "https://example.com/b" },
+          ],
+          missing: [],
+        },
+        dismiss_reason: null,
+      },
+    ],
+  };
+  server.use(http.get("*/api/runs/r-1/spans/s-2", () => HttpResponse.json(flagged)));
+  renderPanel();
+  const why = await screen.findByRole("region", { name: "Why it's flagged" });
+  expect(why).toHaveTextContent("A link, email or placeholder was changed");
+  expect(why).toHaveTextContent(explanation);
+  expect(why).not.toHaveTextContent("literal_mismatch");
+});
+
+it("says why a passage marked not to translate was left as written", async () => {
+  const kept: SpanDetail = { ...spanDetail, flags: [], kept: "no_translate" };
+  server.use(http.get("*/api/runs/r-1/spans/s-2", () => HttpResponse.json(kept)));
+  renderPanel();
+  expect(
+    await screen.findByText(
+      "The original marks this text not to be translated, so it was left as written.",
+    ),
+  ).toHaveAttribute("role", "note");
+  expect(screen.queryByText("Nothing to check here.")).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("no_translate");
+});
+
 it("uses a better version and marks the passage checked", async () => {
   let chosen: unknown;
   server.use(

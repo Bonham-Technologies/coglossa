@@ -19,7 +19,7 @@ import { renderAt } from "../test/render";
 import { server } from "../test/server";
 import { nodeFormData } from "../test/node-web";
 import { enqueueUploads, resetUploads } from "../upload/queue";
-import { teamLabel } from "./SetHeader";
+import { DownloadMenu, teamLabel } from "./SetHeader";
 import { pickRun, SetPage } from "./SetPage";
 
 vi.mock("../upload/queue", async (importOriginal) => ({
@@ -90,6 +90,26 @@ it("opens a single file straight into its document", async () => {
   ]);
   items.forEach((a) => expect(a).toHaveAttribute("download"));
   expect(within(menu).getByText("Other formats")).toBeInTheDocument();
+});
+
+it.each([
+  ["Rapport annuel.PPTX", "PowerPoint file", "pptx"],
+  ["Budget.xlsx", "Excel file", "xlsx"],
+])("offers %s back in its own format first (CGL-110)", async (filename, label, kind) => {
+  server.use(
+    http.get("*/api/runs/r-9", () => {
+      const run = complete("r-9");
+      return HttpResponse.json({ ...run, run: { ...run.run, filename } });
+    }),
+  );
+  const { user } = renderAt(<DownloadMenu runId="r-9" />);
+  await user.click(await screen.findByRole("button", { name: "Download" }));
+  const items = within(screen.getByRole("menu", { name: "Download" })).getAllByRole("menuitem");
+  expect(items.slice(0, 2).map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+    [label, `/api/runs/r-9/exports/${kind}`],
+    ["Word document", "/api/runs/r-9/exports/docx"],
+  ]);
+  expect(items[0]).toHaveAttribute("download");
 });
 
 const ITEM_ROLES = ["menuitem", "menuitemcheckbox", "menuitemradio"];
@@ -799,4 +819,30 @@ it("knows a set is your own when the server would: é and É are different names
 it("labels nothing on an install without sign-in, where everyone sees everything", () => {
   expect(teamLabel({ ...project, team: null, created_by: null }, me)).toBeNull(); // me: no sign-in
   expect(teamLabel({ ...project, team: "desk" }, me)).toBeNull();
+});
+
+// ---------------------------------------------------------------- review summary (CGL-112)
+
+it("shows administrators the review summary under Technical details", async () => {
+  serve([documentSummary]);
+  server.use(
+    http.get("*/api/projects/p-1/review-summary", () =>
+      HttpResponse.json({ project_id: "p-1", languages: [] }),
+    ),
+  );
+  const { user } = open();
+  await user.click(await screen.findByText("Technical details"));
+  expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
+  expect(await screen.findByText("Nothing to show yet.")).toBeInTheDocument();
+});
+
+it("does not show the review summary to a translator", async () => {
+  serve([documentSummary]);
+  server.use(
+    http.get("*/api/me", () => HttpResponse.json({ ...me, admin: false, teams: ["desk-a"] })),
+  );
+  const { queryClient } = open();
+  expect(await screen.findByText(/^French → English/)).toBeInTheDocument();
+  await vi.waitFor(() => expect(queryClient.getQueryData(["me"])).toBeDefined());
+  expect(screen.queryByText("Technical details")).not.toBeInTheDocument();
 });

@@ -359,7 +359,8 @@
         "number_mismatch",
         "untranslated",
         "unread_content",
-        "formatting_lost"
+        "formatting_lost",
+        "literal_mismatch"
       ],
       "title": "FlagCode",
       "type": "string"
@@ -542,6 +543,15 @@
       "title": "JudgeError",
       "type": "object"
     },
+    "KeepReason": {
+      "description": "Why a block is left as written, never sent to a model (CGL-111).",
+      "enum": [
+        "code",
+        "no_translate"
+      ],
+      "title": "KeepReason",
+      "type": "string"
+    },
     "LLMCallRecord": {
       "properties": {
         "attempt": {
@@ -690,6 +700,17 @@
           "title": "Index",
           "type": "integer"
         },
+        "keep": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KeepReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "level": {
           "anyOf": [
             {
@@ -701,6 +722,13 @@
           ],
           "default": null,
           "title": "Level"
+        },
+        "literals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Literals",
+          "type": "array"
         },
         "locator": {
           "anyOf": [
@@ -1043,6 +1071,17 @@
           ],
           "default": null,
           "title": "Judge Errors"
+        },
+        "kept": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KeepReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "rationale": {
           "default": "",

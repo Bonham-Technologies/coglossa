@@ -13,6 +13,7 @@ from coglossa.schema import (
     GlossaryEntry,
     Guide,
     InlineMark,
+    KeepReason,
     MarkKind,
     PipelineProfile,
     RevisionSource,
@@ -124,6 +125,13 @@ async def test_a_rewrite_of_a_formatted_passage_is_flagged(make_runner, fake_bac
     # the worker stores the change, not the span: the change carries the flag (CGL-129)
     (change,) = result.changes
     assert change.raised == (swept.flags[1],) and swept.flags[1].evidence == SWEPT
+
+
+async def test_text_left_as_written_is_never_rewritten(make_runner, fake_backend):
+    # CGL-111: code containing a locked term stays as written
+    span = _span("p1", "s1", "Le chat dort.").model_copy(update={"kept": KeepReason.CODE})
+    result = await run_sweep(_ctx(make_runner), PROFILE, LOCKED, [span], SEGMENTS)
+    assert result.spans == [span] and result.changes == [] and fake_backend.requests == []
 
 
 async def test_a_rewrite_of_a_plain_passage_adds_no_formatting_flag(make_runner, fake_backend):
