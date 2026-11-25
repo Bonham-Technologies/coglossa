@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from coglossa.ingest.base import IngestError, is_scene_break, split_paragraphs
@@ -144,6 +146,28 @@ def test_a_fence_inside_a_blockquote_is_left_as_written(tmp_path):
         ("code\n\n  more", KeepReason.CODE, []),
         ("Fin.", None, []),
     ]
+
+
+def test_unclosed_quoted_fences_of_every_depth_and_length_are_read_in_linear_time(tmp_path):
+    """Each unclosed opener of a new depth and length used to scan the rest of the file
+    (a 0.34 MB grid took 91 s); now every line is read a bounded number of times."""
+    grid = [
+        ">" * depth + char * length + "py"
+        for depth in range(1, 150)
+        for length in range(150, 2, -1)
+        for char in "`~"
+    ]
+    started = time.monotonic()
+    doc = _md(tmp_path, "Texte.\n\n" + "\n".join(grid) + "\n")
+    assert time.monotonic() - started < 10  # about 0.2 s; quadratic, it took hours
+    assert all(b.provenance.keep is None for b in doc.blocks)
+
+
+def test_a_fence_inside_too_many_blockquotes_is_text(tmp_path):
+    deep = "> " * 9
+    doc = _md(tmp_path, f"{deep}```\n{deep}code\n{deep}```\n\n> > ```\n> > ok\n> > ```\n")
+    assert [b.provenance.keep for b in doc.blocks] == [None, KeepReason.CODE]
+    assert doc.blocks[1].text == "ok"
 
 
 def test_a_fence_the_blockquote_does_not_close_is_text(tmp_path):

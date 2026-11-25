@@ -54,10 +54,10 @@ Key names in `<kbd>` are translated, since they are localised ("Ctrl" is "Strg" 
 `<pre>` that holds prose, such as verse, is translated when marked `<pre translate="yes">`. Code
 or no-translate text inside a sentence stays part of the sentence, so the sentence still reads
 whole, and the `literal_mismatch` check expects it back as written. Limits: a fence must be
-closed inside the blockquote it opens in, a fence on the same line as a list marker (`` 1. ``` ``)
-and a code block indented without a fence are translated as text. A file uploaded before this
-change keeps its earlier reading, code included, for every new run: upload it again to have its
-code left as written.
+closed inside the blockquote it opens in; a fence inside more than 8 `>` markers, a fence on the
+same line as a list marker (`` 1. ``` ``) and a code block indented without a fence are
+translated as text. A file uploaded before this change keeps its earlier reading, code included,
+for every new run: upload it again to have its code left as written.
 
 ## Scoring
 
