@@ -6,6 +6,7 @@ from coglossa.schema import Entity, GlossaryEntry, Guide
 from coglossa.scoring.untranslated import (
     MIN_LETTERS,
     Untranslated,
+    _citation,
     kept_names,
     target_scripts,
     untranslated_check,
@@ -265,3 +266,255 @@ def test_a_large_guide_does_not_slow_the_check_down():
         untranslated_check("the starship ENTERPRISE", "the starship ENTERPRISE", "fr", keep=keep)
         is None
     )
+
+
+# --- fewer false positives (CGL-128) -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("translation", "lang"),
+    [
+        ("Το open source software είναι δωρεάν", "el"),
+        ("Откройте settings then privacy options", "ru"),
+        ("Используйте machine learning и deep learning для big data analytics pipeline", "ru"),
+        ("이 앱은 dark mode and offline sync 지원", "ko"),
+    ],
+)
+def test_correct_loanword_heavy_translations_are_not_flagged(translation, lang):
+    # the first word is in the target script, so it is counted even though it is capitalised,
+    # and a sentence is only read as written in another script when the target script holds
+    # under a fifth of it
+    assert untranslated_check("Open the settings.", translation, lang) is None
+
+
+@pytest.mark.parametrize(("lang", "script"), [("am", "Ethi"), ("hi", "Deva"), ("ru", "Cyrl")])
+@pytest.mark.parametrize(
+    "translation",
+    [
+        "The museum was opened in 1901 and it has twelve rooms.",
+        "the museum was opened in 1901 and it has twelve rooms",
+    ],
+)
+def test_latin_text_is_still_flagged_for_other_scripts(translation, lang, script):
+    found = untranslated_check("x", translation, lang)
+    assert found is not None and found.rule == "script"
+    assert found.script == "Latn" and found.expected == (script,)
+
+
+def test_a_sentence_in_another_script_after_one_in_the_target_script_is_flagged():
+    found = untranslated_check(
+        "x", "Музей открылся в 1901 году. the museum has twelve rooms and a large garden", "ru"
+    )
+    assert found is not None and found.rule == "script" and found.script == "Latn"
+    # the same words, mostly translated, are not
+    assert (
+        untranslated_check("x", "Музей открылся в 1901 году. В музее двенадцать залов.", "ru")
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "Smith, J., & Jones, K. (2020). Machine translation quality estimation. "
+        "Computational Linguistics, 46(2), 123–145.",
+        "Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). Attention is all you need. "
+        "In Advances in Neural Information Processing Systems 30, pp. 5998–6008.",
+        "Koehn, Philipp. Statistical machine translation. Cambridge University Press, 2010.",
+        "Bahdanau, D., Cho, K. and Bengio, Y. 2015. Neural machine translation by jointly "
+        "learning to align and translate. https://arxiv.org/abs/1409.0473",
+        "[4] Papineni, K., Roukos, S., Ward, T. and Zhu, W.-J. (2002). BLEU: a method for "
+        "automatic evaluation of machine translation. Proceedings of ACL, 311–318.",
+    ],
+)
+@pytest.mark.parametrize(("source_lang", "lang"), [("en", "de"), ("fr", "en"), ("en", "ru")])
+def test_bibliography_entries_are_not_flagged(entry, source_lang, lang):
+    assert untranslated_check(entry, entry, lang, source_lang=source_lang) is None
+
+
+def test_a_sentence_with_a_year_is_not_taken_for_a_citation():
+    for passage in (
+        "Marie arrived in Paris on 14 July 1998, and she stayed for a year.",
+        "The museum (built in 1901) has twelve rooms and a garden.",
+        "In 2020, Dr. Okafor said the vaccine is safe for children.",
+    ):
+        assert untranslated_check(passage, passage, "fr").rule == "copied"
+
+
+@pytest.mark.parametrize(
+    ("passage", "source_lang", "lang"),
+    [
+        ("total (in millions)", "en", "fr"),
+        ("kg per m2 per year", "en", "de"),
+        ("see https://example.com/docs for details", "en", "es"),
+        ("information et communication", "fr", "en"),
+        ("Ad astra per aspera", "la", "en"),
+        ("E pluribus unum", "la", "fr"),
+    ],
+)
+def test_short_labels_and_mottos_that_stay_the_same_are_not_flagged_as_copies(
+    passage, source_lang, lang
+):
+    assert untranslated_check(passage, passage, lang, source_lang=source_lang) is None
+
+
+def test_a_copied_sentence_or_a_longer_label_is_still_flagged():
+    # a short passage that ends like a sentence, or one of five words or more
+    assert untranslated_check("Please speak slowly.", "Please speak slowly.", "fr").rule == "copied"
+    label = "annual report on climate change"
+    assert untranslated_check(label, label, "fr").rule == "copied"
+
+
+def test_chinese_regions_stand_for_their_script():
+    chinese = "委员会批准了预算，但投票结果非常接近。"
+    assert untranslated_check(chinese, chinese, "zh-TW", source_lang="zh-CN").rule == "copied"
+    assert untranslated_check(chinese, chinese, "zh-HK", source_lang="zh-SG").rule == "copied"
+    assert untranslated_check(chinese, chinese, "zh_MO", source_lang="zh-Hans").rule == "copied"
+    # the same script under another name is the same language
+    assert untranslated_check(chinese, chinese, "zh-Hans", source_lang="zh-CN") is None
+    assert untranslated_check(chinese, chinese, "zh-Hant-TW", source_lang="zh-TW") is None
+    assert target_scripts("zh-HK") == frozenset({"Hani"})
+
+
+def test_an_all_caps_copy_is_flagged():
+    source = "THE COMMITTEE APPROVED THE BUDGET, BUT THE VOTE WAS CLOSE."
+    found = untranslated_check(source, source, "es")
+    assert found is not None and found.rule == "copied"
+    found = untranslated_check("x", "PLEASE SPEAK SLOWLY SO THAT EVERYONE UNDERSTANDS", "am")
+    assert found is not None and found.rule == "script"
+    # a few acronyms in a passage are still names
+    assert untranslated_check("NASA and ESA", "NASA and ESA", "fr") is None
+    assert untranslated_check("x", "ናሳ NASA እና ESA በጋራ ይሰራሉ", "am") is None
+
+
+@pytest.mark.parametrize(
+    ("lang", "scripts", "name"),
+    [
+        ("no", {"Latn"}, "Norwegian"),
+        ("iw", {"Hebr"}, "Hebrew"),
+        ("fil", {"Latn"}, "Filipino"),
+        ("dv", {"Thaa"}, "Dhivehi"),
+        ("mo", {"Latn"}, "Romanian"),
+    ],
+)
+def test_older_and_other_language_codes_are_checked_by_script(lang, scripts, name):
+    assert target_scripts(lang) == frozenset(scripts)
+    if scripts == {"Latn"}:
+        return
+    found = untranslated_check("x", "please speak slowly so that everyone understands", lang)
+    assert found is not None and found.rule == "script"
+    assert name in found.explanation()
+
+
+def test_an_old_code_and_its_new_one_are_the_same_language():
+    passage = "הוועדה אישרה את התקציב, אך ההצבעה הייתה צמודה."
+    assert untranslated_check(passage, passage, "he", source_lang="iw") is None
+    assert untranslated_check(passage, passage, "en", source_lang="iw").rule == "copied"
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        # prose that cites works, or a legal provision with a date, is not a reference entry
+        "Recent work (Smith et al., 2020; Jones, 2019) shows that machine translation has "
+        "improved a lot.",
+        "Smith et al. (2020) found that the model works well on long documents.",
+        "Since May 25, 2018, Article 5(2) requires controllers to demonstrate compliance.",
+        "1. Since May 25, 2018, Article 5(2) requires controllers to demonstrate compliance.",
+    ],
+)
+def test_prose_that_cites_works_is_still_checked(passage):
+    assert untranslated_check(passage, passage, "de", source_lang="en").rule == "copied"
+    found = untranslated_check("x", passage, "am")
+    assert found is not None and found.rule == "script"
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        # a numbered paragraph of a judgment, full of dates and case names
+        "[12] On May 25, 2018, the appellant filed a notice of appeal against the decision of "
+        "the tribunal.",
+        "[12] In R v Smith (2018), the court held that the evidence was inadmissible and "
+        "ordered a new trial.",
+        # a name and an initial, then a sentence
+        "Miller, J. delivered the judgment of the court on March 3, 2020, and dismissed the "
+        "appeal with costs.",
+        "Smith, J. (2020) argues that machine translation has improved, and the rest of this "
+        "section explains why.",
+        # a sentence, then a year in brackets
+        "The report was published. (2020) It found that the factory had polluted the river for "
+        "years; see pp. 4.",
+    ],
+)
+def test_prose_that_starts_like_a_reference_is_still_checked(passage):
+    found = untranslated_check(passage, passage, "fr", source_lang="en")
+    assert found is not None and found.rule == "copied"
+    found = untranslated_check("x", passage, "ru")
+    assert found is not None and found.rule == "script"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "World Health Organization. (2020). Global tuberculosis report 2020. Geneva: WHO, "
+        "pp. 12-20.",
+        "Smith J, Jones K. Machine translation quality. Comput Linguist. 2020;46(2):123-45.",
+        'J. Smith and K. Jones, "Machine translation quality," IEEE Trans., vol. 4, '
+        "pp. 1-10, 2020.",
+        "van der Berg, A. (2019). Neural models for translation. Journal of MT, 12(3), 45-67.",
+        "Smith, J. A., & Doe, R. (2020, May 3). A post about translation. Retrieved from "
+        "https://example.com",
+        "Koehn, Philipp. 2010. Statistical Machine Translation. Cambridge: Cambridge "
+        "University Press.",
+        "12. Vaswani, A., et al. (2017). Attention is all you need. NeurIPS, 30, 5998-6008.",
+        "Smith J, Jones K, et al. Machine translation quality. Comput Linguist. "
+        "2020 Mar;46(2):123-45.",
+    ],
+)
+def test_other_reference_styles_are_not_flagged(entry):
+    assert untranslated_check(entry, entry, "de", source_lang="en") is None
+
+
+def test_a_copied_headline_in_sentence_case_is_flagged():
+    # its capitalised first word is not counted as a letter, but it is one of the five words
+    headline = "Government announces new tax plan"
+    assert untranslated_check(headline, headline, "de", source_lang="en").rule == "copied"
+    assert untranslated_check("Click Save to keep changes", "Click Save to keep changes", "de")
+
+
+def test_acronyms_in_a_script_without_capitals_are_not_a_passage_in_capitals():
+    assert untranslated_check("x", "ใช้ API SDK CLI GPU TPU NASA", "th") is None
+
+
+def test_a_long_reference_like_passage_is_checked_quickly():
+    start = time.perf_counter()
+    # each would take exponential time if a pattern could match the same text in two ways
+    for passage in ("Ab" + "-Ab" * 200 + " 1", ("A.  -  " * 200) + "1", "ab " * 200):
+        untranslated_check(passage, passage, "fr")
+    assert time.perf_counter() - start < 2
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        "Ab, A., and " * 9000 + "1",
+        "Ab, A. " * 15000 + "1",
+        "A. Ab and " * 10000 + "1",
+        "Ab A, " * 17000 + "1",
+        "Ab, Abc Ab A. " * 7000 + "1",
+        "Ab, Abc. " + "ab. " * 25000 + "1",
+        "World of " * 11000 + "1",
+        "[1] " + "Ab, A.-B. " * 10000 + "(2020)",
+        "Ab, A. " + "ab, 2020; " * 10000,
+    ],
+)
+def test_a_100_kb_reference_like_passage_is_checked_quickly(passage):
+    # each is a long author list, or an entry's start, that turns out not to be an entry
+    assert len(passage) >= 90_000
+    start = time.perf_counter()
+    assert not _citation(passage)
+    assert time.perf_counter() - start < 0.5
+    start = time.perf_counter()
+    untranslated_check(passage, passage, "fr")
+    assert time.perf_counter() - start < 3
