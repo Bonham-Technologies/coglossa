@@ -146,9 +146,12 @@ Redeploy the Vercel project after changing either variable.
   functions older code calls to queue a job, so approve that `hosted` run only while no
   translation is running (no running `worker` call in the Modal dashboard). Until the new
   deployment answers, starting a translation can fail; start it again after the deploy.
-- Rollback: deploy an earlier commit. Code from before a migration refuses a database that is
-  ahead of it, so once revision 0011 has run, fix forward, or downgrade the database to 0010
-  (`coglossa.store.migrate.downgrade(url, "0010")`; there is no CLI command for it) before deploying code from before the procrastinate 3.12 upgrade.
+- Rollback: deploy an earlier commit. Code refuses a database that is not at its own head
+  revision, so once a migration has run, fix forward, or first downgrade the database to the
+  head revision of the commit you are deploying (for code from before the procrastinate 3.12
+  upgrade that is 0007: `coglossa.store.migrate.downgrade(url, "0007")`; there is no CLI
+  command for it). Run the downgrade with the newer code, which still has the revisions it
+  removes, then deploy the older commit.
 - Logs: Modal keeps function logs for one day on Starter; Vercel keeps its own.
 - CI imports the Modal app without an account: `deploy/hosted/modal/check_app.py`.
 - The preview keeps out of search engines (CGL-85): the front door answers `/robots.txt`
