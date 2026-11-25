@@ -820,3 +820,29 @@ it("labels nothing on an install without sign-in, where everyone sees everything
   expect(teamLabel({ ...project, team: null, created_by: null }, me)).toBeNull(); // me: no sign-in
   expect(teamLabel({ ...project, team: "desk" }, me)).toBeNull();
 });
+
+// ---------------------------------------------------------------- review summary (CGL-112)
+
+it("shows administrators the review summary under Technical details", async () => {
+  serve([documentSummary]);
+  server.use(
+    http.get("*/api/projects/p-1/review-summary", () =>
+      HttpResponse.json({ project_id: "p-1", languages: [] }),
+    ),
+  );
+  const { user } = open();
+  await user.click(await screen.findByText("Technical details"));
+  expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
+  expect(await screen.findByText("Nothing to show yet.")).toBeInTheDocument();
+});
+
+it("does not show the review summary to a translator", async () => {
+  serve([documentSummary]);
+  server.use(
+    http.get("*/api/me", () => HttpResponse.json({ ...me, admin: false, teams: ["desk-a"] })),
+  );
+  const { queryClient } = open();
+  expect(await screen.findByText(/^French → English/)).toBeInTheDocument();
+  await vi.waitFor(() => expect(queryClient.getQueryData(["me"])).toBeDefined());
+  expect(screen.queryByText("Technical details")).not.toBeInTheDocument();
+});

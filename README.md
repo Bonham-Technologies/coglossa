@@ -331,6 +331,7 @@ air-gapped network cannot reach.
 | Guide | `GET /runs/{id}/guide`, `POST /runs/{id}/guide/approve`, `GET/PUT /projects/{id}/guide`, `GET /projects/{id}/guide/versions`, `POST /projects/{id}/guide/import/preview` and `/import` (a CSV, TSV or TBX glossary, multipart) |
 | Review | `GET /runs/{id}/spans` (filters), `GET /runs/{id}/spans/{span}`, `POST …/edit`, `…/use-candidate`, `…/accept`, `…/guide`, `POST /runs/{id}/flags/{flag}` |
 | Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx,pptx,xlsx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited; `pptx` and `xlsx`: a PowerPoint or Excel file in its own format) |
+| Review summary (admins) | `GET /runs/{id}/review-summary`, `GET /projects/{id}/review-summary` (per language), and the same with `.csv` (one row per passage; the set's takes `?target_lang=`) |
 | System | `GET /health`, `GET /me`, `GET /system/doctor`, `GET /system/config`, `GET /system/tiers` |
 
 The API also serves the web app when `api.web_dir` points at the built files (`web/dist`); every
@@ -359,6 +360,7 @@ The web app (`web/`, React + Vite) is how reviewers use Coglossa:
 - **Review:** open any passage to see why it was flagged, edit it, choose a better version, mark it checked, or fix a name or term everywhere.
 - **Translation guide:** the names, terms and style a translation follows; edit it, and update the translations to match.
 - **Download:** the translation as a web page, Word file or side-by-side Word file, a PowerPoint or Excel file as the same file translated, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
+- **Review summary (admins):** under Technical details on a translation's page, how much reviewing each language took: passages checked and changed, how much was changed, and what became of each kind of flag, with a CSV of every passage.
 - **Settings:** installation checks and, under Technical details, the scores and settings behind the results.
 
 It comes in a light and a dark theme (it follows the system setting, and can be switched by hand).

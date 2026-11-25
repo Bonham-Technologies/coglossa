@@ -470,6 +470,26 @@
         "title": "CreateProject",
         "type": "object"
       },
+      "DismissReason": {
+        "properties": {
+          "count": {
+            "description": "How many flags of this code were dismissed with it.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "reason": {
+            "description": "The reason a reviewer gave, as typed.",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "count"
+        ],
+        "title": "DismissReason",
+        "type": "object"
+      },
       "DoctorCheck": {
         "properties": {
           "fix": {
@@ -1049,6 +1069,78 @@
         ],
         "title": "FlagCode",
         "type": "string"
+      },
+      "FlagReviewFigures": {
+        "description": "What became of one kind of flag.",
+        "properties": {
+          "accepted": {
+            "description": "Flags a reviewer accepted (the passage is fine as it is).",
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "code": {
+            "description": "The flag's code, e.g. `terminology_violation`.",
+            "title": "Code",
+            "type": "string"
+          },
+          "dismiss_reasons": {
+            "description": "The reasons given for dismissing flags of this code, most frequent first (at most 20).",
+            "items": {
+              "$ref": "#/components/schemas/DismissReason"
+            },
+            "title": "Dismiss Reasons",
+            "type": "array"
+          },
+          "dismissed": {
+            "description": "Flags a reviewer dismissed, with a reason.",
+            "title": "Dismissed",
+            "type": "integer"
+          },
+          "edited_after": {
+            "description": "Passages with a flag of this code that a person edited after the flag was raised.",
+            "title": "Edited After",
+            "type": "integer"
+          },
+          "edited_after_share": {
+            "description": "`edited_after / passages`, from 0 to 1: how often a flag of this code pointed at a passage a person then changed (its precision in real use). 0 when `passages` is 0.",
+            "title": "Edited After Share",
+            "type": "number"
+          },
+          "open": {
+            "description": "Flags still waiting for a decision.",
+            "title": "Open",
+            "type": "integer"
+          },
+          "passages": {
+            "description": "Passages with at least one flag of this code.",
+            "title": "Passages",
+            "type": "integer"
+          },
+          "raised": {
+            "description": "Flags of this code on the passages, whatever became of them.",
+            "title": "Raised",
+            "type": "integer"
+          },
+          "resolved": {
+            "description": "Flags the consistency recheck fixed.",
+            "title": "Resolved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "raised",
+          "passages",
+          "open",
+          "accepted",
+          "dismissed",
+          "resolved",
+          "edited_after",
+          "edited_after_share",
+          "dismiss_reasons"
+        ],
+        "title": "FlagReviewFigures",
+        "type": "object"
       },
       "FlagStatus": {
         "enum": [
@@ -1769,6 +1861,92 @@
           "ok"
         ],
         "title": "LLMCallRecord",
+        "type": "object"
+      },
+      "LanguageReviewSummary": {
+        "description": "One language of a set: the newest run of each file in that language, as the set page\nshows them.",
+        "properties": {
+          "checked": {
+            "description": "Passages a person approved: accepted, edited, or chose another translator's version for, and has not reopened a flag on since.",
+            "title": "Checked",
+            "type": "integer"
+          },
+          "checked_share": {
+            "description": "`checked / passages`, from 0 to 1; 0 with none.",
+            "title": "Checked Share",
+            "type": "number"
+          },
+          "edit_distance_total": {
+            "description": "The sum of the edited passages' edit distances. A passage's edit distance is the Levenshtein distance, in Unicode code points, between the engine's text (its last text before the first person's edit) and the text the person approved (or, for an edited passage reopened since, its current text): the fewest characters inserted, deleted or replaced to turn one into the other.",
+            "title": "Edit Distance Total",
+            "type": "integer"
+          },
+          "edited": {
+            "description": "Passages a person changed the text of at least once.",
+            "title": "Edited",
+            "type": "integer"
+          },
+          "edited_share": {
+            "description": "`edited / passages`, from 0 to 1; 0 with none.",
+            "title": "Edited Share",
+            "type": "number"
+          },
+          "estimated_distances": {
+            "description": "Edited passages too long to compare character by character in time; their distance is an upper bound (the length of the longer differing middle part).",
+            "title": "Estimated Distances",
+            "type": "integer"
+          },
+          "flags": {
+            "description": "One entry per flag code raised, the most raised first.",
+            "items": {
+              "$ref": "#/components/schemas/FlagReviewFigures"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "mean_edit_distance": {
+            "description": "`edit_distance_total / edited`: characters changed per edited passage; 0 when none was edited.",
+            "title": "Mean Edit Distance",
+            "type": "number"
+          },
+          "mean_edit_ratio": {
+            "description": "The mean, over the edited passages, of each passage's edit distance divided by the length of the longer of its two texts, from 0 (unchanged) to 1 (rewritten); 0 when none was edited.",
+            "title": "Mean Edit Ratio",
+            "type": "number"
+          },
+          "passages": {
+            "description": "Passages in the translation.",
+            "title": "Passages",
+            "type": "integer"
+          },
+          "run_ids": {
+            "description": "The runs counted: each file's newest in the language.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Run Ids",
+            "type": "array"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passages",
+          "checked",
+          "checked_share",
+          "edited",
+          "edited_share",
+          "edit_distance_total",
+          "mean_edit_distance",
+          "mean_edit_ratio",
+          "estimated_distances",
+          "flags",
+          "target_lang",
+          "run_ids"
+        ],
+        "title": "LanguageReviewSummary",
         "type": "object"
       },
       "MarkKind": {
@@ -2751,6 +2929,92 @@
         "title": "RunRequest",
         "type": "object"
       },
+      "RunReviewSummary": {
+        "properties": {
+          "checked": {
+            "description": "Passages a person approved: accepted, edited, or chose another translator's version for, and has not reopened a flag on since.",
+            "title": "Checked",
+            "type": "integer"
+          },
+          "checked_share": {
+            "description": "`checked / passages`, from 0 to 1; 0 with none.",
+            "title": "Checked Share",
+            "type": "number"
+          },
+          "edit_distance_total": {
+            "description": "The sum of the edited passages' edit distances. A passage's edit distance is the Levenshtein distance, in Unicode code points, between the engine's text (its last text before the first person's edit) and the text the person approved (or, for an edited passage reopened since, its current text): the fewest characters inserted, deleted or replaced to turn one into the other.",
+            "title": "Edit Distance Total",
+            "type": "integer"
+          },
+          "edited": {
+            "description": "Passages a person changed the text of at least once.",
+            "title": "Edited",
+            "type": "integer"
+          },
+          "edited_share": {
+            "description": "`edited / passages`, from 0 to 1; 0 with none.",
+            "title": "Edited Share",
+            "type": "number"
+          },
+          "estimated_distances": {
+            "description": "Edited passages too long to compare character by character in time; their distance is an upper bound (the length of the longer differing middle part).",
+            "title": "Estimated Distances",
+            "type": "integer"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "flags": {
+            "description": "One entry per flag code raised, the most raised first.",
+            "items": {
+              "$ref": "#/components/schemas/FlagReviewFigures"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "mean_edit_distance": {
+            "description": "`edit_distance_total / edited`: characters changed per edited passage; 0 when none was edited.",
+            "title": "Mean Edit Distance",
+            "type": "number"
+          },
+          "mean_edit_ratio": {
+            "description": "The mean, over the edited passages, of each passage's edit distance divided by the length of the longer of its two texts, from 0 (unchanged) to 1 (rewritten); 0 when none was edited.",
+            "title": "Mean Edit Ratio",
+            "type": "number"
+          },
+          "passages": {
+            "description": "Passages in the translation.",
+            "title": "Passages",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "target_lang": {
+            "title": "Target Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passages",
+          "checked",
+          "checked_share",
+          "edited",
+          "edited_share",
+          "edit_distance_total",
+          "mean_edit_distance",
+          "mean_edit_ratio",
+          "estimated_distances",
+          "flags",
+          "run_id",
+          "filename",
+          "target_lang"
+        ],
+        "title": "RunReviewSummary",
+        "type": "object"
+      },
       "RunState": {
         "enum": [
           "created",
@@ -3002,6 +3266,28 @@
           "guide_version"
         ],
         "title": "SetLanguage",
+        "type": "object"
+      },
+      "SetReviewSummary": {
+        "properties": {
+          "languages": {
+            "description": "One entry per language of the set, in the set's order.",
+            "items": {
+              "$ref": "#/components/schemas/LanguageReviewSummary"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "languages"
+        ],
+        "title": "SetReviewSummary",
         "type": "object"
       },
       "Span": {
@@ -4444,6 +4730,106 @@
         ]
       }
     },
+    "/api/projects/{project_id}/review-summary": {
+      "get": {
+        "description": "Each language of the set, over the newest run of each file in it.",
+        "operationId": "set_summary_api_projects__project_id__review_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetReviewSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Summary",
+        "tags": [
+          "review summary"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/review-summary.csv": {
+      "get": {
+        "description": "The passages the set summary counts, one row each; `target_lang` keeps one language.",
+        "operationId": "set_summary_csv_api_projects__project_id__review_summary_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Lang"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Summary Csv",
+        "tags": [
+          "review summary"
+        ]
+      }
+    },
     "/api/projects/{project_id}/runs": {
       "post": {
         "description": "Upload a document and queue a run. Form fields left out take the project's defaults.\n`all_languages`: also start the file in every other language of the set (CGL-24); the run\nreturned is the one in `target_lang`.",
@@ -5137,6 +5523,90 @@
         "summary": "Retry",
         "tags": [
           "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/review-summary": {
+      "get": {
+        "description": "How much the run's passages were checked and edited, and what became of its flags.",
+        "operationId": "run_summary_api_runs__run_id__review_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunReviewSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Summary",
+        "tags": [
+          "review summary"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/review-summary.csv": {
+      "get": {
+        "description": "One row per passage: its flags, whether it was checked and edited, the edit distance\nand who reviewed it. UTF-8 with a byte order mark; no cell starts a formula.",
+        "operationId": "run_summary_csv_api_runs__run_id__review_summary_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Summary Csv",
+        "tags": [
+          "review summary"
         ]
       }
     },

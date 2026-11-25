@@ -245,6 +245,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Set Summary
+         * @description Each language of the set, over the newest run of each file in it.
+         */
+        get: operations["set_summary_api_projects__project_id__review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/review-summary.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Set Summary Csv
+         * @description The passages the set summary counts, one row each; `target_lang` keeps one language.
+         */
+        get: operations["set_summary_csv_api_projects__project_id__review_summary_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/runs": {
         parameters: {
             query?: never;
@@ -494,6 +534,47 @@ export interface paths {
         put?: never;
         /** Retry */
         post: operations["retry_api_runs__run_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Summary
+         * @description How much the run's passages were checked and edited, and what became of its flags.
+         */
+        get: operations["run_summary_api_runs__run_id__review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/review-summary.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Summary Csv
+         * @description One row per passage: its flags, whether it was checked and edited, the edit distance
+         *     and who reviewed it. UTF-8 with a byte order mark; no cell starts a formula.
+         */
+        get: operations["run_summary_csv_api_runs__run_id__review_summary_csv_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -875,6 +956,19 @@ export interface components {
             /** Team */
             team?: string | null;
         };
+        /** DismissReason */
+        DismissReason: {
+            /**
+             * Count
+             * @description How many flags of this code were dismissed with it.
+             */
+            count: number;
+            /**
+             * Reason
+             * @description The reason a reviewer gave, as typed.
+             */
+            reason: string;
+        };
         /** DoctorCheck */
         DoctorCheck: {
             /**
@@ -1116,6 +1210,62 @@ export interface components {
          * @enum {string}
          */
         FlagCode: "low_meaning" | "style_drift" | "agent_disagreement" | "terminology_violation" | "possible_omission" | "cultural_or_wordplay" | "engine_error" | "low_reliability_language" | "unscored" | "number_mismatch" | "untranslated" | "unread_content" | "formatting_lost" | "literal_mismatch";
+        /**
+         * FlagReviewFigures
+         * @description What became of one kind of flag.
+         */
+        FlagReviewFigures: {
+            /**
+             * Accepted
+             * @description Flags a reviewer accepted (the passage is fine as it is).
+             */
+            accepted: number;
+            /**
+             * Code
+             * @description The flag's code, e.g. `terminology_violation`.
+             */
+            code: string;
+            /**
+             * Dismiss Reasons
+             * @description The reasons given for dismissing flags of this code, most frequent first (at most 20).
+             */
+            dismiss_reasons: components["schemas"]["DismissReason"][];
+            /**
+             * Dismissed
+             * @description Flags a reviewer dismissed, with a reason.
+             */
+            dismissed: number;
+            /**
+             * Edited After
+             * @description Passages with a flag of this code that a person edited after the flag was raised.
+             */
+            edited_after: number;
+            /**
+             * Edited After Share
+             * @description `edited_after / passages`, from 0 to 1: how often a flag of this code pointed at a passage a person then changed (its precision in real use). 0 when `passages` is 0.
+             */
+            edited_after_share: number;
+            /**
+             * Open
+             * @description Flags still waiting for a decision.
+             */
+            open: number;
+            /**
+             * Passages
+             * @description Passages with at least one flag of this code.
+             */
+            passages: number;
+            /**
+             * Raised
+             * @description Flags of this code on the passages, whatever became of them.
+             */
+            raised: number;
+            /**
+             * Resolved
+             * @description Flags the consistency recheck fixed.
+             */
+            resolved: number;
+        };
         /**
          * FlagStatus
          * @enum {string}
@@ -1443,6 +1593,70 @@ export interface components {
             tokens_out?: number | null;
         };
         /**
+         * LanguageReviewSummary
+         * @description One language of a set: the newest run of each file in that language, as the set page
+         *     shows them.
+         */
+        LanguageReviewSummary: {
+            /**
+             * Checked
+             * @description Passages a person approved: accepted, edited, or chose another translator's version for, and has not reopened a flag on since.
+             */
+            checked: number;
+            /**
+             * Checked Share
+             * @description `checked / passages`, from 0 to 1; 0 with none.
+             */
+            checked_share: number;
+            /**
+             * Edit Distance Total
+             * @description The sum of the edited passages' edit distances. A passage's edit distance is the Levenshtein distance, in Unicode code points, between the engine's text (its last text before the first person's edit) and the text the person approved (or, for an edited passage reopened since, its current text): the fewest characters inserted, deleted or replaced to turn one into the other.
+             */
+            edit_distance_total: number;
+            /**
+             * Edited
+             * @description Passages a person changed the text of at least once.
+             */
+            edited: number;
+            /**
+             * Edited Share
+             * @description `edited / passages`, from 0 to 1; 0 with none.
+             */
+            edited_share: number;
+            /**
+             * Estimated Distances
+             * @description Edited passages too long to compare character by character in time; their distance is an upper bound (the length of the longer differing middle part).
+             */
+            estimated_distances: number;
+            /**
+             * Flags
+             * @description One entry per flag code raised, the most raised first.
+             */
+            flags: components["schemas"]["FlagReviewFigures"][];
+            /**
+             * Mean Edit Distance
+             * @description `edit_distance_total / edited`: characters changed per edited passage; 0 when none was edited.
+             */
+            mean_edit_distance: number;
+            /**
+             * Mean Edit Ratio
+             * @description The mean, over the edited passages, of each passage's edit distance divided by the length of the longer of its two texts, from 0 (unchanged) to 1 (rewritten); 0 when none was edited.
+             */
+            mean_edit_ratio: number;
+            /**
+             * Passages
+             * @description Passages in the translation.
+             */
+            passages: number;
+            /**
+             * Run Ids
+             * @description The runs counted: each file's newest in the language.
+             */
+            run_ids: string[];
+            /** Target Lang */
+            target_lang: string;
+        };
+        /**
          * MarkKind
          * @description Inline formatting an export can put back on the translated words (CGL-108).
          * @enum {string}
@@ -1762,6 +1976,65 @@ export interface components {
              */
             use_project_guide: boolean;
         };
+        /** RunReviewSummary */
+        RunReviewSummary: {
+            /**
+             * Checked
+             * @description Passages a person approved: accepted, edited, or chose another translator's version for, and has not reopened a flag on since.
+             */
+            checked: number;
+            /**
+             * Checked Share
+             * @description `checked / passages`, from 0 to 1; 0 with none.
+             */
+            checked_share: number;
+            /**
+             * Edit Distance Total
+             * @description The sum of the edited passages' edit distances. A passage's edit distance is the Levenshtein distance, in Unicode code points, between the engine's text (its last text before the first person's edit) and the text the person approved (or, for an edited passage reopened since, its current text): the fewest characters inserted, deleted or replaced to turn one into the other.
+             */
+            edit_distance_total: number;
+            /**
+             * Edited
+             * @description Passages a person changed the text of at least once.
+             */
+            edited: number;
+            /**
+             * Edited Share
+             * @description `edited / passages`, from 0 to 1; 0 with none.
+             */
+            edited_share: number;
+            /**
+             * Estimated Distances
+             * @description Edited passages too long to compare character by character in time; their distance is an upper bound (the length of the longer differing middle part).
+             */
+            estimated_distances: number;
+            /** Filename */
+            filename: string;
+            /**
+             * Flags
+             * @description One entry per flag code raised, the most raised first.
+             */
+            flags: components["schemas"]["FlagReviewFigures"][];
+            /**
+             * Mean Edit Distance
+             * @description `edit_distance_total / edited`: characters changed per edited passage; 0 when none was edited.
+             */
+            mean_edit_distance: number;
+            /**
+             * Mean Edit Ratio
+             * @description The mean, over the edited passages, of each passage's edit distance divided by the length of the longer of its two texts, from 0 (unchanged) to 1 (rewritten); 0 when none was edited.
+             */
+            mean_edit_ratio: number;
+            /**
+             * Passages
+             * @description Passages in the translation.
+             */
+            passages: number;
+            /** Run Id */
+            run_id: string;
+            /** Target Lang */
+            target_lang: string;
+        };
         /**
          * RunState
          * @enum {string}
@@ -1843,6 +2116,16 @@ export interface components {
             guide_version: number | null;
             /** Target Lang */
             target_lang: string;
+        };
+        /** SetReviewSummary */
+        SetReviewSummary: {
+            /**
+             * Languages
+             * @description One entry per language of the set, in the set's order.
+             */
+            languages: components["schemas"]["LanguageReviewSummary"][];
+            /** Project Id */
+            project_id: string;
         };
         /** Span */
         Span: {
@@ -2611,6 +2894,70 @@ export interface operations {
             };
         };
     };
+    set_summary_api_projects__project_id__review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetReviewSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_summary_csv_api_projects__project_id__review_summary_csv_get: {
+        parameters: {
+            query?: {
+                target_lang?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_api_projects__project_id__runs_post: {
         parameters: {
             query?: never;
@@ -3030,6 +3377,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_summary_api_runs__run_id__review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunReviewSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_summary_csv_api_runs__run_id__review_summary_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */

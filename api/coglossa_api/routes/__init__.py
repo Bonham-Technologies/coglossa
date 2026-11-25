@@ -2,7 +2,16 @@
 
 from fastapi import APIRouter
 
-from coglossa_api.routes import exports, guides, progress, projects, review, runs, system
+from coglossa_api.routes import (
+    exports,
+    guides,
+    progress,
+    projects,
+    review,
+    review_summary,
+    runs,
+    system,
+)
 
 ROUTERS: list[APIRouter] = [
     projects.router,
@@ -11,5 +20,6 @@ ROUTERS: list[APIRouter] = [
     guides.router,
     review.router,
     exports.router,
+    review_summary.router,
     system.router,
 ]
