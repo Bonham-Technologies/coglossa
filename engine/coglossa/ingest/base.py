@@ -2,6 +2,8 @@
 
 import hashlib
 import re
+import zipfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol
 
@@ -46,6 +48,39 @@ def read_utf8(path: Path) -> str:
         raise IngestError(
             f"{path.name} is not valid UTF-8 (byte {e.start}); re-save it as UTF-8 and retry"
         ) from e
+
+
+# An OLE compound file: what Office saves a password-protected file as, and its pre-2007 formats
+_OLE_MAGIC = bytes.fromhex("d0cf11e0a1b11ae1")
+
+
+def check_office_zip(name: str, head: bytes, is_zip: bool, app: str, ext: str) -> None:
+    """Refuse, in plain words, an Office file that is not the zip package its extension says
+    (CGL-110): a password-protected file (an encrypted OLE container), one saved in the old
+    format and renamed, or anything else. `head` is the file's first bytes."""
+    if head.startswith(_OLE_MAGIC):
+        raise IngestError(
+            f"{name} is password-protected or saved in an older {app} format, so it can't be "
+            f"read; open it in {app}, remove the password, save it as a {ext} file and try again"
+        )
+    if not is_zip:
+        raise IngestError(f"{name} is not a readable {app} file")
+
+
+def check_office_file(path: Path, app: str, ext: str) -> None:
+    with path.open("rb") as f:
+        head = f.read(len(_OLE_MAGIC))
+    check_office_zip(path.name, head, zipfile.is_zipfile(path), app, ext)
+
+
+def unread_notices(counts: Iterable[tuple[int, str, str]]) -> list[str]:
+    """The notice naming what a file holds that cannot be read, from (count, singular, plural);
+    none when every count is 0."""
+    names = [f"{n} {one if n == 1 else many}" for n, one, many in counts if n]
+    if not names:
+        return []
+    listed = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    return [f"{UNREAD_PREFIX}{listed}."]
 
 
 def error_reason(e: BaseException) -> str:

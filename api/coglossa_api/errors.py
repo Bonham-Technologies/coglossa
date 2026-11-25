@@ -8,6 +8,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from coglossa.config import ConfigError
+from coglossa.export.office import ExportError
 from coglossa.ingest.base import IngestError
 from coglossa.service import ConflictError, InvalidRequestError
 from coglossa.storage import StorageError
@@ -33,6 +34,7 @@ _STATUS: tuple[tuple[type[Exception], int], ...] = (
     (UploadTooLargeError, 413),
     (InvalidRequestError, 422),
     (IngestError, 422),
+    (ExportError, 422),  # CGL-110: a PowerPoint or Excel file that can't be written back
 )
 
 

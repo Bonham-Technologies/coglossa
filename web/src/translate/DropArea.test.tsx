@@ -50,6 +50,22 @@ it("words sizes and skips the limit when the server's is unknown", () => {
   expect(fileProblem(new File([new Uint8Array(10)], "a.txt"), null)).toBeNull();
 });
 
+it("takes PowerPoint and Excel files and names them (CGL-110)", () => {
+  expect(fileProblem(new File(["x"], "Slides.PPTX"), null)).toBeNull();
+  expect(fileProblem(new File(["x"], "Budget.xlsx"), null)).toBeNull();
+  expect(fileProblem(new File(["x"], "old.xls"), null)).toBe(
+    "old.xls isn't a file type Coglossa reads (Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB).",
+  );
+  render(<DropArea files={[]} onFiles={() => {}} maxMb={null} />);
+  expect(screen.getByLabelText("Choose files")).toHaveAttribute(
+    "accept",
+    ".txt,.md,.markdown,.docx,.html,.htm,.xhtml,.epub,.pdf,.pptx,.xlsx",
+  );
+  expect(
+    screen.getByText("Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB"),
+  ).toBeInTheDocument();
+});
+
 it("skips a file that is already in the list and says so", async () => {
   const user = userEvent.setup();
   render(<Harness />);

@@ -42,8 +42,16 @@ Exit codes: `0` complete, `1` failed, `2` usage error, `3` complete with errors,
 and `engine_error` flags in the report).
 
 Supported input formats: plain text and Markdown (`.txt`, `.md`, `.markdown`), Word (`.docx`),
-HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a text layer. A scanned PDF stops with
-`needs_ocr` and the pages that have no text.
+PowerPoint (`.pptx`), Excel (`.xlsx`), HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a
+text layer. A scanned PDF stops with `needs_ocr` and the pages that have no text. A
+password-protected Word, PowerPoint or Excel file is refused with a message saying so.
+
+PowerPoint: slide text (titles, text boxes, body text), table cells and speaker notes are
+translated; chart and SmartArt text, slide numbers and dates are not. Excel: only cells holding
+text are translated; formulas, numbers, dates, booleans and sheet names never change, and
+charts, comments and text boxes keep their original text. Both download in their own format
+(`exports/pptx`, `exports/xlsx`): a copy of the original file with the translated text in place,
+so slides, layouts, pictures, formulas and sheets stay as they were.
 
 ## Scoring
 
@@ -279,7 +287,7 @@ air-gapped network cannot reach.
 | Runs | `POST /projects/{id}/runs` (upload), `POST /documents/{id}/runs`, `GET /runs`, `GET /runs/{id}`, `GET /runs/{id}/progress`, `GET /runs/{id}/events` (SSE), `POST /runs/{id}/cancel`, `/retry`, `/sweep` |
 | Guide | `GET /runs/{id}/guide`, `POST /runs/{id}/guide/approve`, `GET/PUT /projects/{id}/guide`, `GET /projects/{id}/guide/versions`, `POST /projects/{id}/guide/import/preview` and `/import` (a CSV, TSV or TBX glossary, multipart) |
 | Review | `GET /runs/{id}/spans` (filters), `GET /runs/{id}/spans/{span}`, `POST …/edit`, `…/use-candidate`, `…/accept`, `…/guide`, `POST /runs/{id}/flags/{flag}` |
-| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited) |
+| Exports | `GET /runs/{id}/report`, `GET /runs/{id}/exports/{html,docx,bilingual-docx,json,tmx,pptx,xlsx}` (`tmx?reviewed_only=true`: only passages a person accepted or edited; `pptx` and `xlsx`: a PowerPoint or Excel file in its own format) |
 | System | `GET /health`, `GET /me`, `GET /system/doctor`, `GET /system/config`, `GET /system/tiers` |
 
 The API also serves the web app when `api.web_dir` points at the built files (`web/dist`); every
@@ -307,7 +315,7 @@ The web app (`web/`, React + Vite) is how reviewers use Coglossa:
 - **A translation's page:** one tab per file, with live steps while it works, then a plain summary of how it went and the original beside the translation.
 - **Review:** open any passage to see why it was flagged, edit it, choose a better version, mark it checked, or fix a name or term everywhere.
 - **Translation guide:** the names, terms and style a translation follows; edit it, and update the translations to match.
-- **Download:** the translation as a web page, Word file or side-by-side Word file, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
+- **Download:** the translation as a web page, Word file or side-by-side Word file, a PowerPoint or Excel file as the same file translated, or as a translation memory (TMX) for other translation tools, of every passage or only the ones a person checked.
 - **Settings:** installation checks and, under Technical details, the scores and settings behind the results.
 
 It comes in a light and a dark theme (it follows the system setting, and can be switched by hand).

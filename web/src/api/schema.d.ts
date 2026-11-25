@@ -352,7 +352,9 @@ export interface paths {
         /**
          * Export
          * @description `comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies
-         *     to tmx: only the passages a person accepted or edited, with the text they approved.
+         *     to tmx: only the passages a person accepted or edited, with the text they approved. pptx and
+         *     xlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text
+         *     translated.
          */
         get: operations["export_api_runs__run_id__exports__kind__get"];
         put?: never;
@@ -1094,7 +1096,7 @@ export interface components {
          * ExportKind
          * @enum {string}
          */
-        ExportKind: "html" | "docx" | "bilingual-docx" | "json" | "tmx";
+        ExportKind: "html" | "docx" | "bilingual-docx" | "json" | "tmx" | "pptx" | "xlsx";
         /** Flag */
         Flag: {
             code: components["schemas"]["FlagCode"];
@@ -2780,18 +2782,20 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
                     "application/x-tmx+xml": unknown;
                     "text/html": unknown;
                 };
             };
-            /** @description Validation Error */
+            /** @description pptx or xlsx of a run of another format, or a file that can't be written back. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
