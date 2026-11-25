@@ -12,7 +12,14 @@ from fastapi import APIRouter, Query
 
 from coglossa_api.auth import User
 from coglossa_api.context import Ctx
-from coglossa_api.models import EditSpan, ErrorBody, FlagUpdate, GuideAddition, UseCandidate
+from coglossa_api.models import (
+    AcceptForm,
+    EditSpan,
+    ErrorBody,
+    FlagUpdate,
+    GuideAddition,
+    UseCandidate,
+)
 
 router = APIRouter(tags=["review"])
 Score = Annotated[float | None, Query(ge=0, le=100)]
@@ -90,6 +97,16 @@ async def set_flag(
     return await review.set_flag_status(
         ctx.db, run_id, flag_id, FlagStatus(body.status), reason=body.reason, user=user
     )
+
+
+@router.post("/runs/{run_id}/flags/{flag_id}/accept-form")
+async def accept_form(
+    run_id: uuid.UUID, flag_id: int, body: AcceptForm, ctx: Ctx, user: User
+) -> SpanDetail:
+    """CGL-109 "This form is fine": dismiss an open terminology flag because the passage uses an
+    accepted form of the translation. The form joins the guide entry in a new approved version of
+    the set guide; rechecking the set clears the same flag where the form is used elsewhere."""
+    return await review.accept_form(ctx.db, run_id, flag_id, body.term, body.form, user=user)
 
 
 @router.post("/runs/{run_id}/spans/{span_id}/guide")

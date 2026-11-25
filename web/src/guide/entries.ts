@@ -17,7 +17,7 @@ export const KIND_WORDS: Record<string, string> = {
 };
 
 export function emptyTerm(): GlossaryEntry {
-  return { term: "", rendering: "", notes: "", locked: false };
+  return { term: "", rendering: "", notes: "", locked: false, forms: [], source_forms: [] };
 }
 
 export function sameGuide(a: Guide, b: Guide): boolean {
@@ -49,5 +49,7 @@ export function emptyEntity(): Entity {
     forms_of_address: "",
     speech_style: "",
     locked: false,
+    forms: [],
+    source_forms: [],
   };
 }

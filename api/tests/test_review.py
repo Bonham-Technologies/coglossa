@@ -109,6 +109,49 @@ async def test_add_to_guide(api, db):
     assert (await api.client.post(url, json={})).status_code == 422
 
 
+async def test_this_form_is_fine(api, db):
+    """CGL-109: a reviewer accepts the form a passage uses; the guide gains it in a new version."""
+    from coglossa.store.models import FlagRow
+
+    seeded = await seed_run(db)
+    flag = seeded.flag_ids["p3:terminology_violation"]
+    violation = {"term": "Fin", "expected": "The End", "kind": "glossary", "locked": True}
+    async with db.session() as s, s.begin():
+        (await s.get(FlagRow, flag)).evidence = {"violations": [violation]}
+    guide_url = f"/api/runs/{seeded.run_id}/spans/{seeded.span_ids[2]}/guide"
+    entry = {"term": "Fin", "rendering": "The End", "locked": True}
+    assert (await api.client.post(guide_url, json={"glossary": entry})).status_code == 200
+    url = f"/api/runs/{seeded.run_id}/flags/{flag}/accept-form"
+    for bad in ({"term": "Fin", "form": ""}, {"term": "Fin"}, {"term": "", "form": "End"}):
+        assert (await api.client.post(url, json=bad)).status_code == 422, bad
+    unused = await api.client.post(url, json={"term": "Fin", "form": "Ending"})
+    assert unused.status_code == 422
+    assert unused.json()["detail"] == "the passage does not use “Ending”"
+    long = await api.client.post(url, json={"term": "Fin", "form": "x" * 2001})
+    assert long.status_code == 422
+    accepted = await api.client.post(url, json={"term": "Fin", "form": "End"})
+    assert accepted.status_code == 200, accepted.text
+    assert [(f["status"], f["dismiss_reason"]) for f in accepted.json()["flags"]] == [
+        ("dismissed", "This form is fine: “End”")
+    ]
+    guide = (await api.client.get(f"/api/projects/{seeded.project_id}/guide")).json()
+    assert guide["info"]["version"] == 3
+    assert guide["guide"]["glossary"][-1]["forms"] == ["End"]
+    assert guide["guide"]["glossary"][0]["forms"] == []  # entries without forms read as empty
+
+
+async def test_guide_entries_take_forms(api, db):
+    seeded = await seed_run(db)
+    url = f"/api/runs/{seeded.run_id}/spans/{seeded.span_ids[2]}/guide"
+    entry = {"term": "Vertrag", "rendering": "contract", "source_forms": ["Verträge", " "]}
+    added = await api.client.post(url, json={"glossary": entry})
+    assert added.json()["guide"]["glossary"][-1]["source_forms"] == ["Verträge"]
+    long = {"term": "a", "rendering": "b", "forms": ["x" * 2001]}
+    too_long = await api.client.post(url, json={"glossary": long})
+    assert too_long.status_code == 422
+    assert "A form of a term's translation is too long" in too_long.text
+
+
 async def test_actions_wait_for_the_sweep(api, db):
     seeded = await seed_run(db, state=RunState.SWEEPING)
     url = f"/api/runs/{seeded.run_id}/spans/{seeded.span_ids[0]}/edit"

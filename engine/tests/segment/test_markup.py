@@ -68,14 +68,80 @@ def test_segments_without_formatting_and_unknown_blocks_stay_plain():
     assert chunk_markup(SEGMENTS, {}) == ChunkMarkup()
 
 
-def test_text_that_looks_like_a_marker_turns_markers_off_for_the_chunk():
-    literal = Segment(id="s3", block_id="b2", start=0, end=12, text="Press <1> now")
-    blocks = {"b1": BLOCK, "b2": _block("Press <1> now", [])}
-    assert chunk_markup([*SEGMENTS, literal], blocks) == ChunkMarkup()
+def _literal(text: str, marks: list[InlineMark] | None = None) -> tuple[Segment, Block]:
+    """A segment whose source text holds what looks like a marker (CGL-129)."""
+    segment = Segment(id="s3", block_id="b2", start=0, end=len(text), text=text)
+    return segment, _block(text, marks or [], "b2")
+
+
+def test_text_that_looks_like_a_marker_turns_markers_off_for_its_segment_only():
+    """CGL-129: the rest of the chunk keeps its markers, numbered past the literal ones."""
+    literal, block = _literal("Press <1> or ＜3＞ now")
+    markup = chunk_markup([*SEGMENTS, literal], {"b1": BLOCK, "b2": block})
+    assert markup.marked == {
+        "s1": "Le <2>chat</2> dort.",
+        "s2": "<4>Voir</4> <5>ici</5> et la note <6>2</6>.",
+    }
+    assert markup.text(literal) == "Press <1> or ＜3＞ now"
+    assert markup.unsent == frozenset()  # it had no formatting to lose
     # and nothing is taken out of a text when no markers were sent
     assert unmark(ChunkMarkup(), ["s3"], "Appuyez <1> maintenant").text == (
         "Appuyez <1> maintenant"
     )
+
+
+def test_marker_like_source_text_is_never_read_as_a_marker():
+    literal, block = _literal("Press <1> or ＜3＞ now")
+    markup = chunk_markup([*SEGMENTS, literal], {"b1": BLOCK, "b2": block})
+    alone = unmark(markup, ["s3"], "Appuyez <1> ou ＜3＞ maintenant")
+    assert (alone.text, alone.formatting, alone.lost) == (
+        "Appuyez <1> ou ＜3＞ maintenant",
+        None,
+        False,
+    )
+    # a passage over it and a formatted segment: the literal text stays, the markers work
+    merged = unmark(markup, ["s1", "s3"], "The <2>cat</2> sleeps. Press <1> or ＜3＞ now")
+    assert merged.text == "The cat sleeps. Press <1> or ＜3＞ now" and not merged.lost
+    assert merged.formatting is not None
+    assert [merged.text[m.start : m.end] for m in merged.formatting.marks] == ["cat"]
+    # a passage that does not cover it reads that number as a marker it was never sent
+    stray = unmark(markup, ["s1"], "The <2>cat</2> sleeps <1>.")
+    assert stray.lost and stray.text == "The cat sleeps ."
+
+
+def test_a_formatted_segment_with_marker_like_text_is_plain_and_flagged():
+    text = "Press <1> now"
+    literal, block = _literal(text, [_mark(text, "now", B)])
+    markup = chunk_markup([*SEGMENTS, literal], {"b1": BLOCK, "b2": block})
+    assert "s3" not in markup.marked and markup.unsent == {"s3"}
+    alone = unmark(markup, ["s3"], "Appuyez <1> maintenant")
+    assert (alone.text, alone.formatting, alone.lost) == ("Appuyez <1> maintenant", None, True)
+    # over several segments: plain, flagged, the real markers gone and the literal text kept
+    merged = unmark(markup, ["s1", "s3"], "The <2>cat</2> sleeps. Press <1> now")
+    assert (merged.text, merged.formatting, merged.lost) == (
+        "The cat sleeps. Press <1> now",
+        None,
+        True,
+    )
+    assert not unmark(markup, ["s3"], "").lost  # nothing written, nothing flagged
+    # when it is the only formatted segment, no markers go out and the text stays as written
+    only = chunk_markup([literal], {"b2": block})
+    assert only.marked == {} and only.unsent == {"s3"}
+    found = unmark(only, ["s3"], "Appuyez <1> maintenant")
+    assert (found.text, found.formatting, found.lost) == ("Appuyez <1> maintenant", None, True)
+
+
+def test_a_marker_like_number_too_long_for_int_is_never_a_marker():
+    """CGL-129: Python's `int` refuses more than 4300 digits; such text is read, not raised."""
+    long = "<" + "9" * 5000 + ">"
+    literal, block = _literal(f"x {long} y")
+    markup = chunk_markup([*SEGMENTS, literal], {"b1": BLOCK, "b2": block})
+    assert markup.marked == _markup().marked and markup.text(literal) == f"x {long} y"
+    kept = unmark(markup, ["s3"], f"x {long} y")
+    assert (kept.text, kept.formatting, kept.lost) == (f"x {long} y", None, False)
+    # in a model's answer over a formatted segment it is a marker that was never sent
+    stray = unmark(_markup(), ["s1"], f"The <1>cat</1> sleeps {long}.")
+    assert stray.lost and stray.text == "The cat sleeps ."
 
 
 def test_markers_given_back_become_marks_over_the_plain_translation():
@@ -175,3 +241,12 @@ def test_mark_helpers():
     assert strip_marked(" x ", []) == ("x", [])
     overlapping = [InlineMark(start=0, end=3, kind=B), InlineMark(start=2, end=6, kind=B)]
     assert normalize_marks("abc de ", overlapping) == [InlineMark(start=0, end=6, kind=B)]
+
+
+def test_a_marker_between_two_spaces_leaves_one():
+    found = unmark(_markup(), ["s1"], "The <1> cat </1> sleeps.")
+    assert found.text == "The cat sleeps." and not found.lost
+    assert found.formatting is not None
+    assert [(m.start, m.end) for m in found.formatting.marks] == [(4, 7)]
+    found = unmark(_markup(), ["s1"], "The <1></1> cat sleeps.")
+    assert found.lost and found.text == "The cat sleeps."

@@ -84,6 +84,8 @@ it("adds a term and will not save it without a translation", async () => {
       rendering: "window",
       notes: "",
       locked: true,
+      forms: [],
+      source_forms: [],
     }),
   );
 });

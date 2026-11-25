@@ -398,7 +398,7 @@ export function PassagePanel({ runId, projectId, spanId, prefill, onNext, onClos
         </p>
       ) : null}
       <AlwaysTranslate runId={runId} projectId={projectId} spanId={d.id} prefill={prefill} />
-      <MoreDetails runId={runId} detail={d} />
+      <MoreDetails runId={runId} projectId={projectId} detail={d} />
     </aside>
   );
 }
