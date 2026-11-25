@@ -1,7 +1,7 @@
 """procrastinate 3.12.0, pre-migration: an index on the lock of waiting and running jobs (CGL-106)
 
-Revision ID: 0010
-Revises: 0009
+Revision ID: 0011
+Revises: 0010
 Create Date: 2026-11-24 12:00:00.000000
 
 """
@@ -11,17 +11,17 @@ from pathlib import Path
 
 from alembic import op
 
-revision: str = "0010"
-down_revision: str | Sequence[str] | None = "0009"
+revision: str = "0011"
+down_revision: str | Sequence[str] | None = "0010"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # procrastinate 3.12.0's third pre-migration, vendored verbatim: one CREATE INDEX CONCURRENTLY,
 # which Postgres refuses inside a transaction. It is a revision of its own, run in an autocommit
 # block (which first commits the revisions before it), so a failed build never leaves revision
-# 0009 half applied. The (id, lock) index it replaces stays until revision 0011.
+# 0010 half applied. The (id, lock) index it replaces stays until revision 0012.
 _UPGRADE = Path(__file__).with_name(
-    "0010_procrastinate_03.12.00_03_pre_add_todo_doing_lock_index.sql"
+    "0011_procrastinate_03.12.00_03_pre_add_todo_doing_lock_index.sql"
 )
 _INDEX = "procrastinate_jobs_todo_doing_lock_idx_v1"
 

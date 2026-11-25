@@ -156,7 +156,7 @@ def test_upgrade_creates_our_tables_and_the_job_queue(pg_url):
 
 def test_migration_state_is_current(pg_url):
     state = migration_state(pg_url)
-    assert state.current == state.head == "0011"
+    assert state.current == state.head == "0012"
     assert state.up_to_date
 
 
@@ -194,13 +194,13 @@ def test_downgrade_then_upgrade_again(pg_admin):
 
 @pytest.mark.parametrize(
     ("previous", "revision"),
-    [("0007", "0008"), ("0008", "0009"), ("0009", "0010"), ("0010", "0011")],
+    [("0008", "0009"), ("0009", "0010"), ("0010", "0011"), ("0011", "0012")],
 )
 def test_procrastinate_revisions_round_trip(
     pg_admin, installed_procrastinate_catalog, previous, revision
 ):
-    """CGL-106: 0008 applies procrastinate 3.11.0's migration; 0009 and 0010 3.12.0's
-    pre-migrations and 0011 its post-migrations. Each downgrade puts back exactly the
+    """CGL-106: 0009 applies procrastinate 3.11.0's migration; 0010 and 0011 3.12.0's
+    pre-migrations and 0012 its post-migrations. Each downgrade puts back exactly the
     job-queue objects of the revision before it, and upgrading again builds the installed
     procrastinate's schema."""
     url = create_test_database(pg_admin)
@@ -239,11 +239,11 @@ SELECT procrastinate_defer_periodic_job_v2(
 
 
 def test_old_workers_can_still_queue_jobs_until_the_post_migrations(pg_admin):
-    """CGL-106: after 3.12.0's pre-migrations (0009, 0010) a 3.11 worker or API still queues
-    jobs; 0011, the post-migrations, removes what it calls, so it must run after they stop."""
+    """CGL-106: after 3.12.0's pre-migrations (0010, 0011) a 3.11 worker or API still queues
+    jobs; 0012, the post-migrations, removes what it calls, so it must run after they stop."""
     url = create_test_database(pg_admin)
     try:
-        upgrade(url, "0010")
+        upgrade(url, "0011")
         with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
             conn.execute(_DEFER_3_11)
             conn.execute(_DEFER_PERIODIC_3_11)
@@ -251,7 +251,7 @@ def test_old_workers_can_still_queue_jobs_until_the_post_migrations(pg_admin):
                 "SELECT task_name, lock_mode::text FROM procrastinate_jobs ORDER BY id"
             ).fetchall()
             assert rows == [("old.task", "ordered"), ("old.periodic", "ordered")]
-        upgrade(url, "0011")
+        upgrade(url, "0012")
         with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
             with pytest.raises(psycopg.errors.UndefinedObject):  # the composite type is gone
                 conn.execute(_DEFER_3_11)
@@ -285,10 +285,10 @@ def test_0010_runs_again_after_an_interrupted_index_build(
     pg_admin, installed_procrastinate_catalog, leftover
 ):
     """CGL-106: running CREATE INDEX CONCURRENTLY again fails on the name of the index an
-    earlier attempt left: 0010 drops an invalid one and builds it again, and keeps a valid one."""
+    earlier attempt left: 0011 drops an invalid one and builds it again, and keeps a valid one."""
     url = create_test_database(pg_admin)
     try:
-        upgrade(url, "0009")
+        upgrade(url, "0010")
         with psycopg.connect(to_libpq_url(url), autocommit=True) as conn:
             for statement in leftover:
                 conn.execute(statement)
@@ -297,7 +297,7 @@ def test_0010_runs_again_after_an_interrupted_index_build(
         _assert_same_catalog(
             _procrastinate_catalog(url),
             installed_procrastinate_catalog,
-            "0010 did not leave the index procrastinate builds",
+            "0011 did not leave the index procrastinate builds",
         )
         with psycopg.connect(to_libpq_url(url)) as conn:
             valid = conn.execute(

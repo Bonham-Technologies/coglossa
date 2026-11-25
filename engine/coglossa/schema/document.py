@@ -34,6 +34,13 @@ class MarkKind(StrEnum):
     LINK = "link"
 
 
+class KeepReason(StrEnum):
+    """Why a block is left as written, never sent to a model (CGL-111)."""
+
+    CODE = "code"  # a Markdown fenced code block, an HTML <pre> or code-only block
+    NO_TRANSLATE = "no_translate"  # HTML marked translate="no" (or class="notranslate")
+
+
 class InlineMark(BaseModel):
     """One kind of inline formatting over `text[start:end]` of a block or a passage."""
 
@@ -71,6 +78,11 @@ class Provenance(BaseModel):
     note_refs: list[str] = Field(default_factory=list)  # marks of the notes this block cites
     # Inline formatting of the block's text (CGL-108: DOCX, HTML and EPUB); none in older blocks
     marks: list[InlineMark] = Field(default_factory=list)
+    # CGL-111: a block left as written (its text is carried through untranslated), and the
+    # text inside a translated block that the file marks as code or not to translate, one entry
+    # per occurrence, which the literals check expects in the translation as written
+    keep: KeepReason | None = None
+    literals: list[str] = Field(default_factory=list)
 
 
 class Block(BaseModel):

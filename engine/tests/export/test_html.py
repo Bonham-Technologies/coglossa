@@ -1,7 +1,8 @@
 import re
 
 from coglossa.export.html import render_html
-from coglossa.schema import Flag, FlagCode
+from coglossa.schema import Flag, FlagCode, KeepReason
+from coglossa.scoring.literals import literal_check
 from coglossa.scoring.untranslated import untranslated_check
 from tests.export.conftest import make_report, make_span
 
@@ -67,3 +68,43 @@ def test_html_lists_a_passage_left_untranslated():
         "same as the original." in page
     )
     assert '<tr id="p2" class="flagged">' in page
+
+
+def test_html_lists_a_placeholder_that_was_dropped():
+    found = literal_check("Bonjour {name} !", "Hello!")
+    flag = Flag(
+        code=FlagCode.LITERAL_MISMATCH,
+        explanation=found.explanation(),
+        evidence=found.as_evidence(),
+    )
+    report = make_report(
+        spans=[
+            make_span("p1", "s1", "s1", "Chapter One"),
+            make_span("p2", "s2", "s3", "Hello!", flags=[flag]),
+            make_span("p3", "s4", "s4", "The end."),
+        ]
+    )
+    page = render_html(report)
+    assert (
+        "<b>literal_mismatch</b>: A placeholder is missing: the original has {name}; the "
+        "translation doesn&#x27;t." in page
+    )
+    assert '<tr id="p2" class="flagged">' in page
+
+
+def test_html_keeps_the_indentation_of_text_left_as_written():
+    """CGL-111: code keeps its spacing; translated passages wrap as before."""
+    code = make_span("p2", "s2", "s3", "for x in y:\n    print(x)").model_copy(
+        update={"kept": KeepReason.CODE}
+    )
+    report = make_report(
+        spans=[
+            make_span("p1", "s1", "s1", "Chapter One"),
+            code,
+            make_span("p3", "s4", "s4", "The end."),
+        ]
+    )
+    page = render_html(report)
+    assert "td.kept { white-space: pre-wrap; }" in page
+    assert '<td dir="auto" lang="en" class="kept">for x in y:<br>    print(x)</td>' in page
+    assert '<td dir="auto" lang="en">The end.</td>' in page

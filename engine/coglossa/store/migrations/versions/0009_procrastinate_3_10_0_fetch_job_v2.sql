@@ -1,5 +1,5 @@
 -- procrastinate 3.10.0's procrastinate_fetch_job_v2, copied from 0001_procrastinate_3_10_0.sql:
--- revision 0008's downgrade puts it back.
+-- revision 0009's downgrade puts it back.
 CREATE OR REPLACE FUNCTION procrastinate_fetch_job_v2(
     target_queue_names character varying[],
     p_worker_id bigint

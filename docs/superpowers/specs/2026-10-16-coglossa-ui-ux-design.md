@@ -214,6 +214,7 @@ When every flag has been dealt with, the banner reads "All checked. Ready to dow
   - A passage with open flags is tinted with a warning colour and an edge bar, and carries a ⚠ symbol, so the state is not shown by colour alone.
   - The selected passage has a stronger tint.
   - An edited passage carries a small "edited" mark.
+  - A passage left as written (code, or text the original marks not to translate; CGL-111) carries a small "left as written" mark, and its panel says why in plain words instead of "Nothing to check here."
 - **Loading.** Passages load in pages from `GET /runs/{id}/spans`. The next page is fetched as the user nears the end, through an `IntersectionObserver`. Today's Previous and Next buttons go away.
 - **Show:** menu: Everything / To check (the existing `flagged=true` filter). The numeric score filters move to Technical details (§6.1). Filtering by edited or checked passages would need new API filters and is left out.
 - **Next to check →** and the `n` / `p` keys jump to the next or previous passage with open flags, loading pages as needed. Enter opens or closes the panel, and Esc closes it. The shortcuts are listed in the help overlay.
@@ -232,6 +233,7 @@ The panel opens on the right, about 380 px wide. Between 1024 and 1280 px it ove
    | `terminology_violation` | Doesn't follow your translation guide |
    | `number_mismatch` | A number doesn't match the original |
    | `untranslated` | This passage may not have been translated |
+   | `literal_mismatch` | A link, email or placeholder was changed |
    | `agent_disagreement` | The translators disagreed |
    | `cultural_or_wordplay` | Wordplay or a cultural reference |
    | `low_reliability_language` | Less-practised language: check carefully |

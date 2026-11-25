@@ -23,6 +23,7 @@ from coglossa.schema import (
 )
 from coglossa.scoring.aggregate import SpanEvidence, normalize_sim, score_span
 from coglossa.scoring.client import Scorer, ScorerUnavailableError
+from coglossa.scoring.literals import literal_check
 from coglossa.scoring.numbers import number_check
 from coglossa.scoring.rules import agreement_signal, guide_check, length_ratio
 from coglossa.scoring.untranslated import kept_names, untranslated_check
@@ -96,6 +97,11 @@ class ChunkScores:
     judge_errors: list[list[JudgeError] | None]
     back_translations: list[str | None]
     run_errors: list[RunError]
+
+
+def span_segment_ids(ci: ChunkInput, start: str, end: str) -> list[str]:
+    ids = [s.id for s in ci.segments]
+    return ids[ids.index(start) : ids.index(end) + 1]
 
 
 def span_source_text(ci: ChunkInput, start: str, end: str) -> str:
@@ -246,6 +252,9 @@ async def score_chunk(
             number_mismatch=number_check(sources[i], rs.text, profile.source_lang, ctx.target_lang),
             untranslated=untranslated_check(
                 sources[i], rs.text, ctx.target_lang, keep, source_lang=profile.source_lang
+            ),
+            literal_mismatch=literal_check(
+                sources[i], rs.text, ci.keep.literals_of(span_segment_ids(ci, rs.start, rs.end))
             ),
         )
         score, span_flags = score_span(evidence, tier=tier, cfg=cfg, diverse=diverse)

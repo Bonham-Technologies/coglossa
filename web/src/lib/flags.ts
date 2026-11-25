@@ -8,6 +8,7 @@ export const FLAG_TITLES: Record<FlagCode, string> = {
   terminology_violation: "Doesn't follow your translation guide",
   number_mismatch: "A number doesn't match the original",
   untranslated: "This passage may not have been translated",
+  literal_mismatch: "A link, email or placeholder was changed",
   agent_disagreement: "The translators disagreed",
   cultural_or_wordplay: "Wordplay or a cultural reference",
   low_reliability_language: "Less-practised language: check carefully",

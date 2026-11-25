@@ -3,7 +3,7 @@ import pytest
 from coglossa.ingest.base import IngestError
 from coglossa.ingest.html import HtmlIngestor, collect_blocks, parse_html
 from coglossa.ingest.registry import check_supported, ingest_file
-from coglossa.schema import BlockKind, MarkKind
+from coglossa.schema import BlockKind, KeepReason, MarkKind
 
 H, P, LI, TD, FN, BR = (
     BlockKind.HEADING,
@@ -92,11 +92,13 @@ def test_nesting_footnotes_and_note_references(tmp_path):
     ]
 
 
-def test_pre_keeps_lines_and_comments_are_skipped(tmp_path):
+def test_pre_is_left_as_written_and_comments_are_skipped(tmp_path):
+    # CGL-111: a <pre> block keeps its spacing and is never translated
     doc = HtmlIngestor().ingest(
         _write(tmp_path, "<body><pre>a   b\n  c\n</pre><p>x<!-- hidden -->y</p></body>")
     )
-    assert _kinds(doc) == [(P, "a b\nc"), (P, "xy")]
+    assert _kinds(doc) == [(P, "a   b\n  c"), (P, "xy")]
+    assert [b.provenance.keep for b in doc.blocks] == [KeepReason.CODE, None]
 
 
 def test_private_use_character_in_text_does_not_split_lines(tmp_path):
@@ -188,7 +190,8 @@ def test_inline_formatting_is_recorded_as_marks(tmp_path):
     ]  # links within the book or page have no address a Word file could open
     assert doc.blocks[1].provenance.marks == []
     assert doc.blocks[2].kind is BR and doc.blocks[2].provenance.marks == []
-    assert doc.blocks[3].text == "a b" and doc.blocks[3].provenance.marks == []
+    assert doc.blocks[3].text == "a  b" and doc.blocks[3].provenance.marks == []
+    assert doc.blocks[3].provenance.keep is KeepReason.CODE
 
 
 def test_unsafe_or_malformed_link_targets_are_no_links(tmp_path):
@@ -207,3 +210,85 @@ def test_line_breaks_keep_marks_on_their_lines(tmp_path):
     block = doc.blocks[0]
     assert block.text == "un deux\ntrois quatre"
     assert [block.text[m.start : m.end] for m in block.provenance.marks] == ["deux", "trois"]
+
+
+# --- CGL-111: code and translate="no" are left as written -------------------------------------
+
+
+def _protected(doc):
+    return [(b.text, b.provenance.keep, b.provenance.literals) for b in doc.blocks]
+
+
+def test_code_blocks_are_left_as_written(tmp_path):
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<p>Install it:</p><pre><code>npm  install\n  --save x</code></pre>"
+            "<p><code>make test</code></p><ul><li><kbd>Ctrl</kbd> <kbd>C</kbd></li></ul>"
+            "<p>* * *</p><pre>* * *</pre>",
+        )
+    )
+    assert _protected(doc) == [
+        ("Install it:", None, []),
+        ("npm  install\n  --save x", KeepReason.CODE, []),
+        ("make test", KeepReason.CODE, []),
+        ("Ctrl C", None, []),  # key names are localised: <kbd> is translated
+        ("* * *", None, []),
+        ("* * *", KeepReason.CODE, []),
+    ]
+    assert doc.blocks[4].kind is BR and doc.blocks[5].kind is P
+
+
+def test_translate_no_is_left_as_written_and_inherited(tmp_path):
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<h2 translate='no'>ACME Turbo</h2><p translate='NO'>Gardez <b>ceci</b>.</p>"
+            "<div translate='no'><p>Pas ceci</p><p translate='yes'>Mais ceci.</p>"
+            "<p translate=''>Et ceci.</p></div><p class='lead notranslate'>Marque</p>"
+            "<pre translate='yes'>Un   poème</pre>",
+        )
+    )
+    assert _protected(doc) == [
+        ("ACME Turbo", KeepReason.NO_TRANSLATE, []),
+        ("Gardez ceci.", KeepReason.NO_TRANSLATE, []),
+        ("Pas ceci", KeepReason.NO_TRANSLATE, []),
+        ("Mais ceci.", None, []),
+        ("Et ceci.", None, []),
+        ("Marque", KeepReason.NO_TRANSLATE, []),
+        ("Un poème", None, []),
+    ]
+    assert doc.blocks[0].kind is H
+    # the formatting of a block left as written is kept
+    assert [(m.kind, m.start, m.end) for m in doc.blocks[1].provenance.marks] == [
+        (MarkKind.BOLD, 7, 11)
+    ]
+
+
+def test_code_and_translate_no_inside_a_sentence_stay_in_it_as_literals(tmp_path):
+    doc = HtmlIngestor().ingest(
+        _write(
+            tmp_path,
+            "<p>Run <code>make  test</code>, then open <span translate='no'>ACME Box</span> "
+            "and <code>x</code>.</p>",
+        )
+    )
+    assert _protected(doc) == [
+        ("Run make test, then open ACME Box and x.", None, ["make test", "ACME Box", "x"])
+    ]
+
+
+def test_a_pre_with_many_blank_lines_is_read_in_linear_time(tmp_path):
+    blank = "\n" * 200_000
+    doc = HtmlIngestor().ingest(_write(tmp_path, f"<pre>{blank}x = 1{blank}</pre><p>Fin.</p>"))
+    assert _protected(doc) == [("x = 1", KeepReason.CODE, []), ("Fin.", None, [])]
+
+
+def test_a_key_name_inside_a_sentence_may_be_localised(tmp_path):
+    doc = HtmlIngestor().ingest(_write(tmp_path, "<p>Appuyez sur <kbd>Entrée</kbd>.</p>"))
+    assert _protected(doc) == [("Appuyez sur Entrée.", None, [])]
+
+
+def test_a_file_that_is_all_code_is_refused(tmp_path):
+    with pytest.raises(IngestError, match="all of it is code or marked not to translate"):
+        ingest_file(_write(tmp_path, "<pre>x = 1</pre><p translate='no'>ACME</p>"))
