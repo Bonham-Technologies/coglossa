@@ -7,7 +7,9 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn>=0.30",
   "pydantic>=2.9,<3",
-  "torch>=2.2",
+  # Below 2.15: the GPU image installs torch from the CUDA 12.6 index (Makefile CUDA_INDEX), which
+  # stops at 2.14.1, and CUDA 12 keeps the NVIDIA driver minimum at 525 (CGL-76).
+  "torch>=2.2,<2.15",
   "transformers[sentencepiece]>=4.44",  # sentencepiece + protobuf: mt5 ships spiece.model only
   "sentencepiece>=0.2",
   "sentence-transformers>=3.0",

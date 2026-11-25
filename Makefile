@@ -1,10 +1,11 @@
-.PHONY: airgap-test bundle flores demo demo-down deploy-check weights images image-app image-scorer image-scorer-cuda test test-engine test-scorer test-api test-web e2e dev-stack lint fmt schema db-up db-down
+.PHONY: airgap-test torch-wheel-check bundle flores demo demo-down deploy-check weights images image-app image-scorer image-scorer-cuda test test-engine test-scorer test-api test-web e2e dev-stack lint fmt schema db-up db-down
 
 COGLOSSA_VERSION ?= dev
 PLATFORM ?= linux/amd64
-# CUDA build of torch for the scorer (download.pytorch.org/whl/<index>): the newest CUDA 12.x
-# index that has the torch version scorer/uv.lock pins (cu128 and cu129 do not). CUDA 12 needs
-# NVIDIA driver 525 or newer.
+# CUDA build of torch for the scorer (download.pytorch.org/whl/<index>). CUDA 12.6 keeps the
+# NVIDIA driver minimum at 525; its index stops at torch 2.14.1, so scorer/pyproject.toml holds
+# torch below 2.15 (CGL-76). make torch-wheel-check (CI's deploy job) fails when the locked torch
+# has no wheel on this index; keep deploy/bundle.sh and the Modal app's TORCH_INDEX in step.
 CUDA_INDEX ?= cu126
 WEIGHTS_DIR ?= $(HOME)/coglossa-weights
 # FLORES-200 for bench (CC BY-SA 4.0): make flores fetches it; make bundle ships it when present
@@ -142,6 +143,10 @@ deploy-check:
 	python3 deploy/tests/check_compose.py
 	python3 deploy/tests/check_workflows.py
 	python3 deploy/tests/check_tracker_links.py
+
+# Needs network: reads download.pytorch.org's index pages (no image build).
+torch-wheel-check:
+	python3 deploy/tests/check_torch_wheel.py
 
 airgap-test:
 	deploy/tests/airgap-test.sh
