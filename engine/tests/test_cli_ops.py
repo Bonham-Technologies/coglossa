@@ -56,7 +56,7 @@ def _run_id(out: str) -> str:
 def test_db_upgrade_is_idempotent(setup, capsys):
     config, _ = setup
     code, out, _ = _cli(capsys, "db", "upgrade", "--config", str(config))
-    assert code == 0 and "at revision 0007" in out and "coglossa:coglossa@" not in out
+    assert code == 0 and "at revision 0008" in out and "coglossa:coglossa@" not in out
 
 
 def test_submit_work_status_report(setup, capsys, tmp_path):

@@ -153,6 +153,12 @@
   cursor: pointer;
 }
 
+/* CGL-111: text left as written (code) keeps its line breaks and indentation */
+.document tr.kept td.source,
+.document tr.kept td.target {
+  white-space: pre-wrap;
+}
+
 .document tr.flagged td {
   background: var(--warn-tint);
 }

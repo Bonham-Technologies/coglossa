@@ -60,6 +60,20 @@ a fixed text or looks it up (`IF`, `VLOOKUP` keys), or a validation list that li
 certain words, may give a different result or reject the translated text, so check those
 workbooks after downloading.
 
+Code and text marked not to translate are left as written (CGL-111): a Markdown fenced code
+block (```, or ~~~ with a language; indented under a list item or inside a `>` blockquote too),
+an HTML `<pre>` block, a block whose text is all `<code>` or `<samp>`, and HTML marked
+`translate="no"` (or `class="notranslate"`, until a `translate="yes"` inside it) are never sent
+to a model and come back unchanged in every export; the review screen says so in plain words.
+Key names in `<kbd>` are translated, since they are localised ("Ctrl" is "Strg" in German). A
+`<pre>` that holds prose, such as verse, is translated when marked `<pre translate="yes">`. Code
+or no-translate text inside a sentence stays part of the sentence, so the sentence still reads
+whole, and the `literal_mismatch` check expects it back as written. Limits: a fence must be
+closed inside the blockquote it opens in; a fence inside more than 8 `>` markers, a fence on the
+same line as a list marker (`` 1. ``` ``) and a code block indented without a fence are
+translated as text. A file uploaded before this change keeps its earlier reading, code included,
+for every new run: upload it again to have its code left as written.
+
 ## Scoring
 
 Every span gets signals; a signal that cannot be computed is `null`, never guessed.
@@ -126,6 +140,16 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   Chinese, Korean or Hindi passage do not flag it. A copy is not flagged when the source is
   already in the target language and script (en-US to en-GB). The full rules are in
   `engine/coglossa/scoring/untranslated.py`
+- `literal_mismatch`: "A link, email or placeholder was changed". Web addresses (`http://`,
+  `https://`, `ftp://`, `www.`), email addresses and placeholders (`{name}`, `{0}`, `{{var}}`,
+  `${var}`, `%s`, `%d`, `%(name)s`, `%1$s` and the like) in the source must be in the
+  translation exactly as written, compared as a multiset, so a duplicated placeholder that is
+  dropped once is caught; so must code or text marked not to translate inside a sentence. The
+  evidence lists each item missing from the translation, with what the translation has instead
+  when it can be paired with an item of the same kind. Trailing sentence punctuation is not part
+  of an address, the words around an address may be translated, and an item the translation adds
+  is not flagged. It never changes the scores. Text left as written is not checked. The full
+  rules are in `engine/coglossa/scoring/literals.py`
 - `agent_disagreement`: the reviewer rated the translators' disagreement `major`
 - `cultural_or_wordplay`: cultural reference, idiom or wordplay that may not carry over
 - `engine_error`: an engine step failed; the text is an unreviewed draft (or empty)

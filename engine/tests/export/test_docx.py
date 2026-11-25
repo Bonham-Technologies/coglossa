@@ -23,6 +23,7 @@ from coglossa.schema import (
     Segment,
     TableCellPosition,
 )
+from coglossa.scoring.literals import literal_check
 from coglossa.scoring.untranslated import untranslated_check
 from tests.export.conftest import make_report, make_span
 from tests.ingest.docx_parts import full_document
@@ -83,6 +84,26 @@ def test_a_passage_left_untranslated_is_a_comment():
     [comment] = _open(bilingual_docx(report)).comments
     assert comment.text == f"untranslated: {found.explanation()}"
     assert "may not have been translated" in comment.text
+
+
+def test_a_changed_web_address_is_a_comment():
+    found = literal_check("Voir https://example.com/a.", "See https://example.com/b.")
+    flag = Flag(
+        code=FlagCode.LITERAL_MISMATCH,
+        explanation=found.explanation(),
+        evidence=found.as_evidence(),
+    )
+    report = make_report(
+        spans=[
+            make_span("p1", "s1", "s1", "Chapter One"),
+            make_span("p2", "s2", "s3", "See https://example.com/b.", flags=[flag]),
+            make_span("p3", "s4", "s4", "The end."),
+        ]
+    )
+    [comment] = _open(bilingual_docx(report)).comments
+    assert comment.text == f"literal_mismatch: {found.explanation()}"
+    assert "A web address was changed" in comment.text
+    assert "https://example.com/a" in comment.text and "https://example.com/b" in comment.text
 
 
 def test_clean_document_keeps_structure(report):
