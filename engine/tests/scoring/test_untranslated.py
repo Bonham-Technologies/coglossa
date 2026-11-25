@@ -409,3 +409,54 @@ def test_an_old_code_and_its_new_one_are_the_same_language():
     passage = "הוועדה אישרה את התקציב, אך ההצבעה הייתה צמודה."
     assert untranslated_check(passage, passage, "he", source_lang="iw") is None
     assert untranslated_check(passage, passage, "en", source_lang="iw").rule == "copied"
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        # prose that cites works, or a legal provision with a date, is not a reference entry
+        "Recent work (Smith et al., 2020; Jones, 2019) shows that machine translation has "
+        "improved a lot.",
+        "Smith et al. (2020) found that the model works well on long documents.",
+        "Since May 25, 2018, Article 5(2) requires controllers to demonstrate compliance.",
+        "1. Since May 25, 2018, Article 5(2) requires controllers to demonstrate compliance.",
+    ],
+)
+def test_prose_that_cites_works_is_still_checked(passage):
+    assert untranslated_check(passage, passage, "de", source_lang="en").rule == "copied"
+    found = untranslated_check("x", passage, "am")
+    assert found is not None and found.rule == "script"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "World Health Organization. (2020). Global tuberculosis report 2020. Geneva: WHO, "
+        "pp. 12-20.",
+        "Smith J, Jones K. Machine translation quality. Comput Linguist. 2020;46(2):123-45.",
+        'J. Smith and K. Jones, "Machine translation quality," IEEE Trans., vol. 4, '
+        "pp. 1-10, 2020.",
+        "van der Berg, A. (2019). Neural models for translation. Journal of MT, 12(3), 45-67.",
+    ],
+)
+def test_other_reference_styles_are_not_flagged(entry):
+    assert untranslated_check(entry, entry, "de", source_lang="en") is None
+
+
+def test_a_copied_headline_in_sentence_case_is_flagged():
+    # its capitalised first word is not counted as a letter, but it is one of the five words
+    headline = "Government announces new tax plan"
+    assert untranslated_check(headline, headline, "de", source_lang="en").rule == "copied"
+    assert untranslated_check("Click Save to keep changes", "Click Save to keep changes", "de")
+
+
+def test_acronyms_in_a_script_without_capitals_are_not_a_passage_in_capitals():
+    assert untranslated_check("x", "ใช้ API SDK CLI GPU TPU NASA", "th") is None
+
+
+def test_a_long_reference_like_passage_is_checked_quickly():
+    start = time.perf_counter()
+    # each would take exponential time if a pattern could match the same text in two ways
+    for passage in ("Ab" + "-Ab" * 200 + " 1", ("A.  -  " * 200) + "1", "ab " * 200):
+        untranslated_check(passage, passage, "fr")
+    assert time.perf_counter() - start < 2

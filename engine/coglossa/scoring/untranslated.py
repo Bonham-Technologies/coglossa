@@ -11,7 +11,7 @@ similarity. Two rules, both plain text rules with no language model. Pure functi
   counts for three Latin letters), so a Chinese, Korean or Hindi passage with a few English
   terms in it ("dark mode", "npm install") is not read as mostly Latin. It is read sentence by
   sentence: a sentence counts as written in another script only when that script outweighs the
-  target script more than `MARGIN` times (a fifth or less of it in the target script), so a
+  target script more than `MARGIN` times (less than a fifth of it in the target script), so a
   correct translation full of English terms is not flagged ("Используйте machine learning и
   deep learning ..."), and the passage is flagged when such sentences outweigh the rest. A
   capitalised word in the target script counts for the target script here ("Откройте settings
@@ -31,11 +31,14 @@ between backticks; a word with code punctuation such as snake_case, file.ext, a/
 --option or key=value, or in camelCase; a passage dense with brackets and operators). A
 passage needs at least `MIN_LETTERS` counted letters, in at least `MIN_WORDS` words unless its
 script is written without spaces, to be flagged, so passages that are only names, numbers,
-addresses or code, single words and very short ones never are. A bibliography entry (a year
-and two marks of one, such as "Smith, J.", "(2020).", "46(2)", "pp. 12", "et al." or a
-DOI) is never flagged: a reference list stays as it is. A copy that does not end like a
-sentence needs `MIN_FRAGMENT_WORDS` counted words, so labels, units and mottos that rightly
-stay the same ("total (in millions)", "kg per m2 per year") are not flagged as copies.
+addresses or code, single words and very short ones never are. A bibliography entry (one that
+starts like one, with its number "[4]" or its first author "Smith, J.", and has a year and two
+marks of one, such as "Smith, J.", "(2020).", "46(2)", "pp. 12", "et al." or a DOI) is never
+flagged: a reference list stays as it is. Prose that cites works ("Recent work (Smith et al.,
+2020; Jones, 2019) shows ...") does not start like an entry and is checked. A copy that does not
+end like a sentence needs `MIN_FRAGMENT_WORDS` words (capitalised ones included), so labels,
+units and mottos that rightly stay the same ("total (in millions)", "kg per m2 per year") are
+not flagged as copies.
 
 Rule (a) is left out when the source is already in the target language and script (en-US to
 en-GB, which the web app allows): there most passages rightly stay as they are.
@@ -50,8 +53,9 @@ Limits, by design:
   command written as plain words) is flagged; a person marks it checked. So is a passage of
   the source already in the target language (a French quotation in an English source to be
   translated into French), which rightly stays as it is.
-- A short label copied through ("Terms and conditions") is not flagged when the target is
-  written in the same script; in another script, rule (b) still flags it.
+- A short label, heading or table cell copied through ("Terms and conditions", four words or
+  fewer that do not end like a sentence) is not flagged when the target is written in the same
+  script; in another script, rule (b) still flags it.
 """
 
 import re
@@ -72,9 +76,11 @@ from coglossa.segment.text_metrics import SPACELESS
 MIN_LETTERS = 10
 MIN_WORDS = 2
 _SPACELESS_SCRIPTS = frozenset({"Hani", "Hira", "Kana", "Thai", "Laoo", "Khmr", "Mymr", "Tibt"})
-# A copy that does not end like a sentence (a label, a unit, a motto) needs this many counted
-# words to be flagged: "total (in millions)" and "kg per m2 per year" often rightly stay as they
-# are. A passage in a script written without spaces has no words to count and is exempt.
+# A copy that does not end like a sentence (a label, a unit, a motto) needs this many words,
+# capitalised ones included, to be flagged: "total (in millions)" and "kg per m2 per year"
+# often rightly stay as they are, while a copied headline in sentence case ("Government
+# announces new tax plan") is still caught. A passage in a script written without spaces has
+# no words to count and is exempt.
 MIN_FRAGMENT_WORDS = 5
 # Rule (b) reads a sentence as written in another script when its letters in that script weigh
 # more than this many times its letters in the target script's: a correct translation can hold
@@ -305,6 +311,19 @@ _CITATION_MARKS = (
     re.compile(r"\b\d+\s?\(\d+(?:[–-]\d+)?\)"),  # volume(issue): 46(2)
     re.compile(r"^\s*\[\d+\]\s"),  # [4] a numbered reference
 )
+# How a bibliography entry starts: its number, or its first author. Prose that cites works
+# ("Recent work (Smith et al., 2020) ...", "Since May 25, 2018, Article 5(2) ...") does not.
+_UPPER = "A-ZÀ-ÖØ-Þ"
+_SURNAME = rf"(?:[a-z]{{1,3}}\s+){{0,2}}[{_UPPER}][^\W\d_]*(?:['’-][^\W\d_]+)*"
+_ENTRY_START = re.compile(
+    rf"^\s*(?:\[\d+\]\s|(?:\d{{1,3}}[.)]\s+)?(?:"
+    # Smith, J. / Smith, John A. / Koehn, Philipp.
+    rf"{_SURNAME},\s+(?:[{_UPPER}][^\W\d_]+\s+)?[{_UPPER}][^\W\d_]*\."
+    rf"|(?:[{_UPPER}]\.[\s-]*)+{_SURNAME}(?:,|\s+(?:and|&)\s)"  # J. Smith, / W.-J. Zhu and
+    rf"|{_SURNAME}\s+[{_UPPER}]{{1,3}}[,.]\s"  # Smith J, (Vancouver)
+    rf"|[^.()\n]{{2,120}}(?<!et al)\.\s*\((?:1[5-9]|20)\d\d"  # World Health Organization. (2020)
+    r"))"
+)
 
 
 def _code_run(m: re.Match[str]) -> str:
@@ -335,7 +354,8 @@ def _compiled(names: tuple[str, ...]) -> re.Pattern[str]:
 def _citation(text: str) -> bool:
     """Whether the text looks like a bibliography entry, which stays as it is."""
     return (
-        _YEAR.search(text) is not None
+        _ENTRY_START.search(text) is not None
+        and _YEAR.search(text) is not None
         and sum(m.search(text) is not None for m in _CITATION_MARKS) >= 2
     )
 
@@ -343,12 +363,13 @@ def _citation(text: str) -> bool:
 @dataclass(frozen=True)
 class _Counted:
     """Letters per script: `letters` in the words that are not names, numbers, addresses or
-    code, `words` of them; `sentences` the same letters per sentence, each beside the letters of
-    the capitalised words it left out (a word in the target script is the target language, name
-    or not, so rule (b) counts them)."""
+    code, `words` of them, and `length` the words in the passage, names included; `sentences`
+    the same letters per sentence, each beside the letters of the capitalised words it left out
+    (a word in the target script is the target language, name or not, so rule (b) counts them)."""
 
     letters: Counter[str]
     words: int
+    length: int
     sentences: list[tuple[Counter[str], Counter[str]]]
 
     @property
@@ -367,9 +388,12 @@ def _counted(text: str, names: re.Pattern[str] | None) -> _Counted | None:
         return None
     text = _LATIN_RUN.sub(_code_run, text)
     sentences = [_WORD.findall(s) for s in _SENTENCE_END.split(text)]
-    cased = [w for words in sentences for w in words if w.lower() != w.upper()]
-    # a passage in capitals: its words are not all names
-    shouting = sum(w.isupper() and len(w) > 1 for w in cased) >= max(MIN_WORDS, 0.8 * len(cased))
+    every = [w for words in sentences for w in words]
+    # a passage in capitals: its words are not all names. One with words in a script without
+    # capitals (Hangul, Devanagari, Ethiopic) is not, and its capitals are acronyms and names.
+    shouting = all(w.lower() != w.upper() for w in every) and sum(
+        w.isupper() and len(w) > 1 for w in every
+    ) >= max(MIN_WORDS, 0.8 * len(every))
     letters: Counter[str] = Counter()
     words = 0
     per_sentence: list[tuple[Counter[str], Counter[str]]] = []
@@ -385,7 +409,7 @@ def _counted(text: str, names: re.Pattern[str] | None) -> _Counted | None:
             counted.update(s for c in word if (s := _script(c)) is not None)
         letters += counted
         per_sentence.append((counted, named))
-    found = _Counted(letters, words, per_sentence)
+    found = _Counted(letters, words, len(every), per_sentence)
     if letters.total() < MIN_LETTERS or (words < MIN_WORDS and not found.spaceless):
         return None
     return found
@@ -497,10 +521,10 @@ def untranslated_check(
 
 
 def _copy_counts(text: str, counted: _Counted) -> bool:
-    """A copy is flagged when it ends like a sentence, has `MIN_FRAGMENT_WORDS` counted words,
-    or is in a script written without spaces."""
+    """A copy is flagged when it ends like a sentence, has `MIN_FRAGMENT_WORDS` words, or is in
+    a script written without spaces."""
     return (
         counted.spaceless
-        or counted.words >= MIN_FRAGMENT_WORDS
+        or counted.length >= MIN_FRAGMENT_WORDS
         or _ENDS_LIKE_A_SENTENCE.search(text) is not None
     )

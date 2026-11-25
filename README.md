@@ -99,8 +99,8 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   the translation is the source copied through (the same letters once case, spacing,
   punctuation, digits and accents are ignored), or most of its letters are in a script the
   target language is not written in (Latin text for an Amharic or Hindi target). The evidence
-  holds both texts. It never changes the scores. Names (capitalised words and the guide's names
-  and kept terms), numbers, web and email addresses and code are not counted, and a passage
+  holds both texts. It never changes the scores. Names (capitalised words, unless the passage is
+  written in capitals, and the guide's names and kept terms), numbers, web and email addresses and code are not counted, and a passage
   needs at least 10 other letters in two words or more (or in a script written without
   spaces), so a passage of names, numbers, a link or code, or a single word, is not flagged. Two
   languages written in the same script (Spanish and Portuguese) are told apart only by the first
@@ -108,12 +108,15 @@ Flags (per span, each with a plain-language explanation and the evidence behind 
   not; nor is Chinese for a Japanese target. A language whose scripts are not known is checked
   for copies only. "Most" weighs a Chinese character or a Hangul syllable as three Latin
   letters (kana, Ethiopic and the Indian scripts as two), and a sentence counts as written in
-  another script only when a fifth or less of it is in the target script, so English terms in a
+  another script only when less than a fifth of it is in the target script, so English terms in a
   correct Chinese, Korean, Hindi, Russian or Greek passage do not flag it. A copy is not flagged
   when the source is already in the target language and script (en-US to en-GB; zh-CN and
-  zh-Hans are the same, zh-CN and zh-TW are not). Bibliography entries are never flagged, and a
-  copy that does not end like a sentence needs five words or more, so labels, units and mottos
-  that rightly stay the same ("total (in millions)", "kg per m2 per year") are not. A passage of
+  zh-Hans are the same, zh-CN and zh-TW are not). Bibliography entries (a passage that starts
+  with its number or its first author and has a year and other marks of a reference) are never
+  flagged; prose that cites works is checked as usual. A copy that does not end like a sentence
+  needs five words or more, so labels, units and mottos that rightly stay the same ("total (in
+  millions)", "kg per m2 per year") are not flagged, and nor is a heading or table cell of four
+  words or fewer copied into a language written in the same script. A passage of
   the source that is already in the target language (a French quotation in an English source
   translated into French) rightly stays as it is, and is flagged as a copy; mark it checked.
   The full rules are in `engine/coglossa/scoring/untranslated.py`
