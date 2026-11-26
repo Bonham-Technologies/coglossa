@@ -30,8 +30,19 @@ Triaged on 2026-10-30 (CGL-13). Each item names its ticket; items fixed together
   package from the one index the lock names. `deploy/tests/check_scorer_lock.py` (in
   `make deploy-check`) holds the Dockerfile, the Modal app, `pyproject.toml` and the lock to that,
   and `make torch-wheel-check` now also checks the index still serves each locked wheel's hash.
-  The project itself is still built from source with hatchling, which uv fetches from PyPI
-  without a hash into a throwaway build environment; it is not installed in the image.
+  ~~The project itself is still built from source with hatchling, which uv fetches from PyPI
+  without a hash into a throwaway build environment; it is not installed in the image.~~
+  Done in CGL-130: that build environment comes from the lock's `build` group (hatchling and its
+  dependencies), exported with its hashes and passed as `--build-constraints` with
+  `--require-build-hashes`; `uv sync` and the pylock.toml install use `--no-build`, so nothing
+  else is built from source. The Modal images install uv from a hashed requirements file, and
+  the hosted API image's export keeps its hashes. `check_scorer_lock.py` reads every step of the
+  Modal `scorer_image` and rejects other uv commands (`uv add`, `uv run`, `uv tool`, `uvx`) and a
+  requirements file beside the project. Still open: CI builds only the CPU scorer image (the
+  CUDA image is built by `make image-scorer-cuda` and the bundle); Dependabot's uv updater has
+  not yet run against the `cpu` group and `cu126` extra; the uv binary
+  (`ghcr.io/astral-sh/uv:0.13.0`) and the Python base images are pinned by tag, not digest; and
+  the hosted API image still builds the engine and API projects with an unhashed hatchling.
 - ~~**`coglossa-scorer-weights`** (CGL-51):
   - `main` catches only `OSError`, so a conversion error gives a traceback and a hub error can be
     several lines.

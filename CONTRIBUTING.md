@@ -33,7 +33,10 @@ Your machine should run what a client runs, so a regression shows up before a de
   The lock holds both torch builds the images use, which conflict: the `cpu` dependency group,
   which `uv sync` and `uv run` install by default, and the `cu126` extra
   (`uv sync --no-default-groups --extra cu126`). The images install only what the lock names,
-  hash-checked (`deploy/tests/check_scorer_lock.py`).
+  hash-checked, and build the scorer's own wheel with the lock's `build` group (hatchling), also
+  hash-checked (`deploy/tests/check_scorer_lock.py`). The built wheel does not require torch, which
+  is only in the `cpu` group and the `cu126` extra: outside uv, install `coglossa-scorer[cu126]`
+  or a torch build alongside it.
 - **Postgres 16,** the same image in `deploy/compose.dev.yaml` as in `deploy/compose.yaml`.
 
 The README's quick start runs the engine against your own OpenAI-compatible model server or

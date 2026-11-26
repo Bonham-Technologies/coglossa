@@ -41,7 +41,7 @@ coglossa-<version>/
 
 A bundle with the CUDA scorer is roughly 35 GB.
 
-The scorer image's Python packages, PyTorch and its CUDA libraries included, are exactly the ones listed in the source's `scorer/uv.lock`. When the image was built, each one was checked against the checksum recorded there, and each came from a single source: PyTorch from download.pytorch.org, everything else from PyPI.
+The scorer image's Python packages, PyTorch and its CUDA libraries included, are exactly the ones listed in the source's `scorer/uv.lock`, and so is the build tool that turned the scorer's own source into a package (it is used while the image is built and is not in the image). When the image was built, each one was checked against the checksum recorded there, and each came from a single source: PyTorch from download.pytorch.org, everything else from PyPI.
 
 ## 2. Requirements
 

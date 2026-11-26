@@ -19,6 +19,12 @@ API_LABEL = "coglossa-api"  # the web endpoint URLs are https://<workspace>--<la
 KICK_LABEL = "coglossa-kick"
 SCORER_LABEL = "coglossa-scorer"
 TORCH_INDEX = "cu126"  # the repo's tested CUDA build (Makefile CUDA_INDEX); runs on the L4
+# uv, the version the Dockerfiles copy from ghcr.io/astral-sh/uv, from PyPI with its hashes
+UV_REQUIREMENTS = REPO / "deploy" / "hosted" / "modal" / "uv-requirements.txt"
+_UV_INSTALL = (
+    "python -m pip install --require-hashes --only-binary :all: --no-deps"
+    " -r /tmp/uv-requirements.txt"
+)
 
 app = modal.App("coglossa")
 secret = modal.Secret.from_name("coglossa-hosted")
@@ -27,13 +33,15 @@ weights = modal.Volume.from_name("coglossa-weights", create_if_missing=True)
 
 app_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("uv==0.13.0")
+    .add_local_file(UV_REQUIREMENTS, "/tmp/uv-requirements.txt", copy=True)
+    .run_commands(_UV_INSTALL)
     .add_local_dir(REPO / "engine", "/src/engine", copy=True, ignore=IGNORE)
     .add_local_dir(REPO / "api", "/src/api", copy=True, ignore=IGNORE)
     .run_commands(
-        # the locked dependencies, then the two projects, into the system Python Modal runs
+        # the locked dependencies, each checked against the lock's sha256, then the two projects,
+        # into the system Python Modal runs
         # --extra s3: boto3 for Supabase Storage (the air-gapped app image leaves it out)
-        "cd /src/api && uv export --frozen --no-dev --extra s3 --no-emit-project --no-hashes"
+        "cd /src/api && uv export --frozen --no-dev --extra s3 --no-emit-project"
         " | grep -v '^-e ' > /tmp/req.txt",
         "uv pip install --system -r /tmp/req.txt /src/engine /src/api",
     )
@@ -120,17 +128,23 @@ def doctor():
 # system Python. uv exports the CUDA build (the TORCH_INDEX extra) from scorer/uv.lock as a
 # pylock.toml, which names every wheel's URL and sha256, and installs exactly those files,
 # checking each hash, so each package comes from the one index the lock names for it (CGL-50).
+# The scorer's own wheel is built by hatchling from the lock's `build` group, hash-checked too
+# (CGL-130). deploy/tests/check_scorer_lock.py reads every step of scorer_image.
 _SCORER_INSTALL = (
     "cd /src/scorer"
     f" && uv export --quiet --frozen --no-default-groups --extra {TORCH_INDEX} --no-emit-project"
     " --format pylock.toml -o /tmp/pylock.toml"
-    " && uv pip install --system -r /tmp/pylock.toml"
-    " && uv pip install --system --no-deps ."
+    " && uv export --quiet --frozen --only-group build --no-emit-project"
+    " -o /tmp/build-constraints.txt"
+    " && uv pip install --system --no-build -r /tmp/pylock.toml"
+    " && uv pip install --system --no-deps --build-constraints /tmp/build-constraints.txt"
+    " --require-build-hashes ."
 )
 
 scorer_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("uv==0.13.0")
+    .add_local_file(UV_REQUIREMENTS, "/tmp/uv-requirements.txt", copy=True)
+    .run_commands(_UV_INSTALL)
     .add_local_dir(REPO / "scorer", "/src/scorer", copy=True, ignore=IGNORE)
     .run_commands(_SCORER_INSTALL)
     # MALLOC_ARENA_MAX: see deploy/docker/scorer.Dockerfile (bounds glibc arena memory growth)

@@ -6,7 +6,8 @@
 # TORCH_INDEX picks the torch build: cpu, or the CUDA build scorer/pyproject.toml names as an
 # extra (cu126; it also runs on a CPU-only host; tag it coglossa/scorer:<version>-cuda, as
 # make image-scorer-cuda does). scorer/uv.lock holds both builds, so every wheel in the image,
-# torch and CUDA's nvidia-* and triton included, is the locked one (CGL-50).
+# torch and CUDA's nvidia-* and triton included, is the locked one (CGL-50), and so is the build
+# backend that builds the scorer's own wheel (CGL-130).
 
 FROM python:3.12-slim-bookworm AS python
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
@@ -19,10 +20,17 @@ COPY scorer/pyproject.toml scorer/uv.lock ./
 # for it, and uv checks each download against the lock's sha256. The PyTorch indexes are explicit
 # in pyproject.toml, so they supply torch only and PyPI supplies the rest. The cpu build is the
 # `cpu` dependency group, a CUDA build the extra of that name; any other TORCH_INDEX fails here.
+# --no-build: every package is a locked wheel, so nothing is built with an unchecked backend.
+# The `build` group (hatchling and its dependencies) is exported from the lock with its hashes.
 RUN case "$TORCH_INDEX" in cpu) build="--group cpu" ;; *) build="--extra $TORCH_INDEX" ;; esac \
- && uv sync --frozen --no-default-groups $build --no-install-project
+ && uv sync --frozen --no-default-groups $build --no-install-project --no-build \
+ && uv export --quiet --frozen --only-group build --no-emit-project -o /tmp/build-constraints.txt
 COPY scorer/coglossa_scorer coglossa_scorer
-RUN uv pip install --python /opt/venv/bin/python --no-deps .
+# The scorer's own wheel is built by hatchling in a throwaway build environment, not /opt/venv.
+# --require-build-hashes: uv installs that environment only from the exported build group, each
+# file checked against the lock's sha256, and refuses any build requirement without a hash.
+RUN uv pip install --python /opt/venv/bin/python --no-deps \
+      --build-constraints /tmp/build-constraints.txt --require-build-hashes .
 
 FROM python:3.12-slim-bookworm
 ARG VERSION=dev
