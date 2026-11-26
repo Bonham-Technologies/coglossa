@@ -1,6 +1,7 @@
 """The canonical report and its exports (spec §7.5): HTML, a clean DOCX, a bilingual DOCX
 with flags as comments, the report as a JSON download, (CGL-89) a TMX translation memory and
-(CGL-110) a PowerPoint or Excel file translated in place, for a run of one. All of them show the
+(CGL-110) a PowerPoint or Excel file translated in place, for a run of one, and (CGL-131) an SRT
+or WebVTT subtitle file with its cues translated and their times unchanged. All of them show the
 current revisions, except a TMX limited to the passages a person checked, which holds the text
 the person approved."""
 
@@ -15,6 +16,7 @@ from coglossa.export.docx import bilingual_docx, clean_docx
 from coglossa.export.html import render_html
 from coglossa.export.pptx import translated_pptx
 from coglossa.export.rows import export_basename
+from coglossa.export.subtitles import translated_subtitles
 from coglossa.export.tmx import tmx_bytes
 from coglossa.export.xlsx import translated_xlsx
 from coglossa.schema import Report
@@ -29,6 +31,8 @@ DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 TMX = "application/x-tmx+xml"
 PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+SRT = "application/x-subrip"
+VTT = "text/vtt"
 _UNSAFE = re.compile(r"[^A-Za-z0-9._ -]")
 
 
@@ -40,6 +44,8 @@ class ExportKind(StrEnum):
     TMX = "tmx"
     PPTX = "pptx"  # a PowerPoint file's own format, translated in place
     XLSX = "xlsx"  # an Excel file's own format, translated in place
+    SRT = "srt"  # an SRT subtitle file, its cues translated (CGL-131)
+    VTT = "vtt"  # a WebVTT subtitle file, its cues translated (CGL-131)
 
 
 def content_disposition(filename: str) -> str:
@@ -65,12 +71,14 @@ async def get_report(run_id: uuid.UUID, ctx: Ctx) -> Report:
                 TMX: {},
                 PPTX: {},
                 XLSX: {},
+                SRT: {},
+                VTT: {},
             }
         },
         422: {
             "model": ErrorBody,
-            "description": "pptx or xlsx of a run of another format, or a file that can't be "
-            "written back.",
+            "description": "pptx, xlsx, srt or vtt of a run of another format, or a file that "
+            "can't be written back.",
         },
     },
 )
@@ -84,7 +92,8 @@ async def export(
     """`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies
     to tmx: only the passages a person accepted or edited, with the text they approved. pptx and
     xlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text
-    translated."""
+    translated; srt and vtt (CGL-131) for a run of a subtitle file: the same cues with their times
+    unchanged."""
     report = await service.build_report(ctx.db, run_id, include_llm_calls=kind is ExportKind.JSON)
     base = export_basename(report)
     headers: dict[str, str] = {}
@@ -110,6 +119,12 @@ async def export(
         body = await asyncio.to_thread(write, report, original)
         filename = f"{base}.{kind.value}"
         media_type = PPTX if kind is ExportKind.PPTX else XLSX
+    elif kind in (ExportKind.SRT, ExportKind.VTT):
+        same = report.document.format == kind.value
+        original = await service.original_file(ctx.db, ctx.storage, run_id) if same else b""
+        body = await asyncio.to_thread(translated_subtitles, report, original, kind.value)
+        filename = f"{base}.{kind.value}"
+        media_type = SRT if kind is ExportKind.SRT else VTT
     else:
         body = report.model_dump_json(indent=2).encode("utf-8")
         filename, media_type = f"{base}.report.json", "application/json"

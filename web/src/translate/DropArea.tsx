@@ -12,10 +12,13 @@ export const ACCEPTED = [
   ".pdf",
   ".pptx",
   ".xlsx",
+  ".srt",
+  ".vtt",
 ];
 
 /** The kinds of file Coglossa reads, in words. */
-export const FILE_KINDS = "Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB";
+export const FILE_KINDS =
+  "Word, PowerPoint, Excel, PDF, text, Markdown, HTML, EPUB or subtitles (SRT, VTT)";
 
 export const MB = 1024 * 1024;
 

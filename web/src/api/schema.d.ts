@@ -394,7 +394,8 @@ export interface paths {
          * @description `comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies
          *     to tmx: only the passages a person accepted or edited, with the text they approved. pptx and
          *     xlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text
-         *     translated.
+         *     translated; srt and vtt (CGL-131) for a run of a subtitle file: the same cues with their times
+         *     unchanged.
          */
         get: operations["export_api_runs__run_id__exports__kind__get"];
         put?: never;
@@ -1190,7 +1191,7 @@ export interface components {
          * ExportKind
          * @enum {string}
          */
-        ExportKind: "html" | "docx" | "bilingual-docx" | "json" | "tmx" | "pptx" | "xlsx";
+        ExportKind: "html" | "docx" | "bilingual-docx" | "json" | "tmx" | "pptx" | "xlsx" | "srt" | "vtt";
         /** Flag */
         Flag: {
             code: components["schemas"]["FlagCode"];
@@ -3144,11 +3145,13 @@ export interface operations {
                     "application/vnd.openxmlformats-officedocument.presentationml.presentation": unknown;
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                    "application/x-subrip": unknown;
                     "application/x-tmx+xml": unknown;
                     "text/html": unknown;
+                    "text/vtt": unknown;
                 };
             };
-            /** @description pptx or xlsx of a run of another format, or a file that can't be written back. */
+            /** @description pptx, xlsx, srt or vtt of a run of another format, or a file that can't be written back. */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -34,7 +34,7 @@ _STATUS: tuple[tuple[type[Exception], int], ...] = (
     (UploadTooLargeError, 413),
     (InvalidRequestError, 422),
     (IngestError, 422),
-    (ExportError, 422),  # CGL-110: a PowerPoint or Excel file that can't be written back
+    (ExportError, 422),  # CGL-110, CGL-131: a file that can't be written back in its own format
 )
 
 

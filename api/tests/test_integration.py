@@ -12,7 +12,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from coglossa_api.app import create_app
-from coglossa_api.routes.exports import PPTX, XLSX, content_disposition
+from coglossa_api.routes.exports import PPTX, SRT, VTT, XLSX, content_disposition
 from tests.conftest import serve
 
 STORY = "\n\n".join(
@@ -209,3 +209,67 @@ async def test_powerpoint_and_excel_files_come_back_translated(db, tmp_path, mon
             )
             refused = await client.get(f"/api/runs/{deck_run}/exports/xlsx")
             assert refused.status_code == 422
+
+
+SUBTITLES = {
+    "Film.srt": (
+        "1\r\n00:00:01,000 --> 00:00:04,000\r\n<i>Le chat dort</i>\r\nsur la table.\r\n\r\n"
+        "2\r\n00:00:05,000 --> 00:00:06,500\r\nIl pleut.\r\n"
+    ),
+    "Film.vtt": (
+        "WEBVTT\n\nNOTE pas traduit\n\n00:01.000 --> 00:04.000 align:start\n"
+        "<v Anne>Le chat dort &amp; rêve.</v>\n"
+    ),
+}
+
+
+async def test_subtitle_files_come_back_with_the_same_cues(db, tmp_path, monkeypatch, pg_url):
+    """CGL-131: an SRT and a WebVTT file are uploaded, translated and downloaded with the same
+    cues, numbers and times; a run of another format cannot be downloaded as one."""
+    monkeypatch.setenv("COGLOSSA_DATABASE_URL", pg_url)
+    with FakeOpenAIServer() as llm, FakeScorerServer() as scorer:
+        path = tmp_path / "coglossa.yaml"
+        path.write_text(yaml.safe_dump(_config(tmp_path, llm, scorer)), encoding="utf-8")
+        cfg, _ = load_config(path)
+        async with serve(create_app(cfg, path)) as client:
+            project = (
+                await client.post(
+                    "/api/projects",
+                    json={"name": "films", "target_lang": "en", "source_lang": "fr"},
+                )
+            ).json()
+            runs = {}
+            for name, text in SUBTITLES.items():
+                uploaded = await client.post(
+                    f"/api/projects/{project['id']}/runs",
+                    files={"file": (name, text.encode("utf-8"))},
+                )
+                assert uploaded.status_code == 202, uploaded.text
+                runs[name] = uploaded.json()["id"]
+            await run_worker(cfg, burst=True, install_signal_handlers=False)
+
+            got = await client.get(f"/api/runs/{runs['Film.srt']}/exports/srt")
+            assert got.status_code == 200, got.text
+            assert got.headers["content-type"] == SRT
+            assert got.headers["content-disposition"] == content_disposition("Film.en.srt")
+            spans = (await client.get(f"/api/runs/{runs['Film.srt']}/spans")).json()["spans"]
+            assert len(spans) == 2
+            lines = got.content.decode("utf-8").split("\r\n")
+            assert lines[:2] == ["1", "00:00:01,000 --> 00:00:04,000"]
+            assert lines[4:7] == ["", "2", "00:00:05,000 --> 00:00:06,500"]
+            assert lines[7] == spans[1]["text"]
+
+            got = await client.get(f"/api/runs/{runs['Film.vtt']}/exports/vtt")
+            assert got.status_code == 200, got.text
+            assert got.headers["content-type"].startswith(VTT)
+            text = got.content.decode("utf-8")
+            assert text.startswith(
+                "WEBVTT\n\nNOTE pas traduit\n\n00:01.000 --> 00:04.000 align:start\n"
+            )
+            assert text.endswith("&amp; rêve.</v>\n") and "<v Anne>" in text
+
+            refused = await client.get(f"/api/runs/{runs['Film.srt']}/exports/vtt")
+            assert refused.status_code == 422
+            assert refused.json()["detail"] == (
+                "only a translation of a WebVTT subtitle file can be downloaded as one"
+            )
