@@ -111,6 +111,20 @@ def test_a_word_file_that_unpacks_to_too_much_is_refused(tmp_path):
         DocxIngestor().ingest(path)
 
 
+def test_a_word_file_whose_part_is_larger_than_it_says_is_refused(tmp_path):
+    """A part that claims to be small but unpacks to much more is refused by the guard, which
+    unpacks in small pieces, before the library would unpack all of it at once."""
+    d = docx.Document()
+    d.add_paragraph("Hello")
+    path = tmp_path / "liar.docx"
+    d.save(path)
+    with zipfile.ZipFile(path, "a", compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr("filler/big.xml", b"\0" * (8 * 1024 * 1024))
+    _with_member_size(path, "filler/big.xml", 100)
+    with pytest.raises(IngestError, match=r"liar.docx is not a readable Word file \(.*CRC"):
+        DocxIngestor().ingest(path)
+
+
 def test_a_word_file_with_too_many_parts_is_refused(tmp_path):
     d = docx.Document()
     d.add_paragraph("Hello")
