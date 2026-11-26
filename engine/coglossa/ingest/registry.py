@@ -1,5 +1,6 @@
 """Pick an ingestor by file extension; third parties add formats via coglossa.ingestors
-(entry point value: an Ingestor class). OCR and speech-to-text arrive this way later."""
+(entry point value: an Ingestor class). OCR and speech-to-text arrive this way later; subtitle
+files (CGL-131) are text, read by their own ingestor, not speech."""
 
 from importlib.metadata import entry_points
 from pathlib import Path, PurePosixPath
@@ -11,6 +12,7 @@ from coglossa.ingest.html import HtmlIngestor
 from coglossa.ingest.markdown import MarkdownIngestor
 from coglossa.ingest.pdf import PdfIngestor
 from coglossa.ingest.pptx import PptxIngestor
+from coglossa.ingest.subtitles import SrtIngestor, VttIngestor
 from coglossa.ingest.txt import TextIngestor
 from coglossa.ingest.xlsx import XlsxIngestor
 from coglossa.schema import Block, BlockKind, SourceDocument
@@ -28,6 +30,8 @@ def available_ingestors() -> list[Ingestor]:
         PdfIngestor(),
         PptxIngestor(),
         XlsxIngestor(),
+        SrtIngestor(),
+        VttIngestor(),
     ]
     ingestors += [ep.load()() for ep in entry_points(group="coglossa.ingestors")]
     return ingestors

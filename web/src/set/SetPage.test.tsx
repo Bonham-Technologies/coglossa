@@ -95,7 +95,9 @@ it("opens a single file straight into its document", async () => {
 it.each([
   ["Rapport annuel.PPTX", "PowerPoint file", "pptx"],
   ["Budget.xlsx", "Excel file", "xlsx"],
-])("offers %s back in its own format first (CGL-110)", async (filename, label, kind) => {
+  ["Film.SRT", "Subtitle file", "srt"],
+  ["film.vtt", "Subtitle file", "vtt"],
+])("offers %s back in its own format first (CGL-110, CGL-131)", async (filename, label, kind) => {
   server.use(
     http.get("*/api/runs/r-9", () => {
       const run = complete("r-9");
