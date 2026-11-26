@@ -4,16 +4,18 @@ an air-gapped client the bundle is the supply chain, so the CPU image, the CUDA 
 and the hosted scorer install only what the lock names, at the sha256 it records, from the one
 index it names for each package. Offline; it builds nothing.
 
-- The installs (deploy/docker/scorer.Dockerfile's RUN, ENV and ARG instructions, and every
-  command and setting on the Modal app's `scorer_image`) run only `uv sync --frozen
-  --no-install-project --no-build`, `uv export --frozen` and `uv pip install`, never
-  `--no-hashes`, an index flag or variable, a constraints file, another uv command (`uv add`,
-  `uv run`, `uv tool`, `uv pip compile`, `uvx`) or pip, except pip installing only a hashed
-  requirements file (`--require-hashes --only-binary :all: --no-deps -r FILE`, uv itself on
-  Modal). `uv pip install` takes either a pylock.toml from `uv export --frozen` with
-  `--no-build`, or the project itself (`--no-deps .`) with `--require-build-hashes` and the
-  `build` group exported from the lock as its `--build-constraints`. `scorer_image` is built
-  only with Modal methods that install nothing besides those commands.
+- The installs (deploy/docker/scorer.Dockerfile's RUN, ENV and ARG instructions, and every command
+  and setting on the Modal app's `scorer_image`) run only `uv sync --frozen --no-install-project
+  --no-build`, `uv export --frozen` and `uv pip install`, never `--no-hashes`, an index flag or
+  variable, a constraints file, another uv command (`uv add`, `uv run`, `uv tool`, `uv pip compile`,
+  `uvx`), a command nested in a quoted string (`sh -c "..."`) or pip, except pip installing uv
+  itself on Modal from deploy/hosted/modal/uv-requirements.txt (`--require-hashes --only-binary
+  :all: --no-deps -r .../uv-requirements.txt`), which pins only uv, at the Dockerfile's uv version,
+  with hashes. `uv pip install` takes either a pylock.toml from `uv export --frozen` with
+  `--no-build`, or the project itself (`--no-deps .`) with `--require-build-hashes` and the `build`
+  group exported from the lock as its `--build-constraints`. `scorer_image` is built only with Modal
+  methods that install nothing besides those commands, and its `env` takes only dict literals the
+  check can read.
 - scorer/pyproject.toml: every extra index is explicit (it supplies only the packages pinned to
   it); torch comes from download.pytorch.org/whl/cpu in the `cpu` group (a default group) and
   from whl/<CUDA_INDEX> in the extra of that name (the Makefile's CUDA_INDEX); the two conflict,
@@ -50,6 +52,10 @@ UNCHECKED = re.compile(
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
 LINUX_WHEEL = re.compile(r"-cp312-cp312-manylinux[\w.]*_x86_64\.whl$")
 PYLOCK = re.compile(r"(?:^|/)pylock(?:\.[\w-]+)?\.toml$")
+UV_REQUIREMENTS = "uv-requirements.txt"  # the one file pip may install: uv for the Modal images
+UV_IMAGE = re.compile(r"ghcr\.io/astral-sh/uv:(\S+)")
+# a quoted word that runs a command of its own (sh -c "uv add x"), which the check cannot read
+NESTED = re.compile(r"\s.*\b(?:uvx?|pip[\d.]*)\b|\b(?:uvx?|pip[\d.]*)\b.*\s")
 BUILD_GROUP = "build"  # the dependency group that locks the build backend (CGL-130)
 # the uv commands the installs may run; anything else (uv add, uv run, uv tool, uv pip sync,
 # uv pip compile, uv build, ...) is reported
@@ -177,6 +183,11 @@ def modal_installs(text: str) -> tuple[list[str], list[str]]:
                 else:
                     commands.append(command)
         elif method == "env":
+            if unread := [a for a in arguments if not isinstance(a, ast.Dict)]:
+                found.append(
+                    f"{name}: scorer_image.env takes a value the check cannot read: "
+                    + ", ".join(ast.unparse(a) for a in unread)
+                )
             commands.append("ENV " + " ".join(ast.unparse(a) for a in arguments))
         elif method not in MODAL_NO_INSTALL:
             found.append(
@@ -287,21 +298,25 @@ def install_problems(name: str, commands: list[str]) -> list[str]:
             found.append(f"{name}: uv pip compile resolves afresh, not from the lock: {step}")
         if any(word.rsplit("/", 1)[-1] == "uvx" for word in words):
             found.append(f"{name}: uvx installs a tool without the lock's hashes: {step}")
+        if any(NESTED.search(word) for word in words[1:]):
+            found.append(f"{name}: a quoted command the check cannot read: {step}")
         uv = _uv_command(words)
         if uv is None:
             args = _pip_install(words)
             if args is not None:
                 flags, values, positional = _options(args, PIP_VALUE_FLAGS)
+                requirements = _get(values, "-r", "--requirement")
                 if (
                     positional
                     or set(flags) - PIP_FLAGS
                     or not {"--require-hashes", "--no-deps"} <= set(flags)
-                    or len(_get(values, "-r", "--requirement")) != 1
+                    or len(requirements) != 1
+                    or requirements[0].rsplit("/", 1)[-1] != UV_REQUIREMENTS
                     or _get(values, "--only-binary") != [":all:"]
                 ):
                     found.append(
-                        f"{name}: pip may install only a hashed requirements file "
-                        f"(--require-hashes --only-binary :all: --no-deps -r FILE): {step}"
+                        f"{name}: pip may install only uv, hashed (--require-hashes --only-binary "
+                        f":all: --no-deps -r .../{UV_REQUIREMENTS}): {step}"
                     )
             continue
         command, args = uv
@@ -353,6 +368,27 @@ def install_problems(name: str, commands: list[str]) -> list[str]:
         if not requirements and not positional:
             found.append(f"{name}: uv pip install of nothing the check knows: {step}")
     return found
+
+
+def uv_requirements_problems(text: str, dockerfile: str) -> list[str]:
+    """deploy/hosted/modal/uv-requirements.txt pins only uv, at the Dockerfile's version, with
+    a sha256 for each file and no options (an index line would open a second source)."""
+    name = f"deploy/hosted/modal/{UV_REQUIREMENTS}"
+    tag = UV_IMAGE.search(dockerfile)
+    lines = [
+        line.split(" #", 1)[0].strip()
+        for line in re.sub(r"\\\n", " ", text).splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    words = [line.split() for line in lines]
+    pins = [w[0] for w in words]
+    expected = f"uv=={tag.group(1)}" if tag else None
+    if pins != [expected]:
+        return [f"{name}: must pin only {expected or 'uv'} (the Dockerfile's uv), not {pins}"]
+    hashes = words[0][1:]
+    if not hashes or not all(re.fullmatch(r"--hash=sha256:[0-9a-f]{64}", h) for h in hashes):
+        return [f"{name}: every word after the pin must be a --hash=sha256:<64 hex>: {hashes}"]
+    return []
 
 
 def pyproject_problems(text: str, cuda: str) -> list[str]:
@@ -488,12 +524,14 @@ def problems(texts: dict[str, str]) -> list[str]:
         ),
         *modal_found,
         *install_problems("deploy/hosted/modal/app.py", modal),
+        *uv_requirements_problems(texts[UV_REQUIREMENTS], texts["Dockerfile"]),
         *pyproject_problems(texts["pyproject.toml"], cuda),
         *lock_problems(texts["uv.lock"], cuda, build_requires(texts["pyproject.toml"])),
     ]
 
 
 FIXTURE_DOCKERFILE = """# a comment: uv pip install --index x is fine here
+COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
 RUN case "$TORCH_INDEX" in cpu) build="--group cpu" ;; *) build="--extra $TORCH_INDEX" ;; esac \\
  && uv sync --frozen --no-default-groups $build --no-install-project --no-build \\
  && uv export --frozen --only-group build -o /tmp/build.txt
@@ -502,7 +540,8 @@ RUN uv pip install --python /opt/venv/bin/python --no-deps \\
     --build-constraints /tmp/build.txt --require-build-hashes .
 """
 FIXTURE_MODAL = """_UV_INSTALL = (
-    "python -m pip install --require-hashes --only-binary :all: --no-deps -r /tmp/uv.txt"
+    "python -m pip install --require-hashes --only-binary :all: --no-deps"
+    " -r /tmp/uv-requirements.txt"
 )
 _SCORER_INSTALL = (
     "cd /src/scorer"
@@ -514,7 +553,7 @@ _SCORER_INSTALL = (
 )
 scorer_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .add_local_file(UV_REQUIREMENTS, "/tmp/uv.txt", copy=True)
+    .add_local_file(UV_REQUIREMENTS, "/tmp/uv-requirements.txt", copy=True)
     .run_commands(_UV_INSTALL)
     .add_local_dir(REPO / "scorer", "/src/scorer", copy=True)
     .run_commands(_SCORER_INSTALL)
@@ -586,12 +625,18 @@ version = "2.14.1+cu126"
 source = { registry = "https://download.pytorch.org/whl/cu126" }
 wheels = [{ url = "https://x/torch-2.14.1%2Bcu126-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:ae" }]
 """
+FIXTURE_UV = f"""# uv for Modal
+uv==0.13.0 \\
+    --hash=sha256:{"a" * 64} \\
+    --hash=sha256:{"b" * 64}
+"""
 FIXTURES = {
     "Makefile": "CUDA_INDEX ?= cu126\n",
     "Dockerfile": FIXTURE_DOCKERFILE,
     "app.py": FIXTURE_MODAL,
     "pyproject.toml": FIXTURE_PYPROJECT,
     "uv.lock": FIXTURE_LOCK,
+    UV_REQUIREMENTS: FIXTURE_UV,
 }
 COPY = "COPY scorer/coglossa_scorer"
 END = '    .add_local_python_source("settings")\n)\n'
@@ -690,7 +735,36 @@ BREAKS = [
     ("no Modal scorer image", "app.py", "scorer_image = (", "other_image = ("),
     ("an unhashed uv bootstrap", "app.py", "--require-hashes ", ""),
     ("a uv bootstrap that may build", "app.py", "--only-binary :all: ", ""),
-    ("a uv bootstrap with a package", "app.py", "-r /tmp/uv.txt", "-r /tmp/uv.txt uv"),
+    (
+        "a uv bootstrap with a package",
+        "app.py",
+        "-r /tmp/uv-requirements.txt",
+        "-r /tmp/uv-requirements.txt uv",
+    ),
+    ("pip from another hashed file", "app.py", '/tmp/uv-requirements.txt"\n)', '/tmp/x.txt"\n)'),
+    (
+        "pip pinning more than uv",
+        UV_REQUIREMENTS,
+        "uv==0.13.0",
+        f"requests==2.0 --hash=sha256:{'c' * 64}\nuv==0.13.0",
+    ),
+    ("pip with an index line", UV_REQUIREMENTS, "# uv for Modal", "--extra-index-url https://x"),
+    ("an unhashed uv pin", UV_REQUIREMENTS, FIXTURE_UV, "uv==0.13.0\n"),
+    ("an option on the uv pin", UV_REQUIREMENTS, f"--hash=sha256:{'a' * 64} \\", "--no-deps \\"),
+    ("a uv pin out of step with the Dockerfile", "Dockerfile", "uv:0.13.0", "uv:0.13.1"),
+    ("a command in sh -c", "Dockerfile", COPY, 'RUN sh -c "uv add requests"\n' + COPY),
+    (
+        "a command in bash -lc",
+        "app.py",
+        '"cd /src/scorer"',
+        "\"bash -lc 'pip install x' && cd /src/scorer\"",
+    ),
+    (
+        "a Modal env the check cannot read",
+        "app.py",
+        '.env({"HF_HUB_OFFLINE": "1"})',
+        ".env(ENVS)",
+    ),
     ("a project build without hashes", "Dockerfile", " --require-build-hashes .", " ."),
     ("a project build without constraints", "Dockerfile", "--build-constraints /tmp/build.txt", ""),
     ("build constraints from elsewhere", "Dockerfile", "-o /tmp/build.txt", "-o /tmp/other.txt"),
@@ -739,6 +813,7 @@ def main() -> int:
             "app.py": "deploy/hosted/modal/app.py",
             "pyproject.toml": "scorer/pyproject.toml",
             "uv.lock": "scorer/uv.lock",
+            UV_REQUIREMENTS: f"deploy/hosted/modal/{UV_REQUIREMENTS}",
         }
         found = problems(
             {key: (ROOT / path).read_text(encoding="utf-8") for key, path in paths.items()}

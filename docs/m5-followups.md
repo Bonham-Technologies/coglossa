@@ -37,8 +37,9 @@ Triaged on 2026-10-30 (CGL-13). Each item names its ticket; items fixed together
   `--require-build-hashes`; `uv sync` and the pylock.toml install use `--no-build`, so nothing
   else is built from source. The Modal images install uv from a hashed requirements file, and
   the hosted API image's export keeps its hashes. `check_scorer_lock.py` reads every step of the
-  Modal `scorer_image` and rejects other uv commands (`uv add`, `uv run`, `uv tool`, `uvx`) and a
-  requirements file beside the project. Still open: CI builds only the CPU scorer image (the
+  Modal `scorer_image` and rejects other uv commands (`uv add`, `uv run`, `uv tool`, `uvx`), a
+  command inside `sh -c`, a requirements file beside the project and pip installing anything but
+  `deploy/hosted/modal/uv-requirements.txt`, which must pin only the Dockerfiles' uv, hashed. Still open: CI builds only the CPU scorer image (the
   CUDA image is built by `make image-scorer-cuda` and the bundle); Dependabot's uv updater has
   not yet run against the `cpu` group and `cu126` extra; the uv binary
   (`ghcr.io/astral-sh/uv:0.13.0`) and the Python base images are pinned by tag, not digest; and
