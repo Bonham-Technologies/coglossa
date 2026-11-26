@@ -1,9 +1,11 @@
+import zipfile
+
 import docx
 import pytest
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
-from coglossa.ingest.base import IngestError
+from coglossa.ingest.base import MAX_OFFICE_MEMBERS, IngestError
 from coglossa.ingest.docx import DocxIngestor
 from coglossa.schema import BlockKind, MarkKind, Region, TableCellPosition
 from tests.ingest.docx_parts import (
@@ -68,8 +70,70 @@ def test_merged_cells_are_not_duplicated(tmp_path):
 def test_corrupt_docx_is_ingest_error(tmp_path):
     path = tmp_path / "broken.docx"
     path.write_bytes(b"not a zip")
-    with pytest.raises(IngestError, match="broken.docx is not a readable DOCX"):
+    with pytest.raises(IngestError, match="broken.docx is not a readable Word file"):
         DocxIngestor().ingest(path)
+
+
+def test_a_password_protected_or_old_word_file_is_refused_in_plain_words(tmp_path):
+    path = tmp_path / "locked.docx"
+    path.write_bytes(bytes.fromhex("d0cf11e0a1b11ae1") + bytes(504))
+    with pytest.raises(IngestError, match="locked.docx is password-protected or saved in an older"):
+        DocxIngestor().ingest(path)
+
+
+def _with_member_size(path, member, size):
+    """Rewrite the unpacked size the zip's central directory records for `member`, so a small
+    file declares it unpacks to `size` bytes (as a zip bomb does)."""
+    data = bytearray(path.read_bytes())
+    name = member.encode()
+    at = data.find(b"PK\x01\x02")
+    while at != -1:
+        name_len = int.from_bytes(data[at + 28 : at + 30], "little")
+        if data[at + 46 : at + 46 + name_len] == name:
+            data[at + 24 : at + 28] = size.to_bytes(4, "little")
+            path.write_bytes(bytes(data))
+            return
+        at = data.find(b"PK\x01\x02", at + 4)
+    raise AssertionError(f"{member} not in {path}")
+
+
+def test_a_word_file_that_unpacks_to_too_much_is_refused(tmp_path):
+    """CGL-132: the zip bomb guard the PowerPoint and Excel readers use covers Word too."""
+    d = docx.Document()
+    d.add_paragraph("Hello")
+    path = tmp_path / "bomb.docx"
+    d.save(path)
+    assert path.stat().st_size < 100_000
+    _with_member_size(path, "word/document.xml", 300 * 1024 * 1024)
+    with pytest.raises(
+        IngestError, match=r"bomb.docx is too large to translate once unpacked \(more than 256 MB\)"
+    ):
+        DocxIngestor().ingest(path)
+
+
+def test_a_word_file_with_too_many_parts_is_refused(tmp_path):
+    d = docx.Document()
+    d.add_paragraph("Hello")
+    path = tmp_path / "parts.docx"
+    d.save(path)
+    with zipfile.ZipFile(path, "a") as z:
+        for n in range(MAX_OFFICE_MEMBERS):
+            z.writestr(f"filler/part{n}.xml", "")
+    with pytest.raises(IngestError, match=r"parts.docx holds too many parts to translate"):
+        DocxIngestor().ingest(path)
+
+
+def test_a_word_file_just_within_the_limits_is_read(tmp_path):
+    d = docx.Document()
+    d.add_paragraph("Hello")
+    path = tmp_path / "fine.docx"
+    d.save(path)
+    with zipfile.ZipFile(path) as z:
+        count = len(z.infolist())
+    with zipfile.ZipFile(path, "a") as z:
+        for n in range(MAX_OFFICE_MEMBERS - count):
+            z.writestr(f"filler/part{n}.xml", "")
+    assert [b.text for b in DocxIngestor().ingest(path).blocks] == ["Hello"]
 
 
 @pytest.mark.parametrize("bad", ["w:gridSpan", "w:gridBefore"])

@@ -29,7 +29,13 @@ from docx.oxml.ns import qn
 from docx.text.run import Run
 from lxml import etree
 
-from coglossa.ingest.base import UNREAD_PREFIX, IngestError, file_sha256, is_scene_break
+from coglossa.ingest.base import (
+    UNREAD_PREFIX,
+    IngestError,
+    check_office_file,
+    file_sha256,
+    is_scene_break,
+)
 from coglossa.schema import (
     Block,
     BlockKind,
@@ -499,6 +505,7 @@ class DocxIngestor:
     extensions = (".docx",)
 
     def ingest(self, path: Path) -> SourceDocument:
+        check_office_file(path, "Word", ".docx")
         try:
             document = docx.Document(str(path))
         except Exception as e:  # python-docx raises several unrelated types for bad files
