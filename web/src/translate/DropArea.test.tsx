@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { DropArea, fileProblem, sizeText } from "./DropArea";
+import { DropArea, FILE_KINDS, fileProblem, sizeText } from "./DropArea";
 
 function Harness({ maxMb = 4, active = true }: { maxMb?: number | null; active?: boolean }) {
   const [files, setFiles] = useState<File[]>([]);
@@ -54,16 +54,26 @@ it("takes PowerPoint and Excel files and names them (CGL-110)", () => {
   expect(fileProblem(new File(["x"], "Slides.PPTX"), null)).toBeNull();
   expect(fileProblem(new File(["x"], "Budget.xlsx"), null)).toBeNull();
   expect(fileProblem(new File(["x"], "old.xls"), null)).toBe(
-    "old.xls isn't a file type Coglossa reads (Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB).",
+    "old.xls isn't a file type Coglossa reads (Word, PowerPoint, Excel, PDF, text, Markdown, HTML, EPUB or subtitles (SRT, VTT)).",
   );
   render(<DropArea files={[]} onFiles={() => {}} maxMb={null} />);
   expect(screen.getByLabelText("Choose files")).toHaveAttribute(
     "accept",
-    ".txt,.md,.markdown,.docx,.html,.htm,.xhtml,.epub,.pdf,.pptx,.xlsx",
+    ".txt,.md,.markdown,.docx,.html,.htm,.xhtml,.epub,.pdf,.pptx,.xlsx,.srt,.vtt",
   );
   expect(
-    screen.getByText("Word, PowerPoint, Excel, PDF, text, Markdown, HTML or EPUB"),
+    screen.getByText(
+      "Word, PowerPoint, Excel, PDF, text, Markdown, HTML, EPUB or subtitles (SRT, VTT)",
+    ),
   ).toBeInTheDocument();
+});
+
+it("takes subtitle files (CGL-131)", () => {
+  expect(fileProblem(new File(["x"], "Film.SRT"), null)).toBeNull();
+  expect(fileProblem(new File(["x"], "film.vtt"), null)).toBeNull();
+  expect(fileProblem(new File(["x"], "film.ass"), null)).toBe(
+    `film.ass isn't a file type Coglossa reads (${FILE_KINDS}).`,
+  );
 });
 
 it("skips a file that is already in the list and says so", async () => {

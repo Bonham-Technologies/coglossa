@@ -19,6 +19,7 @@ def test_unsupported_extension(tmp_path):
     with pytest.raises(UnsupportedFormatError, match=r"unsupported file type '\.odt'") as e:
         registry.ingest_file(path)
     assert ".pptx" in str(e.value) and ".xlsx" in str(e.value)  # CGL-110
+    assert ".srt" in str(e.value) and ".vtt" in str(e.value)  # CGL-131
 
 
 def test_powerpoint_and_excel_files_are_accepted():
@@ -26,6 +27,15 @@ def test_powerpoint_and_excel_files_are_accepted():
     registry.check_extension("Budget.xlsx")
     with pytest.raises(UnsupportedFormatError):
         registry.check_extension("old.ppt")
+
+
+def test_subtitle_files_are_accepted():
+    """CGL-131: subtitle files are text, read by their own ingestor; speech is not."""
+    registry.check_extension("Film.SRT")
+    registry.check_extension("film.vtt")
+    for name in ("film.ass", "film.mp4", "film.wav"):
+        with pytest.raises(UnsupportedFormatError):
+            registry.check_extension(name)
 
 
 def test_missing_file(tmp_path):

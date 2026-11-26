@@ -56,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "input",
         type=Path,
-        help="TXT, MD, DOCX, PPTX, XLSX, HTML, EPUB or PDF (with a text layer) file",
+        help="TXT, MD, DOCX, PPTX, XLSX, HTML, EPUB, PDF (with a text layer), SRT or VTT file",
     )
     run.add_argument("--config", type=Path, default=default_config_path())
     run.add_argument("--target-lang", required=True, help="BCP-47 code, e.g. en, pt-BR")

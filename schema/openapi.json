@@ -1008,7 +1008,9 @@
           "json",
           "tmx",
           "pptx",
-          "xlsx"
+          "xlsx",
+          "srt",
+          "vtt"
         ],
         "title": "ExportKind",
         "type": "string"
@@ -5096,7 +5098,7 @@
     },
     "/api/runs/{run_id}/exports/{kind}": {
       "get": {
-        "description": "`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies\nto tmx: only the passages a person accepted or edited, with the text they approved. pptx and\nxlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text\ntranslated.",
+        "description": "`comments` applies to bilingual-docx: the flags as Word comments. `reviewed_only` applies\nto tmx: only the passages a person accepted or edited, with the text they approved. pptx and\nxlsx (CGL-110) are for a run of a PowerPoint or Excel file: the original with its text\ntranslated; srt and vtt (CGL-131) for a run of a subtitle file: the same cues with their times\nunchanged.",
         "operationId": "export_api_runs__run_id__exports__kind__get",
         "parameters": [
           {
@@ -5145,8 +5147,10 @@
               "application/vnd.openxmlformats-officedocument.presentationml.presentation": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
+              "application/x-subrip": {},
               "application/x-tmx+xml": {},
-              "text/html": {}
+              "text/html": {},
+              "text/vtt": {}
             },
             "description": "Successful Response"
           },
@@ -5158,7 +5162,7 @@
                 }
               }
             },
-            "description": "pptx or xlsx of a run of another format, or a file that can't be written back."
+            "description": "pptx, xlsx, srt or vtt of a run of another format, or a file that can't be written back."
           }
         },
         "summary": "Export",
