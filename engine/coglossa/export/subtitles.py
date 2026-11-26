@@ -5,7 +5,8 @@ breaks and a byte order mark.
 
 A cue's text is the translation of its passages. A passage over sentences of several cues (a
 sentence that runs on from one subtitle to the next) is shared out between them by the length
-of their original text, at spaces where it has them, so no cue is left empty. Line breaks: the
+of their original text, at spaces where it has them (a translation with too few spaces
+for every cue leaves the last of them empty; no text is lost or repeated). Line breaks: the
 passages of a cue are joined with a line break where its original lines broke between them;
 where a cue of several lines comes back as one line, it is broken again at the spaces closest
 to where its original lines broke. Bold, italic and underlined words come back as `<b>`, `<i>`
@@ -16,6 +17,7 @@ import codecs
 import hashlib
 import itertools
 import re
+import unicodedata
 from collections.abc import Sequence
 
 from coglossa.export.office import ExportError, blocks_in_order, mismatch
@@ -49,6 +51,18 @@ def _spaceless(c: str) -> bool:
     )
 
 
+_LEADING_VOWELS = set("เแโใไເແໂໃໄ")  # Thai, Lao
+
+
+def _may_cut(text: str, at: int) -> bool:
+    """Whether `text` can be cut before its character `at` without parting a letter from its
+    vowel or tone marks (Thai, Lao, Myanmar, Khmer) or a vowel written before its consonant."""
+    c = text[at]
+    return not (
+        unicodedata.category(c).startswith("M") or c in "‌‍" or text[at - 1] in _LEADING_VOWELS
+    )
+
+
 def split_marked(text: str, marks: Sequence[InlineMark], weights: Sequence[int]) -> list[Marked]:
     """`text` cut into len(weights) parts about as long, in proportion, as `weights`: at the
     space closest to each cut, or at any character in a text with no spaces written in a
@@ -64,6 +78,8 @@ def split_marked(text: str, marks: Sequence[InlineMark], weights: Sequence[int])
         ideal = round(len(text) * done / total)
         if anywhere:
             at = max(start, min(ideal, len(text)))
+            while 0 < at < len(text) and not _may_cut(text, at):
+                at += 1
             cuts.append((start, at))
             start = at
             continue
@@ -113,13 +129,18 @@ def cue_texts(report: Report) -> dict[str, Marked]:
 def _tidy(text: str, marks: list[InlineMark]) -> Marked:
     """One cue's text as a subtitle file can hold it: no blank lines, which would end the cue,
     no "-->", which would start one ("->" in its place), and no spaces at the ends of its
-    lines."""
+    lines. A carriage return is a line break: a file reader takes it for one."""
     keys = char_keys(len(text), marks)
-    chars = [
-        (c, k)
-        for i, (c, k) in enumerate(zip(text, keys, strict=True))
-        if not text.startswith("-->", i)
-    ]
+    chars: list[tuple[str, frozenset[MarkKey]]] = []
+    for i, (c, k) in enumerate(zip(text, keys, strict=True)):
+        if c == "\r":
+            if text.startswith("\n", i + 1):
+                continue
+            c = "\n"
+        if c == ">":
+            while len(chars) >= 2 and chars[-1][0] == "-" and chars[-2][0] == "-":
+                chars.pop()  # "-->", "--->" and longer arrows become "->"
+        chars.append((c, k))
     lines: list[list[tuple[str, frozenset[MarkKey]]]] = [[]]
     for c, k in chars:
         if c == "\n":
@@ -211,7 +232,9 @@ def translated_subtitles(report: Report, original: bytes, fmt: str) -> bytes:
         if got is None:
             continue  # nothing of it was translated: it keeps its text
         text, marks = _tidy(clean_text(got[0]), got[1])
-        text = _rebreak(text, block.text)
+        # tidied again: a break at one of two spaces in a row would leave a space at a line's
+        # end, and breaks at both a blank line, which would end the cue
+        text, marks = _tidy(_rebreak(text, block.text), marks)
         out += [decoded[pos : cue.start], render(text, marks, cue, fmt)]
         pos = cue.end
     out.append(decoded[pos:])

@@ -234,3 +234,44 @@ def test_a_registry_round_trip_reads_the_download_again(tmp_path, make_config):
         "I went to the",
         "market last night.",
     ]
+
+
+THREE_LINES = (
+    "1\n00:00:01,000 --> 00:00:04,000\nUn\ndeux\ntrois.\n\n2\n00:00:05,000 --> 00:00:06,000\nNon.\n"
+)
+
+
+@pytest.mark.parametrize(
+    "translation",
+    [
+        "a  b",  # two spaces in a row: two breaks there would leave a blank line
+        "One ---> two ----> three",
+        "One\r\rtwo\r\n\r\nthree",  # carriage returns are line breaks to a file reader
+        "2\n00:00:05,000 --> 00:00:06,000",
+        "\n\n",
+    ],
+)
+@pytest.mark.parametrize("fmt", ["srt", "vtt"])
+def test_no_translation_can_break_the_file(translation, fmt):
+    text = THREE_LINES if fmt == "srt" else "WEBVTT\n\n" + THREE_LINES.replace(",", ".")
+    spans = [make_span("p1", "s1", "s1", translation), make_span("p2", "s2", "s2", "No.")]
+    report = _cues_report(fmt, text, spans)
+    got = translated_subtitles(report, text.encode(), fmt).decode()
+    _outside(text, got, report)
+    cues = read_cues(got, "f." + fmt, fmt)
+    assert [c.locator for c in cues] == [b.provenance.locator for b in report.blocks]
+    assert "-->" not in cues[0].text and "\r" not in got and "\n\n\n" not in got
+    assert cues[-1].text == "No."
+
+
+def test_thai_is_never_cut_inside_a_letter():
+    """A cut before a vowel or tone mark, or after a vowel written before its consonant,
+    would leave a mark on its own at the start of the next cue."""
+    for weights in ([1, 1], [1, 2], [2, 1], [1, 3], [2, 3]):
+        for text in ("ที่นี่มีน้ำ", "เกเรเกเรเกเรเกเร"):
+            parts = [p for p, _ in split_marked(text, [], weights)]
+            assert "".join(parts) == text
+            for p in parts[1:]:
+                assert p and not p.startswith(("ี", "่", "้", "ั", "ี"))
+            for p in parts[:-1]:
+                assert not p.endswith("เ")
