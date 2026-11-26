@@ -3,6 +3,7 @@
 import hashlib
 import re
 import zipfile
+import zlib
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Protocol
@@ -67,9 +68,14 @@ def check_office_zip(name: str, head: bytes, is_zip: bool, app: str, ext: str) -
         raise IngestError(f"{name} is not a readable {app} file")
 
 
-# What a PowerPoint or Excel file may expand to: their libraries read every part into memory,
-# so a small file that unpacks to gigabytes (a "zip bomb") is refused before they open it
-MAX_OFFICE_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
+# What a Word, PowerPoint or Excel file may expand to: their libraries read every part into
+# memory, so a small file that unpacks to gigabytes (a "zip bomb"), or that holds a great many
+# tiny parts, is refused before they open it (CGL-110, CGL-132). 256 MB is far more than the
+# text of any real document, and photos and video barely compress, so most files within the
+# default upload limit (`api.max_upload_mb`, 200 MB) stay under it; uncompressed artwork (BMP,
+# TIFF, EMF) or embedded objects can unpack past it.
+MAX_OFFICE_UNCOMPRESSED_BYTES = 256 * 1024 * 1024
+MAX_OFFICE_MEMBERS = 20_000
 
 
 def check_office_file(path: Path, app: str, ext: str) -> None:
@@ -79,15 +85,28 @@ def check_office_file(path: Path, app: str, ext: str) -> None:
     check_office_zip(path.name, head, is_zip, app, ext)
     try:
         with zipfile.ZipFile(path) as z:
-            size = sum(info.file_size for info in z.infolist())
-    except (zipfile.BadZipFile, ValueError) as e:
+            members = z.infolist()
+            if len(members) > MAX_OFFICE_MEMBERS:
+                raise IngestError(
+                    f"{path.name} holds too many parts to translate (more than "
+                    f"{MAX_OFFICE_MEMBERS:,}); split it into smaller files and try again"
+                )
+            if sum(info.file_size for info in members) > MAX_OFFICE_UNCOMPRESSED_BYTES:
+                raise IngestError(
+                    f"{path.name} is too large to translate once unpacked (more than "
+                    f"{MAX_OFFICE_UNCOMPRESSED_BYTES // 2**20} MB); split it into smaller files "
+                    "and try again"
+                )
+            # The sizes above are what the file says. Unpack each part in small pieces, which
+            # stops at its stated size and checks its checksum, so a part that claims to be
+            # small and is not is refused here; the libraries read a whole part at once, and
+            # would unpack all of it into memory before they noticed.
+            for info in members:
+                with z.open(info) as part:
+                    while part.read(1 << 16):
+                        pass
+    except (zipfile.BadZipFile, ValueError, EOFError, zlib.error) as e:
         raise IngestError(f"{path.name} is not a readable {app} file ({error_reason(e)})") from e
-    if size > MAX_OFFICE_UNCOMPRESSED_BYTES:
-        raise IngestError(
-            f"{path.name} is too large to translate once unpacked (more than "
-            f"{MAX_OFFICE_UNCOMPRESSED_BYTES // 2**30} GB); split it into smaller files and try "
-            "again"
-        )
 
 
 def unread_notices(counts: Iterable[tuple[int, str, str]]) -> list[str]:

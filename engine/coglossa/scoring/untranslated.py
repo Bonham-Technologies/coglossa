@@ -291,8 +291,12 @@ def _letters(text: str) -> str:
     )
 
 
+# A link or an email address. The scheme and the address's local part are capped at 64
+# characters (a local part may be no longer, RFC 5321): uncapped, a long run of letters and dots
+# with no "://" or "@" was retried from every position, in time growing with its length squared.
 _URL = re.compile(
-    r"\b[a-z][a-z0-9+.-]*://\S+|\bwww\.\S+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+", re.IGNORECASE
+    r"\b[a-z][a-z0-9+.-]{0,63}://\S+|\bwww\.\S+|[\w.+-]{1,64}@[\w-]+(?:\.[\w-]+)+",
+    re.IGNORECASE,
 )
 _BACKTICKS = re.compile(r"`[^`\n]*`")
 _LATIN_RUN = re.compile(r"[!-~\u00c0-\u024f]+")  # a run of Latin letters, digits and ASCII signs

@@ -4,6 +4,7 @@ import pytest
 
 from coglossa.schema import Entity, GlossaryEntry, Guide
 from coglossa.scoring.untranslated import (
+    _URL,
     MIN_LETTERS,
     Untranslated,
     _citation,
@@ -252,6 +253,38 @@ def test_a_long_passage_is_checked_quickly():
     started = time.perf_counter()
     assert untranslated_check(passage, passage, "am") is not None
     assert time.perf_counter() - started < 1.0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a." * 100_000,  # dots and letters with no @ or :// (a hash list, a flattened table)
+        "a" * 200_000,  # one long word
+        "a." * 100_000 + "@",  # an @ with nothing after it
+        "a.b-c+" * 35_000,  # every character a link or address may contain
+    ],
+)
+def test_the_link_and_address_pattern_runs_in_linear_time(text):
+    started = time.perf_counter()
+    _URL.sub(" ", text)
+    assert time.perf_counter() - started < 1.0
+    started = time.perf_counter()
+    untranslated_check(text, text, "am")
+    assert time.perf_counter() - started < 2.0
+
+
+@pytest.mark.parametrize(
+    ("text", "removed"),
+    [
+        ("see https://example.org/a?b=c now", "https://example.org/a?b=c"),
+        ("open git+ssh://host/repo.git", "git+ssh://host/repo.git"),
+        ("go to www.example.com/path", "www.example.com/path"),
+        ("write to first.last+tag@mail.example.co.uk today", "first.last+tag@mail.example.co.uk"),
+        ("a@b.com+x@y.org", "a@b.com"),
+    ],
+)
+def test_the_same_links_and_addresses_are_removed(text, removed):
+    assert _URL.search(text).group() == removed
 
 
 def test_a_large_guide_does_not_slow_the_check_down():
