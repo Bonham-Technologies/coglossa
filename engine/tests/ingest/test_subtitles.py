@@ -5,6 +5,7 @@ import pytest
 
 from coglossa.ingest import registry
 from coglossa.ingest.base import IngestError
+from coglossa.ingest.subtitles import read_cues
 from coglossa.schema import BlockKind, InlineMark, MarkKind
 
 SRT = (
@@ -193,3 +194,80 @@ def test_a_file_that_is_not_utf8_is_refused(tmp_path):
     path.write_bytes("1\n00:00:01,000 --> 00:00:02,000\nÇa va.\n".encode("latin-1"))
     with pytest.raises(IngestError, match="not valid UTF-8"):
         registry.ingest_file(path)
+
+
+def test_a_webvtt_line_of_spaces_does_not_end_a_cue(tmp_path):
+    """Only an empty line ends a WebVTT cue: YouTube's automatic captions put a line holding
+    one space before the words."""
+    vtt = (
+        "WEBVTT\n"
+        "Kind: captions\n"
+        "Language: en\n"
+        "\n"
+        "00:00:00.000 --> 00:00:02.000 align:start position:0%\n"
+        " \n"
+        "hello<00:00:00.480><c> there</c>\n"
+        "\n"
+        " \n"  # a block of spaces alone: nothing to read
+        "\n"
+        "00:00:02.000 --> 00:00:04.000 align:start position:0%\n"
+        "hello there\n"
+        " \n"
+        "general<00:00:02.900><c> Kenobi</c>\n"
+    )
+    doc = _ingest(tmp_path, "auto.en.vtt", vtt)
+    assert [(b.text, b.provenance.locator) for b in doc.blocks] == [
+        ("hello<00:00:00.480><c> there</c>", "cue 1 at 00:00:00.000"),
+        ("hello there\n \ngeneral<00:00:02.900><c> Kenobi</c>", "cue 2 at 00:00:02.000"),
+    ]
+
+
+def test_an_srt_line_of_spaces_ends_a_cue(tmp_path):
+    """SRT players take a line of spaces for a blank line."""
+    srt = "1\n00:00:01,000 --> 00:00:02,000\nUn.\n \n2\n00:00:03,000 --> 00:00:04,000\nDeux.\n"
+    doc = _ingest(tmp_path, "a.srt", srt)
+    assert [b.text for b in doc.blocks] == ["Un.", "Deux."]
+
+
+def test_webvtt_regions_header_lines_and_numbered_cues(tmp_path):
+    vtt = (
+        "WEBVTT\n"
+        "Kind: subtitles\n"
+        "Language: fr\n"
+        "\n"
+        "REGION\n"
+        "id:bas\n"
+        "width:40% lines:3 regionanchor:0%,100% viewportanchor:10%,90%\n"
+        "\n"
+        "1\n"
+        "00:01.000 --> 00:02.000 region:bas\n"
+        "Un.\n"
+        "\n"
+        "2\n"
+        "01:00:03.000 --> 01:00:04.000\n"
+        "Deux.\n"
+    )
+    doc = _ingest(tmp_path, "a.vtt", vtt)
+    assert [(b.text, b.provenance.locator) for b in doc.blocks] == [
+        ("Un.", "cue 1 at 00:01.000"),
+        ("Deux.", "cue 2 at 01:00:03.000"),
+    ]
+
+
+@pytest.mark.parametrize("text", ["1 < 2 et 3 > 2", "<< Bonjour >>", "a <- b -> c"])
+def test_angle_brackets_that_are_not_tags_are_srt_text(tmp_path, text):
+    doc = _ingest(tmp_path, "a.srt", f"1\n00:00:01,000 --> 00:00:02,000\n{text}\n")
+    assert doc.blocks[0].text == text
+    assert doc.blocks[0].provenance.literals == []
+
+
+def test_a_one_line_cue_keeps_the_files_line_breaks():
+    srt = "1\r\n00:00:01,000 --> 00:00:02,000\r\nUn.\r\n"
+    assert read_cues(srt, "a.srt", "srt")[0].newline == "\r\n"
+    vtt = "WEBVTT\r\n\r\n00:01.000 --> 00:02.000\r\nUn.\r\n"
+    assert read_cues(vtt, "a.vtt", "vtt")[0].newline == "\r\n"
+
+
+def test_a_webvtt_cue_named_by_a_line_of_spaces_is_read(tmp_path):
+    doc = _ingest(tmp_path, "a.vtt", "WEBVTT\n\n \n00:01.000 --> 00:02.000\nUn.\n\nNOTE\nfin\n")
+    assert [b.text for b in doc.blocks] == ["Un."]

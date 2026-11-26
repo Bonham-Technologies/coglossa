@@ -1,10 +1,10 @@
 """Subtitle files: SubRip (.srt) and WebVTT (.vtt) (CGL-131).
 
-Every cue with text is one block, its lines joined with line breaks, so a cue of two lines is
-one passage. The cue's number, its times and cue settings, a WebVTT file's heading, and its
-NOTE, STYLE and REGION blocks are never part of a block: the subtitle download
-(`coglossa.export.subtitles`) writes each cue's translation in place of its text and leaves
-every other character of the file as it was.
+Every cue with text is one block, its lines joined with line breaks, so a sentence over two
+lines of a cue is read as one sentence. The cue's number, its times and cue settings, a WebVTT
+file's heading, and its NOTE, STYLE and REGION blocks are never part of a block: the subtitle
+download (`coglossa.export.subtitles`) writes each cue's translation in place of its text and
+leaves every other character of the file as it was.
 
 Inside a cue, `<b>`, `<i>` and `<u>` are the block's marks, as bold, italic and underlined
 words are for Word files (CGL-108). Other tags (a WebVTT voice `<v Name>`, a class `<c.name>`, a
@@ -43,11 +43,12 @@ _TIMING = {
 }
 _EOL = re.compile(r"\r\n|\r|\n")
 _TAG = {
-    SRT: re.compile(r"<[^<>\r\n]*>|\{\\[^{}\r\n]*\}"),  # also an ASS override, {\an8}
+    # a letter or / after the <, as in <i> and </font>: "1 < 2" and "<< Bonjour >>" are text
+    SRT: re.compile(r"</?[A-Za-z][^<>\r\n]*>|\{\\[^{}\r\n]*\}"),  # also an ASS override, {\an8}
     VTT: re.compile(r"<[^<>\r\n]*>"),
 }
 _FORMATTING = {"b": MarkKind.BOLD, "i": MarkKind.ITALIC, "u": MarkKind.UNDERLINE}
-_VTT_BLOCKS = ("NOTE", "STYLE", "REGION")  # WebVTT blocks that hold no cue text
+_VTT_BLOCK = re.compile(r"(?:NOTE|STYLE|REGION)(?:[ \t]|$)")  # WebVTT blocks with no cue text
 _SHOWN = 60  # characters of a broken line an error message shows
 
 
@@ -87,12 +88,14 @@ def _lines(text: str) -> list[_Line]:
     return out
 
 
-def _groups(lines: list[_Line]) -> list[list[tuple[int, _Line]]]:
-    """The file's blocks: runs of lines that are not blank, with their numbers from 1."""
+def _groups(lines: list[_Line], fmt: str) -> list[list[tuple[int, _Line]]]:
+    """The file's blocks: runs of lines that are not blank, with their numbers from 1. In a
+    WebVTT file only an empty line is blank, so a line of spaces stays in its cue (YouTube's
+    automatic captions have one); SRT players take a line of spaces for a blank line too."""
     groups: list[list[tuple[int, _Line]]] = []
     current: list[tuple[int, _Line]] = []
     for n, line in enumerate(lines, 1):
-        if line.text.strip():
+        if line.text if fmt == VTT else line.text.strip():
             current.append((n, line))
         elif current:
             groups.append(current)
@@ -127,11 +130,12 @@ class _Reader:
         )
 
     def read(self) -> list[Cue]:
-        groups = _groups(_lines(self.text))
+        groups = _groups(_lines(self.text), self.fmt)
         if self.fmt == VTT:
             groups = self._vtt_heading(groups)
+            groups = [g for g in groups if any(line.text.strip() for _, line in g)]
         for group in groups:
-            if self.fmt == VTT and group[0][1].text.split(maxsplit=1)[0] in _VTT_BLOCKS:
+            if self.fmt == VTT and _VTT_BLOCK.match(group[0][1].text):
                 continue  # a NOTE, STYLE or REGION block: nothing to translate
             self._group(group)
         return self.cues
@@ -192,7 +196,7 @@ class _Reader:
             return
         start, end = lines[0].start, lines[-1].end
         raw = self.text[start:end]
-        m = _EOL.search(raw)
+        m = _EOL.search(raw) or _EOL.match(self.text, timing.end)
         newline = m.group() if m else "\n"
         found = cue_text(raw, self.fmt)
         if found is None:

@@ -275,3 +275,19 @@ def test_thai_is_never_cut_inside_a_letter():
                 assert p and not p.startswith(("ี", "่", "้", "ั", "ี"))
             for p in parts[:-1]:
                 assert not p.endswith("เ")
+
+
+def test_a_cue_is_never_broken_again_inside_a_tag():
+    text = '1\n00:00:01,000 --> 00:00:04,000\nIl dit <font color="#ff0000">non</font> et\npart.\n'
+    report = _cues_report(
+        "srt", text, [make_span("p1", "s1", "s1", 'He <font color="#ff0000">no</font>')]
+    )
+    got = translated_subtitles(report, text.encode(), "srt").decode()
+    assert got.endswith('\nHe\n<font color="#ff0000">no</font>\n')
+
+
+def test_a_line_break_in_a_one_line_cue_is_the_files_own():
+    text = "1\r\n00:00:01,000 --> 00:00:02,000\r\nBonjour tout le monde.\r\n"
+    report = _cues_report("srt", text, [make_span("p1", "s1", "s1", "Hello\nworld.")])
+    got = translated_subtitles(report, text.encode(), "srt").decode()
+    assert got == "1\r\n00:00:01,000 --> 00:00:02,000\r\nHello\r\nworld.\r\n"

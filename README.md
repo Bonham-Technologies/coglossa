@@ -61,12 +61,13 @@ a fixed text or looks it up (`IF`, `VLOOKUP` keys), or a validation list that li
 certain words, may give a different result or reject the translated text, so check those
 workbooks after downloading.
 
-Subtitles (SRT and WebVTT, UTF-8): each cue's text is one passage, its lines together, and the
-file downloads in its own format (`exports/srt`, `exports/vtt`) with the same cues, numbers,
-times and cue settings, and every character outside the cues' text unchanged (a WebVTT file's
-heading and its NOTE, STYLE and REGION blocks too). Line breaks inside a cue are kept where the
-translation keeps them; a two-line cue translated as one line is broken again at the space
-closest to the original break. `<b>`, `<i>` and `<u>` come back around the translated words
+Subtitles (SRT and WebVTT, UTF-8): a cue's lines are read together, so a sentence written over
+two lines of a cue is translated as one sentence, and the file downloads in its own format
+(`exports/srt`, `exports/vtt`) with the same cues, numbers, times and cue settings, and every
+character outside the cues' text unchanged (a WebVTT file's heading and its NOTE, STYLE and
+REGION blocks too). Line breaks inside a cue are kept where the translation keeps them; a
+two-line cue translated as one line is broken again at the space closest to the original break.
+`<b>`, `<i>` and `<u>` come back around the translated words
 (or the passage is flagged `formatting_lost`); a voice (`<v Name>`) or other tag around the
 whole cue stays outside the text, and tags inside it (`<c.loud>`, a karaoke time, `{\an8}`)
 are kept as written and checked like code (`literal_mismatch`). A sentence the models

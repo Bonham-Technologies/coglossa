@@ -161,13 +161,15 @@ def _tidy(text: str, marks: list[InlineMark]) -> Marked:
     return out, marks_from_keys(out, [k for _, k in kept])
 
 
-def _rebreak(text: str, source: str) -> str:
+def _rebreak(text: str, source: str, literals: Sequence[str]) -> str:
     """`text`, written on one line, broken at the spaces closest to where the lines of its
-    `source` break; unchanged when it already has line breaks or has too few spaces."""
+    `source` break, never inside a tag kept as written; unchanged when it already has line
+    breaks or has too few spaces."""
     if "\n" in text or "\n" not in source:
         return text
     breaks = [i for i, c in enumerate(source) if c == "\n"]
-    spaces = [i for i, c in enumerate(text) if c == " "]
+    tag = _protected(text, literals)
+    spaces = [i for i, c in enumerate(text) if c == " " and not tag[i]]
     if len(spaces) < len(breaks):
         return text
     chars = list(text)
@@ -234,7 +236,7 @@ def translated_subtitles(report: Report, original: bytes, fmt: str) -> bytes:
         text, marks = _tidy(clean_text(got[0]), got[1])
         # tidied again: a break at one of two spaces in a row would leave a space at a line's
         # end, and breaks at both a blank line, which would end the cue
-        text, marks = _tidy(_rebreak(text, block.text), marks)
+        text, marks = _tidy(_rebreak(text, block.text, cue.literals), marks)
         out += [decoded[pos : cue.start], render(text, marks, cue, fmt)]
         pos = cue.end
     out.append(decoded[pos:])
