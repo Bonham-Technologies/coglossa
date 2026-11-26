@@ -24,8 +24,8 @@ coglossa-scorer-weights = "coglossa_scorer.weights:main"
 # sentence-transformers needs torch, so it sits with it: no install takes torch from PyPI on
 # Linux. Below 2.15: the CUDA 12.6 index (Makefile CUDA_INDEX) stops at 2.14.1, and CUDA 12
 # keeps the NVIDIA driver minimum at 525 (CGL-76). Keep the two lists the same.
-# So the built wheel does not require torch: an install outside uv (pip, a wheel) needs
-# coglossa-scorer[cu126] or a torch build installed alongside it.
+# So the built wheel does not require torch: an install outside uv (pip, a wheel) needs torch
+# and sentence-transformers installed alongside it ([cu126] would take torch from PyPI).
 [project.optional-dependencies]
 cu126 = ["torch>=2.2,<2.15", "sentence-transformers>=3.0"]
 
