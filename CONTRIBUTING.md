@@ -33,7 +33,16 @@ Your machine should run what a client runs, so a regression shows up before a de
   The lock holds both torch builds the images use, which conflict: the `cpu` dependency group,
   which `uv sync` and `uv run` install by default, and the `cu126` extra
   (`uv sync --no-default-groups --extra cu126`). The images install only what the lock names,
-  hash-checked (`deploy/tests/check_scorer_lock.py`).
+  hash-checked, and build the scorer's own wheel with the lock's `build` group (hatchling), also
+  hash-checked (`deploy/tests/check_scorer_lock.py`). The built wheel does not require torch, which
+  is only in the `cpu` group and the `cu126` extra, with sentence-transformers: outside uv,
+  install torch and sentence-transformers alongside it (`coglossa-scorer[cu126]` takes torch from
+  PyPI, not the CUDA 12.6 index). The hosted Modal images install uv itself from
+  `deploy/hosted/modal/uv-requirements.txt`, hash-checked: a uv bump changes the
+  `ghcr.io/astral-sh/uv` tags in `deploy/docker/*.Dockerfile` and that file's version and hashes
+  in the same pull request, or `make deploy-check` fails. The builds use uv's
+  `--require-build-hashes`, which uv 0.13 marks experimental: read uv's changelog for it on
+  every uv bump.
 - **Postgres 16,** the same image in `deploy/compose.dev.yaml` as in `deploy/compose.yaml`.
 
 The README's quick start runs the engine against your own OpenAI-compatible model server or
