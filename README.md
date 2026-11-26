@@ -44,7 +44,9 @@ and `engine_error` flags in the report).
 Supported input formats: plain text and Markdown (`.txt`, `.md`, `.markdown`), Word (`.docx`),
 PowerPoint (`.pptx`), Excel (`.xlsx`), HTML (`.html`, `.htm`, `.xhtml`), EPUB and PDF with a
 text layer. A scanned PDF stops with `needs_ocr` and the pages that have no text. A
-password-protected Word, PowerPoint or Excel file is refused with a message saying so.
+password-protected Word, PowerPoint or Excel file is refused with a message saying so. So is
+one that unpacks to more than 256 MB or holds more than 20,000 parts, which keeps a small file
+built to fill the worker's memory (a "zip bomb") out.
 
 PowerPoint: slide text (titles, text boxes, body text), table cells and speaker notes are
 translated; chart and SmartArt text, slide numbers and dates, and a paragraph that holds a
