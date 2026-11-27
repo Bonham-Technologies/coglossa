@@ -5,6 +5,8 @@ All notable changes to this project are recorded here. The format follows
 
 ## Unreleased
 
+## 0.1.0 — 2026-11-27
+
 - Subtitle files can be translated: an SRT or WebVTT file downloads as the same file with each cue's text translated and its numbers, times, cue settings, heading, notes and styles unchanged; a sentence written over two lines of a cue is translated as one sentence, its line breaks kept where the translation allows, bold, italic, underline and voice tags come back, and a file with a broken timing line is refused with the line named (CGL-131).
 - Word files get the same protection as PowerPoint and Excel files: a `.docx` that is password-protected or saved in the old Word format is refused with a message saying so, and a Word, PowerPoint or Excel file that unpacks to more than 256 MB (down from 1 GB) or holds more than 20,000 parts is refused before it is opened, so one small upload can no longer fill the worker's memory (CGL-132).
 - Scoring no longer stalls on a long passage with no spaces, such as a hash list, encoded data or a table flattened to one line: finding the links and email addresses to leave out of the "may not have been translated" check now takes time in proportion to the passage's length, where it grew with its square (CGL-133).
