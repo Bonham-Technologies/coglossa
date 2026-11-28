@@ -138,7 +138,7 @@ def bilingual_docx(report: Report, *, comments: bool = True) -> bytes:
             for flag in row.open_flags:
                 document.add_comment(
                     run,
-                    text=clean_text(f"{flag.code.value}: {flag.explanation}"),
+                    text=clean_text(flag.explanation),  # no engine code in what reviewers read
                     author=COMMENT_AUTHOR,
                     initials=COMMENT_INITIALS,
                 )
