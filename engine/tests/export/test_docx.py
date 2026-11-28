@@ -47,8 +47,10 @@ def test_bilingual_table_with_open_flags_as_comments(report):
     ]
     comments = list(document.comments)
     assert [(c.text, c.author, c.initials) for c in comments] == [
-        ("low_meaning: Meaning score 55 is below 70.", COMMENT_AUTHOR, "CG")
+        ("Meaning score 55 is below 70.", COMMENT_AUTHOR, "CG")
     ]
+    # reviewers and clients read these: no engine codes such as "low_meaning:" (CGL-120)
+    assert not any(code.value in c.text for c in comments for code in FlagCode)
 
 
 def test_bilingual_without_comments(report):
@@ -66,7 +68,7 @@ def test_an_empty_translation_still_carries_its_flags():
     )
     document = _open(bilingual_docx(report))
     assert document.tables[0].rows[2].cells[2].text == ""
-    assert [c.text for c in document.comments] == ["engine_error: No translation was produced."]
+    assert [c.text for c in document.comments] == ["No translation was produced."]
 
 
 def test_a_passage_left_untranslated_is_a_comment():
@@ -82,7 +84,7 @@ def test_a_passage_left_untranslated_is_a_comment():
         ]
     )
     [comment] = _open(bilingual_docx(report)).comments
-    assert comment.text == f"untranslated: {found.explanation()}"
+    assert comment.text == found.explanation()
     assert "may not have been translated" in comment.text
 
 
@@ -101,7 +103,7 @@ def test_a_changed_web_address_is_a_comment():
         ]
     )
     [comment] = _open(bilingual_docx(report)).comments
-    assert comment.text == f"literal_mismatch: {found.explanation()}"
+    assert comment.text == found.explanation()
     assert "A web address was changed" in comment.text
     assert "https://example.com/a" in comment.text and "https://example.com/b" in comment.text
 
@@ -160,7 +162,7 @@ def test_control_characters_do_not_break_the_documents():
         ["2", "Le chat\ndort. Il pleut.", "The cat\nsleeps."],
         ["3", "Fin <du> & monde.", "End."],
     ]
-    assert [c.text for c in bilingual.comments] == ["low_meaning: Meaning\n drops."]
+    assert [c.text for c in bilingual.comments] == ["Meaning\n drops."]
     assert bilingual.paragraphs[1].text.endswith("review more broadly.\n")
     clean = _open(clean_docx(report))
     assert [p.text for p in clean.paragraphs] == [
